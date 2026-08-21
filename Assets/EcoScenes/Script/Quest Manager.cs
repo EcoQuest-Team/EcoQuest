@@ -4,126 +4,154 @@ using System.Collections.Generic;
 
 public class QuestManager : MonoBehaviour
 {
-    [Header("Quest Settings")]
+    [Header("Trash Bin Settings")]
+    [Tooltip("What kind of trash does THIS specific bin accept?")]
     [SerializeField] private string acceptedTag; 
-    [SerializeField] private Image fillImage;
-    [SerializeField] private float totalItemsNeeded = 3f;
+
+    [Header("Quest UI Settings")]
+    [Tooltip("Assign the progress bar for THIS specific category.")]
+    [SerializeField] private Image fillImage; 
+    [Tooltip("How many items does this category need total?")]
+    [SerializeField] private int totalItemsNeeded = 3; 
+    
+    [Header("Global Settings")]
     [SerializeField] private GameObject questCanvas;
 
-    public bool IsQuestComplete { get; set; } 
-
-    private float currentCount = 0f;
-    private float questStartTime; 
-    private List<GameObject> collectedItems = new List<GameObject>(); 
+    private static Dictionary<string, int> currentCounts = new Dictionary<string, int>();
+    private static Dictionary<string, int> targets = new Dictionary<string, int>();
+    private static Dictionary<string, Image> progressBars = new Dictionary<string, Image>();
+    private static List<GameObject> collectedTrash = new List<GameObject>();
     
-    private static QuestManager[] allBins;
-    
-    private static int mistakeCount = 0;
+    private static int mistakes = 0;
     private static float lastMistakeTime = 0f;
+    private static bool isQuestComplete = false;
 
     private void Awake()
     {
-        if (allBins == null) 
+        if (!targets.ContainsKey(acceptedTag) || targets[acceptedTag] < totalItemsNeeded)
         {
-            allBins = FindObjectsByType<QuestManager>(FindObjectsSortMode.None);
+            targets[acceptedTag] = totalItemsNeeded;
         }
-        
-        if (fillImage != null) fillImage.fillAmount = 0f;
+
+        if (!currentCounts.ContainsKey(acceptedTag))
+        {
+            currentCounts[acceptedTag] = 0;
+        }
+
+        if (fillImage != null)
+        {
+            progressBars[acceptedTag] = fillImage;
+            fillImage.fillAmount = 0f;
+        }
+
+        isQuestComplete = false;
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (Time.time < questStartTime + 0.2f) return; 
+        if (isQuestComplete) return;
 
-        if (other.CompareTag(acceptedTag) && !IsQuestComplete)
+        TrashItem trash = other.GetComponent<TrashItem>();
+        if (trash == null) return; // Ignore if it is not trash
+
+        if (other.CompareTag(acceptedTag))
         {
-            HandleValidItem(other.gameObject);
+            HandleCorrectTrash(other.gameObject);
         }
-        else if (!other.CompareTag(acceptedTag) && !other.CompareTag("Player"))
+        else
         {
             if (Time.time > lastMistakeTime + 0.5f)
             {
                 lastMistakeTime = Time.time;
-                mistakeCount++;
-                Debug.Log($"Wrong Bin! Mistake {mistakeCount}/3");
-
-                if (mistakeCount >= 3)
-                {
-                    ApplyPenalty();
-                }
+                HandleMistake();
             }
         }
     }
 
-    private void ApplyPenalty()
+    private void HandleCorrectTrash(GameObject trashObject)
     {
-        PlayerCurrency playerBank = FindFirstObjectByType<PlayerCurrency>();
-        if (playerBank != null)
-        {
-            playerBank.DeductGold(10);
-            Debug.Log("Deducted 10 gold for 3 mistakes!");
-        }
+        if (!targets.ContainsKey(acceptedTag)) return;
+
+        if (currentCounts[acceptedTag] >= targets[acceptedTag]) return;
+
+        currentCounts[acceptedTag]++;
         
-        mistakeCount = 0; 
+        trashObject.SetActive(false);
+        collectedTrash.Add(trashObject);
+
+        if (progressBars.ContainsKey(acceptedTag) && progressBars[acceptedTag] != null)
+        {
+            progressBars[acceptedTag].fillAmount = (float)currentCounts[acceptedTag] / targets[acceptedTag];
+        }
+
+        CheckForWin();
     }
 
-    private void HandleValidItem(GameObject item)
+    private void HandleMistake()
     {
-        currentCount++;
-        if (fillImage != null) fillImage.fillAmount = currentCount / totalItemsNeeded;
+        mistakes++;
+        Debug.Log($"Mistake! {mistakes}/3");
 
-        collectedItems.Add(item);
-        item.SetActive(false);
+        if (mistakes >= 3)
+        {
+            PlayerCurrency bank = FindFirstObjectByType<PlayerCurrency>();
+            if (bank != null)
+            {
+                bank.DeductGold(10);
+                Debug.Log("Deducted 10 gold for 3 mistakes.");
+            }
+            mistakes = 0;
+        }
+    }
 
-        CheckAllBinsFinished();
+    private void CheckForWin()
+    {
+        foreach (var kvp in targets)
+        {
+            string tag = kvp.Key;
+            int targetCount = kvp.Value;
+
+            if (!currentCounts.ContainsKey(tag) || currentCounts[tag] < targetCount)
+            {
+                return;
+            }
+        }
+
+        isQuestComplete = true;
+        Debug.Log("Quest Complete!");
+
+        if (questCanvas != null) questCanvas.SetActive(false);
+
+        PlayerCurrency bank = FindFirstObjectByType<PlayerCurrency>();
+        if (bank != null) bank.AddGold(Random.Range(100, 150));
     }
 
     public void ResetQuest()
     {
-        questStartTime = Time.time; 
-        currentCount = 0f;
-        mistakeCount = 0; 
-        IsQuestComplete = false;
-        
-        if (fillImage != null) fillImage.fillAmount = 0f;
-        if (questCanvas != null) questCanvas.SetActive(true);
+        mistakes = 0;
+        isQuestComplete = false;
 
-        foreach (GameObject item in collectedItems)
+        List<string> keys = new List<string>(currentCounts.Keys);
+        foreach (string key in keys)
         {
-            if (item != null)
+            currentCounts[key] = 0;
+            if (progressBars.ContainsKey(key) && progressBars[key] != null)
             {
-                TrashItem trashComponent = item.GetComponent<TrashItem>();
-                if (trashComponent != null)
-                {
-                    trashComponent.ResetTrash();
-                }
+                progressBars[key].fillAmount = 0f;
             }
         }
 
-        collectedItems.Clear();
-    }
+        if (questCanvas != null) questCanvas.SetActive(true);
 
-    private void CheckAllBinsFinished()
-    {
-        foreach (QuestManager bin in allBins)
+        foreach (GameObject t in collectedTrash)
         {
-            if (bin.currentCount < bin.totalItemsNeeded) return; 
+            if (t != null)
+            {
+                TrashItem script = t.GetComponent<TrashItem>();
+                if (script != null) script.ResetTrash();
+                else t.SetActive(true);
+            }
         }
-
-        foreach (QuestManager bin in allBins)
-        {
-            if (bin.IsQuestComplete) return; 
-            bin.IsQuestComplete = true; 
-        }
-
-        if (questCanvas != null) questCanvas.SetActive(false);
-        Debug.Log("ALL QUESTS COMPLETE!");
-
-        PlayerCurrency playerBank = FindFirstObjectByType<PlayerCurrency>();
-        if (playerBank != null)
-        {
-            int goldReward = Random.Range(100, 150); 
-            playerBank.AddGold(goldReward);
-        }
+        collectedTrash.Clear();
     }
 }
