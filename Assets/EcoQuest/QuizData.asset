@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1767a266f3e7bf4c9312000d8a8408d, type: 3}
+  m_Name: QuizData
+  m_EditorClassIdentifier: Assembly-CSharp::QuizData
+  questions:
+  - questionText: Which bin does a Banana Peel belong in?
+    options:
+    - Biodegradable
+    - Recyclable
+    - Non-Biodegradable
+    correctOptionIndex: 0
+    explanation: Card 2 specifies placing naturally decaying items like banana peels
+      inside the Biodegradable bin.
+    questionImage: {fileID: 21300000, guid: a770169762d98d54aa0e45981a5828c1, type: 3}
+  - questionText: Which bin should you place Old Paper into?
+    options:
+    - Recyclable
+    - Biodegradable
+    - Non-Biodegradable
+    correctOptionIndex: 0
+    explanation: Card 1 lists discarded paper as a reusable material for the Recyclable
+      trash bin.
+    questionImage: {fileID: 21300000, guid: 9c0cae02cc107e14a944e2cde5cccad0, type: 3}
+  - questionText: According to the Guardian, what is biodegradable waste?
+    options:
+    - Stuff that can rot and turn back into soil
+    - Waste that stays around for a long, long time
+    - Manufactured synthetic materials
+    - Broken glass and foil wrappers
+    correctOptionIndex: 0
+    explanation: The Guardian explains that biodegradable waste is stuff that can
+      rot and turn back into soil.
+    questionImage: {fileID: 21300000, guid: df8c6e63242b4fc46ad5528c4641e8c5, type: 3}
+  - questionText: What are non-biodegradable materials according to the info cards?
+    options:
+    - Synthetic materials that cannot break down naturally in the environment
+    - Organic matter that can rot back into soil
+    - Reusable materials repurposed for crafting
+    - Naturally decaying leaves and food scraps
+    correctOptionIndex: 0
+    explanation: Card 3 defines non-biodegradable waste as synthetic materials that
+      cannot break down naturally.
+    questionImage: {fileID: 21300000, guid: a8f98440e40bb474fa2c0d171bf8dde8, type: 3}
+  - questionText: Which of these items belongs in the Biodegradable bin?
+    options:
+    - Leftover sandwich and food scraps
+    - Discarded cardboard boxes
+    - Foil wrappers
+    - Clean paper rolls
+    correctOptionIndex: 0
+    explanation: Card 2 states that naturally decaying items and leftover food scraps
+      belong in the Biodegradable bin.
+    questionImage: {fileID: 21300000, guid: e1a5e37c109e0b24cb57a3edd9a2a240, type: 3}
+  - questionText: According to the Guardian, what happens if you make 3 sorting mistakes?
+    options:
+    - Some Gold is deducted to pay for the cleanup
+    - The quest fails immediately
+    - The trash bins lock permanently
+    - You lose all collected items
+    correctOptionIndex: 0
+    explanation: The Guardian warns that for every 3 mistakes you make, some of your
+      Gold is deducted to pay for cleanup.
+    questionImage: {fileID: 21300000, guid: 5bddbc505ab3b484db52f811cf3cc0a4, type: 3}

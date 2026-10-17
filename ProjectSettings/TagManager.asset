@@ -17,11 +17,11 @@ TagManager:
   - 
   - Water
   - UI
+  - MinimapOnly
   - 
-  - 
-  - 
-  - 
-  - 
+  - Player
+  - TrashItem
+  - BinSolid
   - 
   - 
   - 
