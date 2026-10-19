@@ -75,4 +75,7 @@ crashlytics-build.properties
 
 # Local backups
 _Backups_*/
+*_backup*
+SceneBackups/
+
 

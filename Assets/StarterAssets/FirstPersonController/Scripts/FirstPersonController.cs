@@ -195,8 +195,9 @@ namespace StarterAssets
 
 		private void Move()
 		{
-			// set target speed based on move speed, sprint speed and if sprint is pressed
-			float targetSpeed = _input.sprint ? SprintSpeed : MoveSpeed;
+			// set target speed based on move speed, sprint speed and if sprint is pressed (15% damping when carrying trash)
+			float carrySpeedMult = DragAndDrop.IsAnyItemGrabbed ? 0.85f : 1.0f;
+			float targetSpeed = (_input.sprint ? SprintSpeed : MoveSpeed) * carrySpeedMult;
 
 			// a simplistic acceleration and deceleration designed to be easy to remove, replace, or iterate upon
 

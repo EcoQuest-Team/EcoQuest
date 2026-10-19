@@ -196,6 +196,7 @@ public class NPCInteraction : MonoBehaviour
                 // Locked until the tutorial tips are completed
                 return;
             }
+            FindAnyObjectByType<RangerAnimationDriver>()?.PlayInteract();
             StartDialogue();
         }
 
@@ -827,6 +828,11 @@ public class NPCInteraction : MonoBehaviour
 
         if (mainCam != null)
         {
+            int hfLayer = LayerMask.NameToLayer("HiddenFromFirstPerson");
+            if (hfLayer != -1) mainCam.cullingMask |= (1 << hfLayer);
+            Transform vmCam = mainCam.transform.Find("ViewmodelCamera");
+            if (vmCam != null) vmCam.gameObject.SetActive(false);
+
             CinemachineBrain brain = mainCam.GetComponent<CinemachineBrain>();
             if (brain != null && dialogueCameraPoint != null)
             {
@@ -866,6 +872,14 @@ public class NPCInteraction : MonoBehaviour
         }
 
         Camera mainCam = Camera.main;
+        if (mainCam != null)
+        {
+            int hfLayer = LayerMask.NameToLayer("HiddenFromFirstPerson");
+            if (hfLayer != -1) mainCam.cullingMask &= ~(1 << hfLayer);
+            Transform vmCam = mainCam.transform.Find("ViewmodelCamera");
+            if (vmCam != null) vmCam.gameObject.SetActive(false);
+        }
+
         if (mainCam != null && dialogueCameraPoint != null)
         {
             CinemachineBrain brain = mainCam.GetComponent<CinemachineBrain>();

@@ -374,3 +374,7 @@ The system is 100% functional and silent-safe without audio files. When you are 
 | **PlayerPrefs (`EcoQuest_Settings_*`) Persistence Across Restart** | Both Scenes | Restarted Play Mode and verified all saved values (`75%, 60%, 50%, 2.4x, Large, PC, Unlimited`) are restored at startup and displayed when opening the panel. | **PASS** |
 | **Opens from Main Menu & In-Game `Esc` Pause Menu (Unscaled Time)** | `Main Menu`, `Forest Scene` | Opens from Main Menu `settings` button and from `Forest Scene` `Esc` Pause Menu (`Time.timeScale == 0`); animations and controls operate using `Time.unscaledDeltaTime`. | **PASS** |
 | **Quiz Score Keys, Menu Buttons & `IntroSequenceController` Preserved** | Both Scenes | `EcoQuest_PreQuizScore` (`4`) and `EcoQuest_PostQuizScore` (`6`) untouched across save/reset; `Play`, `Quit`, `Pause`, and `IntroSequenceController` verified intact (`0` console errors). | **PASS** |
+
+### New Held Trash Item Requirements
+To add a new trash item, the prefab requires: a `TrashItem` component, a `DragAndDrop` component, a `Rigidbody`, at least one `Collider`, layer set to `TrashItem`, a category tag (`Biodegradable`, `Recyclable`, or `NonBiodegradable`), and non-zero positive scale (bounds under 0.9m, or it will auto-fit).
+

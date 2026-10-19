@@ -10,6 +10,8 @@ TagManager:
   - Biodegradable
   - NonBiodegradable
   - Recyclable
+  - Item
+  - Trash
   layers:
   - Default
   - TransparentFX
@@ -18,11 +20,11 @@ TagManager:
   - Water
   - UI
   - MinimapOnly
-  - 
+  - HiddenFromFirstPerson
   - Player
   - TrashItem
   - BinSolid
-  - 
+  - Viewmodel
   - 
   - 
   - 

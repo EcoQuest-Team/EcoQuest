@@ -457,6 +457,17 @@ public class MinimapController : MonoBehaviour
             }
         }
 
+        var cityRoads = GameObject.Find("Road and Ground");
+        if (cityRoads != null)
+        {
+            foreach (var r in cityRoads.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null) continue;
+                if (!hasBounds) { bounds = r.bounds; hasBounds = true; }
+                else bounds.Encapsulate(r.bounds);
+            }
+        }
+
         if (hasBounds)
         {
             fullMapCenter = new Vector3(bounds.center.x, 0f, bounds.center.z);

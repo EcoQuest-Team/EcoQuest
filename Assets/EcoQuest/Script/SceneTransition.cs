@@ -6,7 +6,30 @@ using TMPro;
 
 public class SceneTransition : MonoBehaviour
 {
-    public static SceneTransition Instance { get; private set; }
+    private static SceneTransition _instance;
+    public static SceneTransition Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindFirstObjectByType<SceneTransition>();
+#if UNITY_EDITOR
+                if (_instance == null)
+                {
+                    var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/EcoQuest/Prefabs/SceneTransition.prefab");
+                    if (prefab != null)
+                    {
+                        var go = Instantiate(prefab);
+                        _instance = go.GetComponent<SceneTransition>();
+                    }
+                }
+#endif
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("Timing & Easing (Unscaled Time)")]
     [Tooltip("Short delay to let the clicked button squish before fading menu UI")]
