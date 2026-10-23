@@ -17,6 +17,9 @@ public class ItemCarry : MonoBehaviour
     public GameObject CarriedItem { get; private set; }
     public bool IsBusy { get; private set; }
 
+    private static ItemCarry _instance;
+    public static GameObject ActiveCarriedItem => (_instance != null && _instance.CarriedItem != null) ? _instance.CarriedItem : null;
+
     private RangerAnimationDriver _driver;
     private Collider[] _playerColliders;
     private Vector3 _savedWorldScale;
@@ -24,6 +27,7 @@ public class ItemCarry : MonoBehaviour
 
     private void Awake()
     {
+        _instance = this;
         _driver = GetComponent<RangerAnimationDriver>();
         _playerColliders = GetComponentsInChildren<Collider>(true);
         EnsureHandSocket();
@@ -74,6 +78,9 @@ public class ItemCarry : MonoBehaviour
 
     private void Update()
     {
+        if (CarriedItem != null && !DragAndDrop.IsAnyItemGrabbed && CarriedItem.GetComponentInParent<DragAndDrop>() != null)
+            CarriedItem = null;
+
         if (IsBusy) return;
 
         bool pickPressed = Input.GetKeyDown(pickUpKey);
@@ -86,7 +93,7 @@ public class ItemCarry : MonoBehaviour
         }
 #endif
 
-        if (pickPressed && CarriedItem == null)
+        if (pickPressed && CarriedItem == null && !DragAndDrop.IsAnyItemGrabbed)
         {
             TryPickUpNearest();
         }
@@ -165,11 +172,16 @@ public class ItemCarry : MonoBehaviour
         // Wait until middle of PickUp animation (~0.4s of 0.8s)
         yield return new WaitForSeconds(0.4f);
 
-        if (item != null && handSocketR != null)
+        if (item != null)
         {
             CarriedItem = item;
+            if (_driver != null) _driver.SetCarrying(true);
             _savedOriginalParent = item.transform.parent;
-            _savedWorldScale = item.transform.lossyScale;
+            _savedWorldScale = item.transform.localScale;
+            Bounds b = DragAndDrop.CalculateCombinedBounds(item);
+            float longest = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+            float fit = longest > 0.16f ? Mathf.Clamp(0.16f / longest, 0.08f, 1.0f) : 1.0f;
+            Vector3 heldWorldScale = item.transform.lossyScale * fit;
 
             SetIgnorePlayerCollision(item, true);
 
@@ -190,17 +202,28 @@ public class ItemCarry : MonoBehaviour
                 rb.useGravity = false;
             }
 
-            item.transform.SetParent(handSocketR, false);
-            item.transform.localPosition = Vector3.zero;
-            item.transform.localRotation = Quaternion.identity;
+            Transform targetParent = null;
+            if (Camera.main != null) targetParent = Camera.main.transform.Find("HoldSocket");
+            if (targetParent == null && _driver != null && _driver.visualAnimator != null)
+            {
+                Transform chest = _driver.visualAnimator.transform.Find("Armature/Hips/Spine/Chest") ?? _driver.visualAnimator.GetBoneTransform(HumanBodyBones.Chest) ?? _driver.visualAnimator.GetBoneTransform(HumanBodyBones.Spine);
+                if (chest != null) targetParent = chest.Find("HoldSocket");
+            }
+            if (targetParent == null) targetParent = handSocketR;
 
-            // Preserve world scale
-            Vector3 parentScale = handSocketR.lossyScale;
-            item.transform.localScale = new Vector3(
-                parentScale.x != 0f ? _savedWorldScale.x / parentScale.x : _savedWorldScale.x,
-                parentScale.y != 0f ? _savedWorldScale.y / parentScale.y : _savedWorldScale.y,
-                parentScale.z != 0f ? _savedWorldScale.z / parentScale.z : _savedWorldScale.z
-            );
+            if (targetParent != null)
+            {
+                item.transform.SetParent(targetParent, false);
+                item.transform.localPosition = Vector3.zero;
+                item.transform.localRotation = Quaternion.identity;
+
+                Vector3 parentScale = targetParent.lossyScale;
+                item.transform.localScale = new Vector3(
+                    parentScale.x != 0f ? heldWorldScale.x / parentScale.x : heldWorldScale.x,
+                    parentScale.y != 0f ? heldWorldScale.y / parentScale.y : heldWorldScale.y,
+                    parentScale.z != 0f ? heldWorldScale.z / parentScale.z : heldWorldScale.z
+                );
+            }
         }
 
         yield return new WaitForSeconds(0.4f);
@@ -240,6 +263,7 @@ public class ItemCarry : MonoBehaviour
         {
             GameObject item = CarriedItem;
             CarriedItem = null;
+            if (_driver != null) _driver.SetCarrying(false);
 
             item.transform.SetParent(_savedOriginalParent, true);
             item.transform.localScale = _savedWorldScale;

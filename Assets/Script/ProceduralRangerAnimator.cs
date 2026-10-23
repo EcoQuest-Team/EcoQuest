@@ -132,66 +132,57 @@ public class ProceduralRangerAnimator : MonoBehaviour
         if (_mainCam == null) _mainCam = Camera.main;
         if (_mainCam == null) return;
 
-        if (_handTargetL == null || _handTargetR == null)
-        {
-            _handTargetL = _mainCam.transform.Find("HandTarget_L");
-            _handTargetR = _mainCam.transform.Find("HandTarget_R");
-        }
-
-        // Tilt spine & head with camera pitch
-        _animator.SetLookAtWeight(1.0f, 0.45f, 0.70f, 0.50f, 0.50f);
+        // Subtle head-only LookAt (low bodyWeight keeps spine stable)
+        _animator.SetLookAtWeight(0.25f, 0.03f, 0.50f, 0.25f, 0.50f);
         _animator.SetLookAtPosition(_mainCam.transform.position + _mainCam.transform.forward * 4.0f);
 
-        if (_handTargetL == null || _handTargetR == null) return;
+        if (layerIndex != 0) return;
 
-        // Dynamic walk and sprint sway
         float dt = Time.deltaTime;
+        bool holding = (DragAndDrop.CurrentlyGrabbedItem != null && DragAndDrop.CurrentlyGrabbedItem.IsGrabbed) || ItemCarry.ActiveCarriedItem != null;
+        _carryBlend = Mathf.MoveTowards(_carryBlend, holding ? 1.0f : 0.0f, dt / 0.16f);
+
+        if (_carryBlend <= 0.001f)
+        {
+            _targetsInitialized = false;
+            _animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
+            _animator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, 0f);
+            _animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
+            _animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0f);
+            return;
+        }
+
+        Vector3 surfL, surfR;
+        if (!DragAndDrop.TryGetHeldGrabPoints(_mainCam.transform, out surfL, out surfR))
+        {
+            Vector3 center = _mainCam.transform.position + _mainCam.transform.forward * 0.42f - _mainCam.transform.up * 0.10f;
+            surfL = center - _mainCam.transform.right * 0.055f;
+            surfR = center + _mainCam.transform.right * 0.055f;
+        }
+
+        Vector3 targetPosL = surfL - _mainCam.transform.forward * 0.045f - _mainCam.transform.right * 0.018f - _mainCam.transform.up * 0.008f;
+        Vector3 targetPosR = surfR - _mainCam.transform.forward * 0.045f + _mainCam.transform.right * 0.018f - _mainCam.transform.up * 0.008f;
+
         float moveFactor = Mathf.Clamp01(HorizontalSpeed / Mathf.Max(0.1f, WalkSpeed));
         float swayFreq = IsSprinting ? 12.0f : 8.0f;
-        float swayAmp = IsSprinting ? 0.024f : (moveFactor > 0.05f ? 0.012f : 0.003f);
+        float swayAmp = IsSprinting ? 0.014f : (moveFactor > 0.05f ? 0.008f : 0.002f);
         _swayTimer += dt * swayFreq;
 
         Vector3 swayR = new Vector3(Mathf.Sin(_swayTimer) * swayAmp, Mathf.Cos(_swayTimer * 2f) * swayAmp * 0.6f, 0f);
         Vector3 swayL = new Vector3(-Mathf.Sin(_swayTimer) * swayAmp, Mathf.Cos(_swayTimer * 2f) * swayAmp * 0.6f, 0f);
-
-        Vector3 idlePosR = _handTargetR.TransformPoint(swayR);
-        Vector3 idlePosL = _handTargetL.TransformPoint(swayL);
-        Quaternion idleRotR = _handTargetR.rotation;
-        Quaternion idleRotL = _handTargetL.rotation;
-
-        bool holding = DragAndDrop.CurrentlyGrabbedItem != null && DragAndDrop.CurrentlyGrabbedItem.IsGrabbed;
-        _carryBlend = Mathf.MoveTowards(_carryBlend, holding ? 1.0f : 0.0f, dt / 0.18f);
-
-        Vector3 targetPosR = idlePosR;
-        Vector3 targetPosL = idlePosL;
-        Quaternion targetRotR = idleRotR;
-        Quaternion targetRotL = idleRotL;
-
-        if (_carryBlend > 0.001f && DragAndDrop.CurrentlyGrabbedItem != null)
-        {
-            // Carrying pose: right hand grips the right/side, left hand supports left/bottom
-            Vector3 carryCamR = new Vector3(0.10f, -0.035f, 0.24f);
-            Vector3 carryCamL = new Vector3(0.01f, -0.045f, 0.24f);
-
-            Vector3 carryWorldR = _mainCam.transform.TransformPoint(carryCamR);
-            Vector3 carryWorldL = _mainCam.transform.TransformPoint(carryCamL);
-            Quaternion carryRotR = _mainCam.transform.rotation * Quaternion.Euler(15f, -35f, 65f);
-            Quaternion carryRotL = _mainCam.transform.rotation * Quaternion.Euler(20f, 35f, -65f);
-
-            targetPosR = Vector3.Lerp(idlePosR, carryWorldR, _carryBlend);
-            targetRotR = Quaternion.Slerp(idleRotR, carryRotR, _carryBlend);
-            targetPosL = Vector3.Lerp(idlePosL, carryWorldL, _carryBlend);
-            targetRotL = Quaternion.Slerp(idleRotL, carryRotL, _carryBlend);
-        }
+        targetPosR += _mainCam.transform.TransformVector(swayR);
+        targetPosL += _mainCam.transform.TransformVector(swayL);
 
         Transform uaR = _animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
         Transform uaL = _animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
 
-        // Clamp targets within comfortable arm reach (max 0.39m from shoulder)
-        if (uaR != null && Vector3.Distance(uaR.position, targetPosR) > 0.39f)
-            targetPosR = uaR.position + (targetPosR - uaR.position).normalized * 0.39f;
-        if (uaL != null && Vector3.Distance(uaL.position, targetPosL) > 0.39f)
-            targetPosL = uaL.position + (targetPosL - uaL.position).normalized * 0.39f;
+        // Clamp targets within comfortable reach (max 0.60m from shoulder)
+        if (uaR != null && Vector3.Distance(uaR.position, targetPosR) > 0.60f)
+            targetPosR = uaR.position + (targetPosR - uaR.position).normalized * 0.60f;
+        if (uaL != null && Vector3.Distance(uaL.position, targetPosL) > 0.60f)
+            targetPosL = uaL.position + (targetPosL - uaL.position).normalized * 0.60f;
 
         if (!_targetsInitialized)
         {
@@ -199,28 +190,29 @@ public class ProceduralRangerAnimator : MonoBehaviour
             _currentHandL = targetPosL;
             _targetsInitialized = true;
         }
+        else
+        {
+            _currentHandR = Vector3.SmoothDamp(_currentHandR, targetPosR, ref _handRVel, 0.035f);
+            _currentHandL = Vector3.SmoothDamp(_currentHandL, targetPosL, ref _handLVel, 0.035f);
+        }
 
-        _currentHandR = Vector3.SmoothDamp(_currentHandR, targetPosR, ref _handRVel, 0.04f);
-        _currentHandL = Vector3.SmoothDamp(_currentHandL, targetPosL, ref _handLVel, 0.04f);
+        Quaternion rotL = _mainCam.transform.rotation * Quaternion.Euler(0f, 12f, 100f);
+        Quaternion rotR = _mainCam.transform.rotation * Quaternion.Euler(0f, -12f, -100f);
 
-        // Tuck elbows downward and inward so sleeves enter naturally from screen bottom
-        Vector3 elbowHintR = (uaR != null ? uaR.position : transform.position) - _mainCam.transform.up * 0.30f - _mainCam.transform.right * 0.05f + _mainCam.transform.forward * 0.05f;
-        Vector3 elbowHintL = (uaL != null ? uaL.position : transform.position) - _mainCam.transform.up * 0.30f + _mainCam.transform.right * 0.05f + _mainCam.transform.forward * 0.05f;
+        Vector3 elbowHintR = (uaR != null ? uaR.position : transform.position) - _mainCam.transform.up * 0.22f + _mainCam.transform.right * 0.08f;
+        Vector3 elbowHintL = (uaL != null ? uaL.position : transform.position) - _mainCam.transform.up * 0.22f - _mainCam.transform.right * 0.08f;
 
-        // Apply IK smoothly blended with carry state
         _animator.SetIKPositionWeight(AvatarIKGoal.RightHand, _carryBlend);
         _animator.SetIKRotationWeight(AvatarIKGoal.RightHand, _carryBlend);
         _animator.SetIKPosition(AvatarIKGoal.RightHand, _currentHandR);
-        _animator.SetIKRotation(AvatarIKGoal.RightHand, targetRotR);
-
+        _animator.SetIKRotation(AvatarIKGoal.RightHand, rotR);
         _animator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, _carryBlend);
         _animator.SetIKHintPosition(AvatarIKHint.RightElbow, elbowHintR);
 
         _animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, _carryBlend);
         _animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, _carryBlend);
         _animator.SetIKPosition(AvatarIKGoal.LeftHand, _currentHandL);
-        _animator.SetIKRotation(AvatarIKGoal.LeftHand, targetRotL);
-
+        _animator.SetIKRotation(AvatarIKGoal.LeftHand, rotL);
         _animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, _carryBlend);
         _animator.SetIKHintPosition(AvatarIKHint.LeftElbow, elbowHintL);
     }

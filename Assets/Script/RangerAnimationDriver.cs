@@ -33,8 +33,9 @@ public class RangerAnimationDriver : MonoBehaviour
     private Vector3 _baseColliderCenter = new Vector3(0f, 0.90f, 0f);
     private float _baseMoveSpeed = 4.0f;
     private Transform _cameraTarget;
-    private float _baseCameraY = 1.82f;
-    private float _currentCameraY = 1.82f;
+    private Transform _headCameraRoot;
+    private Transform _visualTransform;
+    private float _visualY;
 
     private float _coyoteTimer;
     private bool _wasRawGrounded = true;
@@ -74,8 +75,6 @@ public class RangerAnimationDriver : MonoBehaviour
             if (_fpc.CinemachineCameraTarget != null)
             {
                 _cameraTarget = _fpc.CinemachineCameraTarget.transform;
-                _baseCameraY = _cameraTarget.localPosition.y;
-                _currentCameraY = _baseCameraY;
             }
         }
 
@@ -84,19 +83,27 @@ public class RangerAnimationDriver : MonoBehaviour
             Transform vis = transform.Find("Visual");
             if (vis != null) visualAnimator = vis.GetComponent<Animator>();
         }
+        if (visualAnimator != null)
+        {
+            _visualTransform = visualAnimator.transform;
+            Transform head = visualAnimator.GetBoneTransform(HumanBodyBones.Head);
+            if (head != null)
+            {
+                _headCameraRoot = head.Find("CameraRoot");
+                if (_headCameraRoot == null)
+                {
+                    GameObject go = new GameObject("CameraRoot");
+                    go.transform.SetParent(head, false);
+                    go.transform.localPosition = new Vector3(0f, 0.08f, 0.14f);
+                    go.transform.localRotation = Quaternion.identity;
+                    go.transform.localScale = Vector3.one;
+                    _headCameraRoot = go.transform;
+                }
+            }
+        }
         if (proceduralAnimator == null && visualAnimator != null)
         {
             proceduralAnimator = visualAnimator.GetComponent<ProceduralRangerAnimator>();
-        }
-
-        if (viewmodelAnimator == null || viewmodelBob == null)
-        {
-            GameObject vmArms = GameObject.Find("ViewmodelArms");
-            if (vmArms != null)
-            {
-                if (viewmodelAnimator == null) viewmodelAnimator = vmArms.GetComponent<Animator>();
-                if (viewmodelBob == null) viewmodelBob = vmArms.GetComponent<ViewmodelBob>();
-            }
         }
 
         _lastPosition = transform.position;
@@ -120,14 +127,14 @@ public class RangerAnimationDriver : MonoBehaviour
             SetCrouch(!IsCrouching);
         }
 
-        if (_cameraTarget != null)
+        if (_visualTransform != null)
         {
             float heightDelta = _baseColliderHeight * (1.0f - crouchHeightMultiplier);
-            float targetCamY = IsCrouching ? (_baseCameraY - heightDelta) : _baseCameraY;
-            _currentCameraY = Mathf.Lerp(_currentCameraY, targetCamY, dt * 12.0f);
-            Vector3 lp = _cameraTarget.localPosition;
-            lp.y = _currentCameraY;
-            _cameraTarget.localPosition = lp;
+            float targetVisualY = IsCrouching ? (-heightDelta * 0.5f) : 0f;
+            _visualY = Mathf.Lerp(_visualY, targetVisualY, dt * 12.0f);
+            Vector3 vp = _visualTransform.localPosition;
+            vp.y = _visualY;
+            _visualTransform.localPosition = vp;
         }
         // --- END CROUCH MECHANIC BLOCK ---
 
@@ -169,10 +176,24 @@ public class RangerAnimationDriver : MonoBehaviour
         // 4. Drive Visual Animator, ViewmodelArms Animator, and ProceduralRangerAnimator
         if (visualAnimator != null && visualAnimator.runtimeAnimatorController != null)
         {
+            bool carrying = (DragAndDrop.CurrentlyGrabbedItem != null && DragAndDrop.CurrentlyGrabbedItem.IsGrabbed) || ItemCarry.ActiveCarriedItem != null;
+            IsCarrying = carrying;
             visualAnimator.SetFloat(HashSpeed, _smoothedSpeed);
             visualAnimator.SetBool(HashIsGrounded, IsGroundedSafe);
             visualAnimator.SetBool(HashCrouch, IsCrouching);
-            visualAnimator.SetBool(HashIsCarrying, IsCarrying || DragAndDrop.IsAnyItemGrabbed);
+            visualAnimator.SetBool(HashIsCarrying, carrying);
+            if (visualAnimator.layerCount > 1)
+            {
+                float targetW = carrying ? 1.0f : 0.0f;
+                float currentW = visualAnimator.GetLayerWeight(1);
+                float newW = Mathf.MoveTowards(currentW, targetW, dt * 6.0f);
+                if (!carrying && newW < 0.005f) newW = 0f;
+                visualAnimator.SetLayerWeight(1, newW);
+            }
+            if (!carrying)
+            {
+                visualAnimator.ResetTrigger(HashPickUp);
+            }
         }
 
         if (viewmodelAnimator != null && viewmodelAnimator.runtimeAnimatorController != null && viewmodelAnimator.enabled)
@@ -258,6 +279,21 @@ public class RangerAnimationDriver : MonoBehaviour
     {
         IsCarrying = carrying;
         if (visualAnimator != null && visualAnimator.runtimeAnimatorController != null)
+        {
             visualAnimator.SetBool(HashIsCarrying, carrying);
+            if (!carrying)
+            {
+                visualAnimator.ResetTrigger(HashPickUp);
+                if (visualAnimator.layerCount > 1) visualAnimator.SetLayerWeight(1, 0f);
+            }
+        }
+    }
+
+    private void LateUpdate()
+    {
+        if (_cameraTarget != null && _headCameraRoot != null)
+        {
+            _cameraTarget.position = _headCameraRoot.position;
+        }
     }
 }

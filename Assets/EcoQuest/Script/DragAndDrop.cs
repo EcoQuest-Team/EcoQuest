@@ -29,10 +29,14 @@ public class DragAndDrop : MonoBehaviour
 
     [Header("Distance Settings")]
     [SerializeField] private float pickupRange = 5f;
-    [SerializeField] private float defaultHoldDistance = 1.10f;
-    [SerializeField] private float minHoldDistance = 0.65f;
-    [SerializeField] private float maxHoldDistance = 1.8f;
-    [SerializeField] private Vector3 holdOffsetNormalized = new Vector3(0.28f, -0.22f, 1.10f);
+    [SerializeField] private float defaultHoldDistance = 0.265f;
+    [SerializeField] private float minHoldDistance = 0.22f;
+    [SerializeField] private float maxHoldDistance = 0.32f;
+    [SerializeField] private Vector3 holdOffsetNormalized = new Vector3(0.0f, -0.065f, 0.265f);
+
+    [Header("Hold Socket & Offset Settings")]
+    [SerializeField] public Vector3 holdOffset = new Vector3(0.0f, -0.10f, 0.42f);
+    [SerializeField] public float maxItemSize = 0.16f;
 
     [Header("Physics & Motion")]
     [SerializeField] private float smoothTime = 0.05f;
@@ -200,9 +204,9 @@ public class DragAndDrop : MonoBehaviour
         }
 
         if (mainCamera == null) mainCamera = Camera.main;
-        if (mainCamera != null && holdPoint == null)
+        if (holdPoint == null)
         {
-            holdPoint = mainCamera.transform.Find("HoldPoint");
+            holdPoint = GetHoldSocket();
         }
 
         UpdateHoverFeedback();
@@ -255,21 +259,63 @@ public class DragAndDrop : MonoBehaviour
         }
     }
 
+    private Transform GetHoldSocket()
+    {
+        if (mainCamera == null) mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            Transform socket = mainCamera.transform.Find("HoldSocket");
+            if (socket == null)
+            {
+                GameObject go = new GameObject("HoldSocket");
+                go.transform.SetParent(mainCamera.transform, false);
+                go.transform.localPosition = holdOffset;
+                go.transform.localRotation = Quaternion.identity;
+                go.transform.localScale = Vector3.one;
+                socket = go.transform;
+            }
+            else
+            {
+                socket.localPosition = holdOffset;
+            }
+            return socket;
+        }
+
+        if (playerTransform == null) CachePlayerReferences();
+        if (playerTransform != null)
+        {
+            Transform camRoot = playerTransform.Find("PlayerCameraRoot") ?? playerTransform.Find("Visual/Armature/Hips/Spine/Chest/Neck/Head/CameraRoot");
+            if (camRoot != null)
+            {
+                Transform socket = camRoot.Find("HoldSocket");
+                if (socket == null)
+                {
+                    GameObject go = new GameObject("HoldSocket");
+                    go.transform.SetParent(camRoot, false);
+                    go.transform.localPosition = holdOffset;
+                    go.transform.localRotation = Quaternion.identity;
+                    go.transform.localScale = Vector3.one;
+                    socket = go.transform;
+                }
+                return socket;
+            }
+        }
+        return null;
+    }
+
     private void LateUpdate()
     {
         if (!isGrabbed) return;
+        if (holdPoint == null) holdPoint = GetHoldSocket();
+        if (holdPoint == null) return;
         if (mainCamera == null) mainCamera = Camera.main;
-        if (mainCamera == null) return;
+        if (mainCamera != null && holdPoint.parent == mainCamera.transform)
+        {
+            holdPoint.localPosition = holdOffset;
+        }
 
-        // Calculate hold position relative to camera / HoldPoint
-        Vector3 localOffset = holdPoint != null ? holdPoint.localPosition : new Vector3(
-            holdOffsetNormalized.x * (currentHoldDistance / defaultHoldDistance),
-            holdOffsetNormalized.y * (currentHoldDistance / defaultHoldDistance),
-            currentHoldDistance
-        );
-
-        // Apply arm weight dip derived from mass
-        localOffset.y -= _currentArmDip;
+        // Position at HoldSocket
+        Vector3 targetHoldPos = holdPoint.position;
 
         // Subtle walk sway and bob that matches player movement
         float speed = 0f;
@@ -279,46 +325,18 @@ public class DragAndDrop : MonoBehaviour
         {
             bobTimer += Time.deltaTime * 8f;
         }
-        Vector3 bobOffset = new Vector3(
-            Mathf.Cos(bobTimer * 0.5f) * 0.018f,
-            Mathf.Sin(bobTimer) * 0.014f,
-            0f
-        ) * moveFactor;
-
-        Vector3 camPos = mainCamera.transform.position;
-        Vector3 targetHoldPos = mainCamera.transform.TransformPoint(localOffset + bobOffset);
-
-        // Wall safety spherecast
-        Vector3 rayDir = targetHoldPos - camPos;
-        float rayDist = rayDir.magnitude;
-        if (rayDist > 0.01f)
+        if (mainCamera != null)
         {
-            rayDir /= rayDist;
-            int ignoreMask = (1 << 2); // Ignore Raycast
-            int pLayer = LayerMask.NameToLayer("Player");
-            if (pLayer != -1) ignoreMask |= (1 << pLayer);
-            int tLayer = LayerMask.NameToLayer("TrashItem");
-            if (tLayer != -1) ignoreMask |= (1 << tLayer);
-            int bsLayer = LayerMask.NameToLayer("BinSolid");
-            if (bsLayer != -1) ignoreMask |= (1 << bsLayer);
-            int hfLayer = LayerMask.NameToLayer("HiddenFromFirstPerson");
-            if (hfLayer != -1) ignoreMask |= (1 << hfLayer);
-            int vmLayer = LayerMask.NameToLayer("Viewmodel");
-            if (vmLayer != -1) ignoreMask |= (1 << vmLayer);
-
-            if (Physics.SphereCast(camPos, wallSphereCastRadius, rayDir, out RaycastHit hit, rayDist, ~ignoreMask, QueryTriggerInteraction.Ignore))
-            {
-                float safeDist = Mathf.Clamp(hit.distance - 0.15f, 0.35f, rayDist);
-                targetHoldPos = camPos + rayDir * safeDist;
-            }
+            Vector3 bobOffset = new Vector3(
+                Mathf.Cos(bobTimer * 0.5f) * 0.008f,
+                Mathf.Sin(bobTimer) * 0.006f,
+                0f
+            ) * moveFactor;
+            targetHoldPos += mainCamera.transform.TransformVector(bobOffset);
         }
 
-        // Upright camera-yaw orientation with subtle dynamic movement tilts
-        Vector3 moveVel = playerCC != null ? playerCC.velocity : Vector3.zero;
-        float forwardTilt = Mathf.Clamp(Vector3.Dot(moveVel, mainCamera.transform.forward) * 1.5f, -8f, 8f);
-        float sideTilt = Mathf.Clamp(-Vector3.Dot(moveVel, mainCamera.transform.right) * 2.0f, -10f, 10f);
-
-        Quaternion targetRot = Quaternion.Euler(10f - forwardTilt, mainCamera.transform.eulerAngles.y - 14f, 4f + sideTilt);
+        // Camera-aligned orientation
+        Quaternion targetRot = (mainCamera != null ? mainCamera.transform.rotation * Quaternion.Euler(6f, -8f, 0f) : holdPoint.rotation);
         if (_holdProfile != null && _holdProfile.rotationOffset != Vector3.zero)
         {
             targetRot *= Quaternion.Euler(_holdProfile.rotationOffset);
@@ -346,8 +364,11 @@ public class DragAndDrop : MonoBehaviour
         {
             rb.position = transform.position;
             rb.rotation = transform.rotation;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            if (!rb.isKinematic)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
         }
     }
 
@@ -499,6 +520,7 @@ public class DragAndDrop : MonoBehaviour
     public void GrabObject()
     {
         if (isGrabbed) return;
+        if (mainCamera == null) mainCamera = Camera.main;
         if (CurrentlyGrabbedItem != null && CurrentlyGrabbedItem != this)
         {
             CurrentlyGrabbedItem.ForceRelease();
@@ -542,17 +564,13 @@ public class DragAndDrop : MonoBehaviour
             else _currentSizeCategory = HoldSizeCategory.Large;
         }
 
-        // Size fitting: downscale oversized items (> 0.9m)
-        float fitScale = 1.0f;
-        if (longestSide > _settings.largeMaxDistance)
-        {
-            fitScale = Mathf.Clamp(_settings.largeMaxDistance / longestSide, _settings.minUniformScaleDown, 1.0f);
-        }
+        // Size fitting: downscale oversized items relative to camera FOV so they never fill the screen
+        float fitScale = longestSide > maxItemSize ? Mathf.Clamp(maxItemSize / longestSide, 0.08f, 1.0f) : 1.0f;
+        Vector3 desiredWorldScale = transform.lossyScale * fitScale;
         _heldScale = _originalState.localScale * fitScale;
 
-        // Grip point: lower-middle (30% to 40% up from bottom, centered)
-        float gripY = _currentCombinedBounds.min.y + _currentCombinedBounds.size.y * _settings.gripHeightFraction;
-        Vector3 gripWorld = new Vector3(_currentCombinedBounds.center.x, gripY, _currentCombinedBounds.center.z);
+        // Grip point centered on item bounds
+        Vector3 gripWorld = _currentCombinedBounds.center;
         if (_holdProfile != null && _holdProfile.gripOffset != Vector3.zero)
         {
             gripWorld += transform.TransformDirection(_holdProfile.gripOffset);
@@ -568,13 +586,44 @@ public class DragAndDrop : MonoBehaviour
         float massRatio = Mathf.Clamp01(Mathf.InverseLerp(_settings.minMass, _settings.maxMass, mass));
         _currentArmDip = massRatio * _settings.maxArmDipMeters;
 
-        // Rigidbody configuration for held state
+        // Disable item colliders and configure kinematic physics while held
+        if (myColliders == null || myColliders.Length == 0) myColliders = GetComponentsInChildren<Collider>(true);
+        if (myColliders != null)
+        {
+            foreach (var c in myColliders)
+            {
+                if (c != null) c.enabled = false;
+            }
+        }
         if (rb != null)
         {
-            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            if (!rb.isKinematic)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+            rb.isKinematic = true;
             rb.useGravity = false;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+        }
+
+        // Parent to HoldSocket
+        holdPoint = GetHoldSocket();
+        if (holdPoint != null)
+        {
+            Vector3 ps = holdPoint.lossyScale;
+            _heldScale = new Vector3(
+                ps.x != 0f ? desiredWorldScale.x / ps.x : desiredWorldScale.x,
+                ps.y != 0f ? desiredWorldScale.y / ps.y : desiredWorldScale.y,
+                ps.z != 0f ? desiredWorldScale.z / ps.z : desiredWorldScale.z
+            );
+            transform.SetParent(holdPoint, true);
+            transform.localScale = _heldScale;
+
+            Vector3 initialHoldPos = holdPoint.position;
+            Quaternion initialRot = (mainCamera != null ? mainCamera.transform.rotation * Quaternion.Euler(6f, -8f, 0f) : holdPoint.rotation);
+            if (_holdProfile != null && _holdProfile.rotationOffset != Vector3.zero) initialRot *= Quaternion.Euler(_holdProfile.rotationOffset);
+            transform.rotation = initialRot;
+            transform.position = initialHoldPos - initialRot * Vector3.Scale(_localGripOffset, _heldScale);
         }
 
         SetHighlight(false);
@@ -583,11 +632,10 @@ public class DragAndDrop : MonoBehaviour
         // Start smooth ease coroutine with subtle scale pop
         _easeCoroutine = StartCoroutine(GrabEaseRoutine());
 
-        // Notify animation driver & viewmodel
+        // Notify animation driver
         var animDriver = FindAnyObjectByType<RangerAnimationDriver>();
         animDriver?.SetCarrying(true);
         animDriver?.PlayPickUp();
-        ViewmodelBob.SetHoldingTrash(true);
 
         // 15% slower walk and sprint speed while carrying
         if (playerCC != null)
@@ -636,15 +684,22 @@ public class DragAndDrop : MonoBehaviour
             _easeCoroutine = null;
         }
 
-        // Restore exact original state
+        // Restore exact original state and step slightly forward from hands so items drop cleanly into bins
         RestoreOriginalState();
+        if (mainCamera != null)
+        {
+            float dropDist = 0.72f;
+            if (Physics.Raycast(mainCamera.transform.position, mainCamera.transform.forward, out RaycastHit dropHit, dropDist, ~0, QueryTriggerInteraction.Ignore))
+                dropDist = Mathf.Max(0.32f, dropHit.distance - 0.14f);
+            transform.position = mainCamera.transform.position + mainCamera.transform.forward * dropDist;
+            if (rb != null) rb.position = transform.position;
+        }
 
         ClearBinHighlight();
 
         var animDriver = FindAnyObjectByType<RangerAnimationDriver>();
         animDriver?.SetCarrying(false);
         animDriver?.PlayDrop();
-        ViewmodelBob.SetHoldingTrash(false);
 
         // Restore walk and sprint speed
         if (playerCC != null && _savedMoveSpeed > 0f)
@@ -723,7 +778,8 @@ public class DragAndDrop : MonoBehaviour
     {
         if (!_hasOriginalState) return;
 
-        transform.SetParent(_originalState.parent, true);
+        if (transform.parent == null || transform.parent.gameObject.activeInHierarchy)
+            transform.SetParent(_originalState.parent, true);
         transform.localScale = _originalState.localScale;
 
         if (_originalState.childTransforms != null)
@@ -757,8 +813,11 @@ public class DragAndDrop : MonoBehaviour
             rb.collisionDetectionMode = _originalState.collisionDetectionMode;
             rb.linearDamping = _originalState.linearDamping;
             rb.angularDamping = _originalState.angularDamping;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            if (!rb.isKinematic)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
         }
 
         _hasOriginalState = false;
@@ -821,6 +880,123 @@ public class DragAndDrop : MonoBehaviour
         if (clamped) combined.size = sz;
 
         return combined;
+    }
+
+    public static bool TryGetHeldGrabPoints(Transform cam, out Vector3 leftSurface, out Vector3 rightSurface)
+    {
+        leftSurface = Vector3.zero;
+        rightSurface = Vector3.zero;
+
+        GameObject held = null;
+        if (CurrentlyGrabbedItem != null && CurrentlyGrabbedItem.isGrabbed)
+            held = CurrentlyGrabbedItem.gameObject;
+        else if (ItemCarry.ActiveCarriedItem != null)
+            held = ItemCarry.ActiveCarriedItem;
+
+        if (held == null) return false;
+
+        // 1. Explicit grab points if present on the item
+        Transform gpL = held.transform.Find("GrabPoint_L");
+        Transform gpR = held.transform.Find("GrabPoint_R");
+        if (gpL != null && gpR != null)
+        {
+            leftSurface = gpL.position;
+            rightSurface = gpR.position;
+            return true;
+        }
+
+        // 2. Compute camera-space tight bounds from mesh/renderers
+        if (cam == null) cam = Camera.main != null ? Camera.main.transform : null;
+        if (cam == null) return false;
+
+        bool hasBounds = false;
+        Vector3 minCam = Vector3.zero;
+        Vector3 maxCam = Vector3.zero;
+
+        MeshFilter[] mfs = held.GetComponentsInChildren<MeshFilter>(false);
+        for (int i = 0; i < mfs.Length; i++)
+        {
+            MeshFilter mf = mfs[i];
+            if (mf == null || mf.sharedMesh == null) continue;
+            Bounds mb = mf.sharedMesh.bounds;
+            Vector3 c = mb.center;
+            Vector3 e = mb.extents;
+            Transform t = mf.transform;
+
+            for (int dx = -1; dx <= 1; dx += 2)
+            {
+                for (int dy = -1; dy <= 1; dy += 2)
+                {
+                    for (int dz = -1; dz <= 1; dz += 2)
+                    {
+                        Vector3 cornerLocal = c + new Vector3(e.x * dx, e.y * dy, e.z * dz);
+                        Vector3 cornerWorld = t.TransformPoint(cornerLocal);
+                        Vector3 cornerCam = cam.InverseTransformPoint(cornerWorld);
+
+                        if (!hasBounds)
+                        {
+                            minCam = cornerCam;
+                            maxCam = cornerCam;
+                            hasBounds = true;
+                        }
+                        else
+                        {
+                            minCam = Vector3.Min(minCam, cornerCam);
+                            maxCam = Vector3.Max(maxCam, cornerCam);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!hasBounds)
+        {
+            Renderer[] rends = held.GetComponentsInChildren<Renderer>(false);
+            for (int i = 0; i < rends.Length; i++)
+            {
+                Renderer r = rends[i];
+                if (r == null || !r.enabled) continue;
+                Bounds b = r.bounds;
+                Vector3 c = b.center;
+                Vector3 e = b.extents;
+
+                for (int dx = -1; dx <= 1; dx += 2)
+                {
+                    for (int dy = -1; dy <= 1; dy += 2)
+                    {
+                        for (int dz = -1; dz <= 1; dz += 2)
+                        {
+                            Vector3 cornerWorld = c + new Vector3(e.x * dx, e.y * dy, e.z * dz);
+                            Vector3 cornerCam = cam.InverseTransformPoint(cornerWorld);
+
+                            if (!hasBounds)
+                            {
+                                minCam = cornerCam;
+                                maxCam = cornerCam;
+                                hasBounds = true;
+                            }
+                            else
+                            {
+                                minCam = Vector3.Min(minCam, cornerCam);
+                                maxCam = Vector3.Max(maxCam, cornerCam);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!hasBounds) return false;
+
+        float midY = (minCam.y + maxCam.y) * 0.5f;
+        float midZ = (minCam.z + maxCam.z) * 0.5f;
+
+        Vector3 leftCam = new Vector3(minCam.x, midY, midZ);
+        Vector3 rightCam = new Vector3(maxCam.x, midY, midZ);
+
+        leftSurface = cam.TransformPoint(leftCam);
+        rightSurface = cam.TransformPoint(rightCam);
+        return true;
     }
 
     private IEnumerator ReenablePlayerCollisionDelayed(float delay)
