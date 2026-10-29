@@ -33,8 +33,21 @@ public class URPMaterialFixer : MonoBehaviour
                 // Check if shader is missing/invalid/pink or legacy surface shader incompatible with URP
                 if (s == null || !s.isSupported || s.name.Contains("Error") || s.name == "Standard" || s.name.Contains("BodyColor") || s.name.StartsWith("Legacy"))
                 {
-                    Texture mainTex = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : (m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null);
-                    Color color = m.HasProperty("_Color") ? m.GetColor("_Color") : (m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : Color.white);
+                    Texture mainTex = null;
+                    if (m.HasProperty("_BaseMap") && m.GetTexture("_BaseMap") != null) mainTex = m.GetTexture("_BaseMap");
+                    else if (m.HasProperty("_MainTex") && m.GetTexture("_MainTex") != null) mainTex = m.GetTexture("_MainTex");
+
+                    // Fallback for Polyperfect meshes if texture was missing
+                    if (mainTex == null && (r.name.Contains("_Rig") || r.name.StartsWith("man-") || r.name.StartsWith("woman-") || r.name.StartsWith("girl-")))
+                    {
+                        var atlasMat = Resources.Load<Material>("atlas-LPUP");
+#if UNITY_EDITOR
+                        if (atlasMat == null) atlasMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/polyperfect/Low Poly Ultimate Pack/- Materials/atlas-LPUP.mat");
+#endif
+                        if (atlasMat != null && atlasMat.GetTexture("_BaseMap") != null) mainTex = atlasMat.GetTexture("_BaseMap");
+                    }
+
+                    Color color = m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : (m.HasProperty("_Color") ? m.GetColor("_Color") : Color.white);
 
                     Material newMat = new Material(urpLit);
                     newMat.name = m.name + "_URP_Fixed";

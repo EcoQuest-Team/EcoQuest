@@ -1,0 +1,179 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &2007514012194572311
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 100000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_Name
+      value: NPC_Male04
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 13700000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_UpdateWhenOffscreen
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2482340706628234062, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 22100000, guid: e95944f3a38c13543863b2b4fdc57120, type: 2}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 100000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3405916800037571070}
+    - targetCorrespondingSourceObject: {fileID: 100000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6963778425947390770}
+    - targetCorrespondingSourceObject: {fileID: 100000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2571352694197089172}
+  m_SourcePrefab: {fileID: 100100000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+--- !u!1 &2007514012194672311 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 100000, guid: ebfef01452be760478a0f7ef3a7f9b49, type: 3}
+  m_PrefabInstance: {fileID: 2007514012194572311}
+  m_PrefabAsset: {fileID: 0}
+--- !u!136 &3405916800037571070
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2007514012194672311}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.35
+  m_Height: 1.8
+  m_Direction: 1
+  m_Center: {x: 0, y: 0.9, z: 0}
+--- !u!195 &6963778425947390770
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2007514012194672311}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.35
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 1.8
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &2571352694197089172
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2007514012194672311}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46da8bc38f981e44ab28640c7482703a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NpcBrain
+  walkGraph: {fileID: 11400000, guid: d7f3f8e8aad867641b82ea0ca874ebdb, type: 2}
+  islandId: -1
+  walkSpeed: 1.4
+  runSpeed: 3.5
+  runChance: 0.2
+  idleDurationMin: 2
+  idleDurationMax: 5
+  turnSpeed: 9
+  waypointReachDist: 0.45
+  outfitProfile: {fileID: 11400000, guid: a9d5694d7a7d1564d979167c64ae901a, type: 2}
+  outfitSeed: 0
+  archetype: 0
+  allowPhone: 0
+  allowHandheld: 1
+  showDebugPath: 1
+  currentOutfit:
+    seed: 0
+    archetype: 0
+    coloringMethod: 0
+    paletteSummary: 
+    skinColor: {r: 0, g: 0, b: 0, a: 0}
+    hairColor: {r: 0, g: 0, b: 0, a: 0}
+    topColor: {r: 0, g: 0, b: 0, a: 0}
+    secondaryColor: {r: 0, g: 0, b: 0, a: 0}
+    bottomColor: {r: 0, g: 0, b: 0, a: 0}
+    shoeColor: {r: 0, g: 0, b: 0, a: 0}
+    accentColor: {r: 0, g: 0, b: 0, a: 0}
+    topBottomLightnessDiff: 0
+    hasStripes: 0
+    openJacket: 0
+    sleeveMode: 0
+    uniformScale: 1
+    bodyWidthScale: 1
+    accessories: 
+    signature: 
+  ownedMaterials: []
+  defaultSharedMats: []
+  defaultMatsCaptured: 0
+  hasOutfitConfigured: 0
+  needsOutfitRebuild: 0
+  hasStarted: 0

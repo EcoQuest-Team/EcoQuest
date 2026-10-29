@@ -79,6 +79,7 @@ public class NPCInteraction : MonoBehaviour
     private float originalCamFOV;
 
     public bool IsTalking => isTalking;
+    public bool IsPlayerNearby => isPlayerNearby;
     public bool IsQuestActive => hasAcceptedQuest && !QuestManager.IsQuestComplete;
     public bool HasCompletedFirstQuest => hasCompletedFirstQuest;
 
@@ -129,7 +130,7 @@ public class NPCInteraction : MonoBehaviour
 
         if (tutorialNotification != null) tutorialNotification.SetActive(true);
 
-        if (GetComponent<NPCWaypointPointer>() == null)
+        if (GetComponent<NpcWalker>() == null && GetComponent<NPCWaypointPointer>() == null)
         {
             gameObject.AddComponent<NPCWaypointPointer>();
         }
@@ -231,6 +232,21 @@ public class NPCInteraction : MonoBehaviour
     /// </summary>
     public void EnsureUIReferences()
     {
+        if (dialogueBox == null)
+        {
+            GameObject dObj = GameObject.Find("UI_Dialogue");
+            if (dObj != null) dialogueBox = dObj;
+        }
+        if (interactPrompt == null)
+        {
+            GameObject pObj = GameObject.Find("UI_InteractPrompt");
+            if (pObj != null) interactPrompt = pObj;
+        }
+        if (dialogueText == null && dialogueBox != null)
+        {
+            dialogueText = dialogueBox.GetComponentInChildren<TextMeshProUGUI>(true);
+        }
+
         if (dialogueBox != null)
         {
             if (acceptMissionButton == null)
@@ -330,39 +346,40 @@ public class NPCInteraction : MonoBehaviour
         if (anim != null)
         {
             anim.enabled = true;
+            anim.applyRootMotion = false;
             if (anim.speed == 0f) anim.speed = 1f;
 
-            if (anim.runtimeAnimatorController == null)
+            var brain = GetComponent<NpcBrain>();
+            if (brain != null)
+            {
+                brain.ApplyGenderController();
+            }
+            else if (anim.runtimeAnimatorController == null)
             {
 #if UNITY_EDITOR
-                // Prefer GuardianAnimatorController if available
-                RuntimeAnimatorController guardianCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/EcoQuest/Asset/GuardianAnimatorController.controller");
-                if (guardianCtrl != null)
+                string n = gameObject.name.ToLowerInvariant();
+                bool isFemale = n.Contains("female") || n.Contains("woman") || n.Contains("girl");
+                string overridePath = isFemale
+                    ? "Assets/EcoQuest/Asset/NPC_Female_Override.overrideController"
+                    : "Assets/EcoQuest/Asset/NPC_Male_Override.overrideController";
+                RuntimeAnimatorController overrideCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(overridePath);
+                if (overrideCtrl != null)
                 {
-                    anim.runtimeAnimatorController = guardianCtrl;
+                    anim.runtimeAnimatorController = overrideCtrl;
                 }
                 else
                 {
-                    string[] guids = UnityEditor.AssetDatabase.FindAssets("t:AnimatorController");
-                    foreach (string guid in guids)
+                    RuntimeAnimatorController guardianCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/EcoQuest/Asset/GuardianAnimatorController.controller");
+                    if (guardianCtrl != null)
                     {
-                        string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-                        if (path.Contains("Guardian") || path.Contains("MaleAnimator") || path.Contains("CivilMale"))
-                        {
-                            RuntimeAnimatorController ctrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(path);
-                            if (ctrl != null)
-                            {
-                                anim.runtimeAnimatorController = ctrl;
-                                break;
-                            }
-                        }
+                        anim.runtimeAnimatorController = guardianCtrl;
                     }
                 }
 #endif
             }
 
             // Force Rebind to snap character out of T-Pose into animated pose
-            if (anim.runtimeAnimatorController != null && Application.isPlaying)
+            if (anim.runtimeAnimatorController != null && Application.isPlaying && anim.gameObject.activeInHierarchy && anim.enabled)
             {
                 anim.Rebind();
                 anim.Update(0f);

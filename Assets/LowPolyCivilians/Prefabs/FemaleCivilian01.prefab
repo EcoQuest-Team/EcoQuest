@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 400000}
-  - component: {fileID: 11100000}
+  - component: {fileID: 7355842695351588123}
   m_Layer: 0
   m_Name: FemaleCivilian01
   m_TagString: Untagged
@@ -36,46 +36,28 @@ Transform:
   - {fileID: 400052}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!111 &11100000
-Animation:
+--- !u!95 &7355842695351588123
+Animator:
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 100000}
   m_Enabled: 1
-  serializedVersion: 4
-  m_Animation: {fileID: 7400000, guid: fd0eaa2e85dc89c40abb7cfb97caa5d8, type: 3}
-  m_Animations:
-  - {fileID: 7400000, guid: fd0eaa2e85dc89c40abb7cfb97caa5d8, type: 3}
-  - {fileID: 7400000, guid: dc3e2335a4f7f634a9c9976be9d6bca6, type: 3}
-  - {fileID: 7400000, guid: f27ab0a298556da4bacad18b25f7f525, type: 3}
-  - {fileID: 7400000, guid: f3f5a7d53cd9b2c40b3c4d41a7ce76f6, type: 3}
-  - {fileID: 7400000, guid: 9eda83bbbb286b746836d5109a2dbd83, type: 3}
-  - {fileID: 7400000, guid: 24e7d1c1d3d80ca4caa5bf2c280bb693, type: 3}
-  - {fileID: 7400000, guid: 9dd924637ef9fbc4e8433543a8d932bb, type: 3}
-  - {fileID: 7400000, guid: b3126fa956e23e24d8bf203cbed648ec, type: 3}
-  - {fileID: 7400000, guid: bf0d9aee54406c247809589dbc2f6901, type: 3}
-  - {fileID: 7400000, guid: fb487e31a28035e4c8f227b8224b31f3, type: 3}
-  - {fileID: 7400000, guid: d9e3d7627bc21504d85506b4217f73be, type: 3}
-  - {fileID: 7400000, guid: e899665142504ba43a42d46e766d3525, type: 3}
-  - {fileID: 7400000, guid: a9d0166ee0b34cb4fbdc7c883cc32322, type: 3}
-  - {fileID: 7400000, guid: 541856005ae0d06498c74c2e4ccf39ad, type: 3}
-  - {fileID: 7400000, guid: 202b4c4018c98e84ea152c78969ca75b, type: 3}
-  - {fileID: 7400000, guid: ec6bff55a9f0f924782f3d21201fd918, type: 3}
-  - {fileID: 7400000, guid: 8000aa025dee99b479bec9889578babf, type: 3}
-  - {fileID: 7400000, guid: b7eea10d548c62745bdbbc4e8522f8cf, type: 3}
-  - {fileID: 7400000, guid: 490771784f220b04aab66691a5dc122e, type: 3}
-  - {fileID: 7400000, guid: 700d87bbd68dd464cabf8f2335d81350, type: 3}
-  - {fileID: 7400000, guid: d6f09884daae2384d8b35cdeb3c0a766, type: 3}
-  - {fileID: 7400000, guid: 2cc15b68ea9f9c34598ab7999c9364db, type: 3}
-  - {fileID: 7400000, guid: 881c6d3af6b5a0a4ba96b991dc49d792, type: 3}
-  - {fileID: 7400000, guid: 1e2523d7de919b4498e064835e3b8564, type: 3}
-  m_WrapMode: 0
-  m_PlayAutomatically: 0
-  m_AnimatePhysics: 0
+  m_Avatar: {fileID: 9000000, guid: fd0eaa2e85dc89c40abb7cfb97caa5d8, type: 3}
+  m_Controller: {fileID: 9100000, guid: e91c8e9bd4e6f1246bc0e09bf9bb8864, type: 2}
+  m_CullingMode: 0
   m_UpdateMode: 0
-  m_CullingType: 1
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &100002
 GameObject:
   m_ObjectHideFlags: 0

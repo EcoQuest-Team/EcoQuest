@@ -1,0 +1,206 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: edbea0160da8a2d4cbc9f676c5da4999, type: 3}
+  m_Name: CityOutfitProfile
+  m_EditorClassIdentifier: Assembly-CSharp::OutfitProfile
+  skinTones:
+  - {r: 0.95, g: 0.82, b: 0.74, a: 1}
+  - {r: 0.91, g: 0.75, b: 0.64, a: 1}
+  - {r: 0.85, g: 0.67, b: 0.54, a: 1}
+  - {r: 0.76, g: 0.57, b: 0.42, a: 1}
+  - {r: 0.64, g: 0.45, b: 0.31, a: 1}
+  - {r: 0.49, g: 0.33, b: 0.23, a: 1}
+  - {r: 0.35, g: 0.23, b: 0.17, a: 1}
+  naturalHairColors:
+  - {r: 0.11, g: 0.1, b: 0.1, a: 1}
+  - {r: 0.2, g: 0.14, b: 0.1, a: 1}
+  - {r: 0.35, g: 0.23, b: 0.15, a: 1}
+  - {r: 0.46, g: 0.22, b: 0.14, a: 1}
+  - {r: 0.72, g: 0.59, b: 0.38, a: 1}
+  - {r: 0.66, g: 0.58, b: 0.46, a: 1}
+  - {r: 0.46, g: 0.47, b: 0.49, a: 1}
+  - {r: 0.7, g: 0.71, b: 0.73, a: 1}
+  artistDyedHairColors:
+  - {r: 0.19, g: 0.45, b: 0.48, a: 1}
+  - {r: 0.44, g: 0.23, b: 0.42, a: 1}
+  - {r: 0.64, g: 0.34, b: 0.36, a: 1}
+  neutralPalette:
+  - {r: 0.14, g: 0.19, b: 0.29, a: 1}
+  - {r: 0.22, g: 0.23, b: 0.25, a: 1}
+  - {r: 0.56, g: 0.58, b: 0.6, a: 1}
+  - {r: 0.77, g: 0.7, b: 0.58, a: 1}
+  - {r: 0.89, g: 0.88, b: 0.85, a: 1}
+  - {r: 0.14, g: 0.14, b: 0.15, a: 1}
+  - {r: 0.29, g: 0.34, b: 0.24, a: 1}
+  - {r: 0.25, g: 0.34, b: 0.44, a: 1}
+  neutralNames:
+  - Navy
+  - Charcoal
+  - Grey
+  - Beige
+  - White
+  - Black
+  - Olive
+  - Denim
+  accentPalette:
+  - {r: 0.48, g: 0.18, b: 0.22, a: 1}
+  - {r: 0.68, g: 0.35, b: 0.26, a: 1}
+  - {r: 0.84, g: 0.66, b: 0.18, a: 1}
+  - {r: 0.24, g: 0.44, b: 0.32, a: 1}
+  - {r: 0.2, g: 0.46, b: 0.5, a: 1}
+  - {r: 0.27, g: 0.44, b: 0.64, a: 1}
+  - {r: 0.46, g: 0.3, b: 0.46, a: 1}
+  - {r: 0.72, g: 0.44, b: 0.38, a: 1}
+  accentNames:
+  - Burgundy
+  - Terracotta
+  - Amber
+  - Forest
+  - Teal
+  - Cobalt
+  - Plum
+  - Clay
+  capMesh: {fileID: 4300000, guid: 2186efbd83a0b8242a8f519a8066462f, type: 3}
+  hardHatMesh: {fileID: 6316153131512174492, guid: 02571bf49639ffe4180d58ae3b5eca6b, type: 3}
+  headphonesMesh: {fileID: -182433299575264201, guid: 4c69ae3b441117446a6f5d25172fc18e, type: 3}
+  backpackMesh: {fileID: 6294104954366677101, guid: 4668fb2a6f6e80248b3bb3c804e9bb5f, type: 3}
+  survivalBagMesh: {fileID: 4300000, guid: 9014f264f6b05437a99b4d644439b8c9, type: 3}
+  toteBagMesh: {fileID: 4300000, guid: dc2db4936b6f540faaf4c0db6536f61e, type: 3}
+  phoneMesh: {fileID: 4300000, guid: ba819586f1b38eb4e9f9fe40388861f2, type: 3}
+  coffeeCupMesh: {fileID: 4300000, guid: ada03b2081c4ae743a53326f5b0ddd6c, type: 3}
+  bookMesh: {fileID: 4300000, guid: c3ed1a52ee616436c92f3a3d5b908339, type: 3}
+  notebookMesh: {fileID: -5108632784754333335, guid: 6b0443f7f38011c44a4f89b5ee808dbd, type: 3}
+  maleCivilianTex: {fileID: 2800000, guid: 220a35510ce886845959ae916023e10d, type: 3}
+  femaleCivilianTex: {fileID: 2800000, guid: 77d9ab4a51cb08244ba2edcd579571eb, type: 3}
+  everydayMaleTex: {fileID: 2800000, guid: e2c3952476ea0cc4b8f118e6d710a7ed, type: 3}
+  everydayFemaleTex: {fileID: 2800000, guid: 77632b2d3268e134c8d5f8c68bef7980, type: 3}
+  rules:
+  - archetype: 0
+    allowedNeutralTopIndices: 00000000010000000200000004000000
+    allowedNeutralBottomIndices: 00000000010000000500000003000000
+    allowedAccentIndices: 000000000400000005000000
+    accentOnTopChance: 0.15
+    stripeOrPatternChance: 0.25
+    openJacketChance: 0.55
+    minAccessories: 2
+    maxAccessories: 3
+    headPool: 03000000
+    bodyPool: 0a0000000c00000007000000
+    handPool: 100000000e0000000d000000
+  - archetype: 1
+    allowedNeutralTopIndices: 00000000020000000400000006000000
+    allowedNeutralBottomIndices: 07000000010000000300000005000000
+    allowedAccentIndices: 00000000010000000300000005000000
+    accentOnTopChance: 0.55
+    stripeOrPatternChance: 0.4
+    openJacketChance: 0.45
+    minAccessories: 2
+    maxAccessories: 3
+    headPool: 00000000010000000500000003000000
+    bodyPool: 06000000
+    handPool: 100000000d000000
+  - archetype: 2
+    allowedNeutralTopIndices: 04000000020000000500000000000000
+    allowedNeutralBottomIndices: 050000000100000000000000
+    allowedAccentIndices: 03000000040000000500000001000000
+    accentOnTopChance: 0.7
+    stripeOrPatternChance: 0.5
+    openJacketChance: 0.2
+    minAccessories: 2
+    maxAccessories: 2
+    headPool: 000000000500000004000000
+    bodyPool: 
+    handPool: 
+  - archetype: 3
+    allowedNeutralTopIndices: 0200000003000000040000000600000000000000
+    allowedNeutralBottomIndices: 07000000050000000100000003000000
+    allowedAccentIndices: 01000000030000000400000007000000
+    accentOnTopChance: 0.45
+    stripeOrPatternChance: 0.35
+    openJacketChance: 0.45
+    minAccessories: 1
+    maxAccessories: 2
+    headPool: 010000000000000004000000
+    bodyPool: 0700000009000000
+    handPool: 0e0000000f0000000d000000
+  - archetype: 4
+    allowedNeutralTopIndices: 040000000300000002000000
+    allowedNeutralBottomIndices: 030000000600000007000000
+    allowedAccentIndices: 01000000040000000500000007000000
+    accentOnTopChance: 0.65
+    stripeOrPatternChance: 0.55
+    openJacketChance: 0.3
+    minAccessories: 2
+    maxAccessories: 3
+    headPool: 0400000000000000
+    bodyPool: 06000000070000000c000000
+    handPool: 0f000000110000000d000000
+  - archetype: 5
+    allowedNeutralTopIndices: 04000000030000000600000001000000
+    allowedNeutralBottomIndices: 050000000100000000000000
+    allowedAccentIndices: 000000000100000003000000
+    accentOnTopChance: 0.4
+    stripeOrPatternChance: 0.35
+    openJacketChance: 0.4
+    minAccessories: 1
+    maxAccessories: 2
+    headPool: 03000000
+    bodyPool: 0c00000008000000
+    handPool: 0e00000010000000
+  - archetype: 6
+    allowedNeutralTopIndices: 03000000020000000600000000000000
+    allowedNeutralBottomIndices: 01000000030000000500000000000000
+    allowedAccentIndices: 000000000600000003000000
+    accentOnTopChance: 0.3
+    stripeOrPatternChance: 0.25
+    openJacketChance: 0.5
+    minAccessories: 2
+    maxAccessories: 3
+    headPool: 03000000
+    bodyPool: 09000000
+    handPool: 110000000f000000
+  - archetype: 7
+    allowedNeutralTopIndices: 01000000000000000200000006000000
+    allowedNeutralBottomIndices: 070000000100000005000000
+    allowedAccentIndices: 02000000
+    accentOnTopChance: 0
+    stripeOrPatternChance: 0
+    openJacketChance: 0
+    minAccessories: 2
+    maxAccessories: 2
+    headPool: 02000000
+    bodyPool: 0b000000
+    handPool: 
+  - archetype: 8
+    allowedNeutralTopIndices: 000000000100000006000000
+    allowedNeutralBottomIndices: 050000000100000003000000
+    allowedAccentIndices: 05000000030000000100000000000000
+    accentOnTopChance: 0.75
+    stripeOrPatternChance: 0.15
+    openJacketChance: 0.25
+    minAccessories: 2
+    maxAccessories: 3
+    headPool: 00000000
+    bodyPool: 0700000006000000
+    handPool: 0d000000
+  - archetype: 9
+    allowedNeutralTopIndices: 05000000010000000400000006000000
+    allowedNeutralBottomIndices: 05000000010000000300000007000000
+    allowedAccentIndices: 0600000004000000010000000000000002000000
+    accentOnTopChance: 0.55
+    stripeOrPatternChance: 0.45
+    openJacketChance: 0.5
+    minAccessories: 2
+    maxAccessories: 3
+    headPool: 010000000300000004000000
+    bodyPool: 0900000008000000
+    handPool: 100000000e000000

@@ -1,0 +1,199 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 998575fa322d67c4d873509af5a902c3, type: 3}
+  m_Name: LitterCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::LitterCatalog
+  entries:
+  - id: 1
+    displayName: Banana peel
+    category: 0
+    propPrefab: {fileID: 4741941925163499766, guid: 285e05e811365934e995ed82f54784e2, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - Relax, it's just a banana peel. It's natural, right?
+    - Natural, yes, but not in the street. It takes weeks to rot, and meanwhile it
+      draws flies and rats.
+    - Hmm... I didn't think about pests.
+    - It's also a slipping hazard. In the right bin, it can become compost for plants.
+    - Okay, okay. Biodegradable bin from now on!
+  - id: 2
+    displayName: Apple core
+    category: 0
+    propPrefab: {fileID: 8620605638049971826, guid: 7d5508ca3bcd19849a30fb811d25194a, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's an apple core. Birds and bugs will finish it.
+    - Food scraps on the street attract rats and flies, and the smell spreads through
+      the whole block.
+    - Ugh, so that's why it smells near the bench.
+    - Food buried in landfills also makes methane, a gas that warms the planet. Composting
+      avoids that.
+    - I'll put it in the biodegradable bin. Thanks for explaining!
+  - id: 3
+    displayName: Leftover food
+    category: 0
+    propPrefab: {fileID: 6490270622855929789, guid: 86c36e1f0b2d4284d8a4219dd07e43c4, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's just leftover rice. Why does it matter?
+    - Rotting food draws rats and flies, and they carry germs that can make people
+      sick.
+    - Sick? From one little pile?
+    - Pests spread whatever they touch. Scraps belong in the biodegradable bin or
+      a compost pile.
+    - Alright, I'll clean it up and sort it properly.
+  - id: 4
+    displayName: Plastic bottle
+    category: 1
+    propPrefab: {fileID: 3586774017038529177, guid: 45e98e52a3f0a124c9911effc475e8a1, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - One bottle won't change anything.
+    - If everyone thinks that, bottles pile up, block the drains, and the street
+      floods when it rains.
+    - Oh... so that's why this street floods.
+    - A recycled bottle can become a new bottle, or even fabric for clothes and bags.
+    - Wow! I'll rinse it and use the recyclable bin.
+  - id: 5
+    displayName: Soda can
+    category: 1
+    propPrefab: {fileID: 6127872025773129952, guid: df272831af652f243af064df1ffc6395, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's empty, so it's trash now.
+    - It's a resource! Aluminum can be recycled again and again, using up to 95%
+      less energy than making new.
+    - Really? I thought cans were junk.
+    - Tossed on the street, that metal and energy are wasted and the can becomes
+      litter.
+    - Got it. Into the recyclable bin it goes!
+  - id: 6
+    displayName: Cardboard
+    category: 1
+    propPrefab: {fileID: 2305702295520475968, guid: 40ff28dbba5a33042b5cef6d2fa6424b, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's just paper. The rain will wash it away.
+    - Wet cardboard turns to mush and clogs drains. Recycling paper also saves trees
+      and water.
+    - I didn't know it could clog drains.
+    - Keep it flat, clean, and dry, and it can become new boxes.
+    - Flat, clean, dry. I'll use the recyclable bin.
+  - id: 7
+    displayName: Plastic bag
+    category: 2
+    propPrefab: {fileID: 7943479580028288067, guid: 6f06b0aa9fe2c7a4595bd10462a48d55, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's a light bag. The wind will take it somewhere.
+    - Somewhere is the problem. Plastic bags can last for hundreds of years, and
+      sea turtles mistake them for jellyfish.
+    - That's so sad. I never thought about animals.
+    - One reusable bag can replace many single-use ones.
+    - I'll use the non-biodegradable bin and bring my own bag.
+  - id: 8
+    displayName: Chip wrapper
+    category: 2
+    propPrefab: {fileID: 2174689050878888463, guid: 2431c09593677094cb6d40b717ce6523, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's a tiny wrapper. Nobody will notice.
+    - Wrappers don't rot. They break into tiny plastic bits that wash into rivers
+      and the sea.
+    - So my snack wrapper could end up in the ocean?
+    - It can. Fish and other animals can swallow those bits, and that can reach our
+      food.
+    - Not cool. I'll hold on to it until I find the non-biodegradable bin.
+  - id: 9
+    displayName: Foam cup
+    category: 2
+    propPrefab: {fileID: 1706054773645149174, guid: fa7789885d18fe040a73fdab07f2da3f, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's a foam cup. It's basically air.
+    - Foam never really breaks down. It crumbles into smaller pieces that animals
+      mistake for food.
+    - I didn't know it never goes away.
+    - A reusable cup keeps lots of cups out of the trash.
+    - Good idea. Non-biodegradable bin now, and my own cup next time.
+  - id: 10
+    displayName: Battery
+    category: 3
+    propPrefab: {fileID: 8755141807136104560, guid: 6be1c469f060fc643b66202a5a5ed70d, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's a dead battery. It's just junk.
+    - Not quite. Batteries hold metals and chemicals that leak into soil and water.
+    - Leak? Into the water we use?
+    - Lithium batteries can even catch fire if crushed. They need a proper drop-off
+      point.
+    - Whoa. I'll take it to a drop-off point right away.
+  - id: 11
+    displayName: Spray can
+    category: 3
+    propPrefab: {fileID: 3306284611730972427, guid: 1936a5a5f9df68f47b841cfde8ed5986, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's empty, I used it all up.
+    - Even empty cans hold leftover chemicals and pressure. They can leak into the
+      ground or burst in the heat.
+    - Burst? I had no idea.
+    - Never throw them in regular trash or burn them. Hazardous waste collection
+      handles them safely.
+    - Okay, I'll bring it to a hazardous waste collection.
+  - id: 12
+    displayName: Broken glass
+    category: 3
+    propPrefab: {fileID: 5095330058780633770, guid: 573b059686cb6524ca5c7251c4170dca, type: 3}
+    shattersOnLanding: 1
+    dialogueLines:
+    - It's just a broken bottle. I'm in a hurry.
+    - Sharp glass can cut people, animals, and the workers who collect the trash.
+    - Oh no, I didn't think about the collectors.
+    - Wrap it in thick paper or cloth and label it so people know it's sharp.
+    - Got it. I'll wrap it up and put it in the right bin.
+  - id: 13
+    displayName: Old phone
+    category: 4
+    propPrefab: {fileID: 5518176621891541383, guid: f26d69c730b76a34ba2077d7c21c6609, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's a broken phone. It's useless now.
+    - Not useless. Phones contain metals like copper and gold, and also toxic materials.
+    - Gold? In a phone?
+    - Tiny amounts, and recovering them reduces mining. Dumped, the toxins seep into
+      soil and water.
+    - I'll take it to an e-waste collection point.
+  - id: 14
+    displayName: Tangled charger
+    category: 4
+    propPrefab: {fileID: 8047099444325904693, guid: 3289e01b5c0fe3c4da2d7b8dda6c35a1, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's a tangled old charger. Just cables.
+    - Cables hold copper that can be recovered and reused. The plastic coating pollutes
+      when dumped or burned.
+    - So the copper can be saved?
+    - Yes. E-waste centers recover the metal and handle the rest safely.
+    - I'll bring it to an e-waste drop-off. Thanks!
+  - id: 15
+    displayName: Used face mask
+    category: 4
+    propPrefab: {fileID: 624010645007332687, guid: 3c0d6b3788db8d34a9875ac78e7b952d, type: 3}
+    shattersOnLanding: 0
+    dialogueLines:
+    - It's just a used mask.
+    - Masks are made of plastic fibers and can carry germs. The ear loops also tangle
+      birds and other animals.
+    - Tangle animals? I never thought of that.
+    - Cut the ear loops, seal the mask in a bag, then use the non-biodegradable bin.
+    - Loops cut, bag sealed. Will do!

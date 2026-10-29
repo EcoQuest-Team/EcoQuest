@@ -1593,6 +1593,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4455457798304868}
+  - component: {fileID: 95832565223846797}
   m_Layer: 0
   m_Name: female
   m_TagString: Untagged
@@ -2259,3 +2260,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 4854992678061928}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!95 &95832565223846797
+Animator:
+  serializedVersion: 3
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1765582984740214}
+  m_Enabled: 1
+  m_Avatar: {fileID: 9000000, guid: 0d2df25144da66c4d9a9809391065b46, type: 3}
+  m_Controller: {fileID: 9100000, guid: e91c8e9bd4e6f1246bc0e09bf9bb8864, type: 2}
+  m_CullingMode: 1
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1

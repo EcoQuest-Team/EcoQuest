@@ -27,6 +27,7 @@
 
 # Visual Studio cache directory
 .vs/
+.idea/
 
 # Gradle cache directory
 .gradle/
@@ -77,5 +78,7 @@ crashlytics-build.properties
 _Backups_*/
 *_backup*
 SceneBackups/
+*.bak
+*.bak.meta
 
 

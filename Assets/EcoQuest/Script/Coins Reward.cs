@@ -11,6 +11,9 @@ public class PlayerCurrency : MonoBehaviour
 
     private int currentGold = 0;
     private Coroutine popupCoroutine;
+    private Coroutine countUpCoroutine;
+
+    public int CurrentGold => currentGold;
 
     private void Start()
     {
@@ -28,6 +31,50 @@ public class PlayerCurrency : MonoBehaviour
         UpdateGoldUI();
         
         ShowPopup("+" + amount.ToString(), Color.green);
+    }
+
+    public void AddGoldAnimated(int amount, float duration = 0.9f)
+    {
+        int startGold = currentGold;
+        currentGold += amount;
+        ShowPopup("+" + amount.ToString(), Color.green);
+
+        if (coinText == null || !isActiveAndEnabled || duration <= 0f)
+        {
+            UpdateGoldUI();
+            return;
+        }
+
+        if (countUpCoroutine != null) StopCoroutine(countUpCoroutine);
+        countUpCoroutine = StartCoroutine(AnimateCountUp(startGold, currentGold, duration));
+    }
+
+    private IEnumerator AnimateCountUp(int fromVal, int toVal, float duration)
+    {
+        RectTransform rt = coinText.rectTransform;
+        Vector3 baseScale = Vector3.one;
+        float elapsed = 0f;
+        int lastShown = -1;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float ease = 1f - Mathf.Pow(1f - t, 3f);
+            int val = Mathf.RoundToInt(Mathf.Lerp(fromVal, toVal, ease));
+            if (val != lastShown)
+            {
+                lastShown = val;
+                coinText.text = val.ToString();
+            }
+            float punch = 1f + 0.25f * Mathf.Sin(t * Mathf.PI);
+            if (rt != null) rt.localScale = baseScale * punch;
+            yield return null;
+        }
+
+        coinText.text = toVal.ToString();
+        if (rt != null) rt.localScale = baseScale;
+        countUpCoroutine = null;
     }
 
     public void DeductGold(int amount)

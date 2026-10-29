@@ -104,12 +104,13 @@ public class NPCWaypointPointer : MonoBehaviour
 
         filter.mesh = GenerateArrowMesh();
 
-        // Material with URP Lit support or Standard fallback
+        // Material with URP Lit or Simple Lit support
         Shader urpShader = Shader.Find("Universal Render Pipeline/Lit");
-        Shader standardShader = Shader.Find("Standard");
-        Material mat = new Material(urpShader != null ? urpShader : standardShader);
+        if (urpShader == null) urpShader = Shader.Find("Universal Render Pipeline/Simple Lit");
+        Material mat = new Material(urpShader);
 
-        mat.color = arrowColor;
+        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", arrowColor);
+        else mat.color = arrowColor;
         if (mat.HasProperty("_EmissionColor"))
         {
             mat.EnableKeyword("_EMISSION");

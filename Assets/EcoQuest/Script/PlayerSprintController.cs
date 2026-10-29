@@ -10,11 +10,11 @@ public class PlayerSprintController : MonoBehaviour
     public static PlayerSprintController Instance { get; private set; }
 
     [Header("Sprint Settings")]
-    [Tooltip("Sprint speed multiplier over base MoveSpeed (default 1.6x)")]
-    [SerializeField] private float sprintSpeedMultiplier = 1.6f;
+    [Tooltip("Sprint speed multiplier over base MoveSpeed (default 2.9x for ~5.8m/s run)")]
+    [SerializeField] private float sprintSpeedMultiplier = 2.9f;
 
-    [Tooltip("Field of View bump added while sprinting (+5)")]
-    [SerializeField] private float fovBump = 5.0f;
+    [Tooltip("Field of View bump added while sprinting (+6)")]
+    [SerializeField] private float fovBump = 6.0f;
 
     [Tooltip("Speed of FOV transition")]
     [SerializeField] private float fovTransitionSpeed = 8.0f;
@@ -26,6 +26,7 @@ public class PlayerSprintController : MonoBehaviour
     private FirstPersonController fpc;
     private StarterAssetsInputs inputs;
     private Camera mainCamera;
+    private Unity.Cinemachine.CinemachineVirtualCamera vcam;
     private float baseFOV = 40f;
     private float currentSprintTime = 0f;
     private bool hasCompletedSprintStep = false;
@@ -48,7 +49,14 @@ public class PlayerSprintController : MonoBehaviour
     private void Start()
     {
         mainCamera = Camera.main;
-        if (mainCamera != null)
+        vcam = GetComponentInParent<Unity.Cinemachine.CinemachineVirtualCamera>();
+        if (vcam == null) vcam = Object.FindAnyObjectByType<Unity.Cinemachine.CinemachineVirtualCamera>();
+
+        if (vcam != null)
+        {
+            baseFOV = vcam.m_Lens.FieldOfView;
+        }
+        else if (mainCamera != null)
         {
             baseFOV = mainCamera.fieldOfView;
         }
@@ -61,6 +69,11 @@ public class PlayerSprintController : MonoBehaviour
         if (fpc == null) fpc = GetComponent<FirstPersonController>();
         if (inputs == null) inputs = GetComponent<StarterAssetsInputs>();
         if (mainCamera == null) mainCamera = Camera.main;
+        if (vcam == null)
+        {
+            vcam = GetComponentInParent<Unity.Cinemachine.CinemachineVirtualCamera>();
+            if (vcam == null) vcam = Object.FindAnyObjectByType<Unity.Cinemachine.CinemachineVirtualCamera>();
+        }
 
         ApplySprintSpeed();
 
@@ -75,9 +88,13 @@ public class PlayerSprintController : MonoBehaviour
         IsSprinting = isHoldingSprint && isMoving && isGrounded;
 
         // Smooth FOV Bump
+        float targetFOV = IsSprinting ? (baseFOV + fovBump) : baseFOV;
+        if (vcam != null)
+        {
+            vcam.m_Lens.FieldOfView = Mathf.Lerp(vcam.m_Lens.FieldOfView, targetFOV, Time.deltaTime * fovTransitionSpeed);
+        }
         if (mainCamera != null)
         {
-            float targetFOV = IsSprinting ? (baseFOV + fovBump) : baseFOV;
             mainCamera.fieldOfView = Mathf.Lerp(mainCamera.fieldOfView, targetFOV, Time.deltaTime * fovTransitionSpeed);
         }
 

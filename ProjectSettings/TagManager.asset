@@ -12,6 +12,7 @@ TagManager:
   - Recyclable
   - Item
   - Trash
+  - Waypoint
   layers:
   - Default
   - TransparentFX

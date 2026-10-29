@@ -302,13 +302,15 @@ public class ViewmodelBob : MonoBehaviour
         float idleAngle = Mathf.Sin(Time.time * (2f * Mathf.PI * idleFrequencyHz)) * idleSwayDegrees;
 
         // 2. Walking & running bob
-        float speedFactor = Mathf.Clamp01(planarSpeed / 4.0f);
-        float runMultiplier = planarSpeed > 4.5f ? 1.5f : 1.0f;
+        float speedFactor = Mathf.Clamp01(planarSpeed / 2.0f);
+        float runT = Mathf.Clamp01((planarSpeed - 2.0f) / 3.8f);
+        float runMultiplier = Mathf.Lerp(1.0f, 1.8f, runT);
+        float freqMultiplier = Mathf.Lerp(1.0f, 1.4f, runT);
 
         Vector3 targetBob = Vector3.zero;
         if (speedFactor > 0.02f)
         {
-            _bobTimer += dt * walkBobFrequency * (planarSpeed > 4.5f ? 1.35f : 1.0f);
+            _bobTimer += dt * walkBobFrequency * freqMultiplier;
             float bobX = Mathf.Cos(_bobTimer * 0.5f) * walkBobHorizontal * speedFactor * runMultiplier;
             float bobY = Mathf.Sin(_bobTimer) * walkBobVertical * speedFactor * runMultiplier;
             targetBob = new Vector3(bobX, bobY, 0f);
