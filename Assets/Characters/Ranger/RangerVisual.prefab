@@ -257,7 +257,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProceduralRangerAnimator
   HorizontalSpeed: 0
   IsGrounded: 1
-  IsCrouching: 0
   IsSprinting: 0
   WalkSpeed: 4
   RunSpeed: 6.4

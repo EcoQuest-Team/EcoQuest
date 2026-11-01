@@ -5,6 +5,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Unity.Cinemachine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public enum LitterbugQuestState
 {
@@ -23,10 +26,16 @@ public class LitterbugQuestManager : MonoBehaviour
     public const int MaxBonusCoins = 100;
     public const float MinDistBetweenPicks = 40f;
     public const float MinDistFromPlayer = 25f;
-    public const int MaxCharsPerPage = 110;
+    public const int MaxCharsPerPage = 95;
 
     public static bool IsDialogueOpen { get; private set; }
     public static LitterbugQuestManager Instance { get; private set; }
+
+    public static void ResetStaticState()
+    {
+        IsDialogueOpen = false;
+        LitterProp.ShrinkAllActiveWorldLitter();
+    }
 
     [Header("Scene References (Set Quest Giver & Sprites in Inspector)")]
     [SerializeField] private Transform questGiverTransform;
@@ -40,7 +49,7 @@ public class LitterbugQuestManager : MonoBehaviour
     [SerializeField] private LitterCatalog litterCatalog;
 
     [Header("Radii (Inspector Configurable)")]
-    [SerializeField] private float questGiverInteractRadius = 2.5f;
+    [SerializeField] private float questGiverInteractRadius = 3.5f;
     [SerializeField] private float litterbugTriggerRadius = 20f;
     [SerializeField] private float litterbugTriggerExitBuffer = 2f;
     [SerializeField] private float litterbugInteractRadius = 2.5f;
@@ -66,10 +75,33 @@ public class LitterbugQuestManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI interactPromptText;
 
     [SerializeField] private CanvasGroup dialoguePanelGroup;
+    [SerializeField] private RectTransform dialoguePanelRect;
     [SerializeField] private TextMeshProUGUI speakerNameText;
+    [SerializeField] private RectTransform speakerTabRect;
+    [SerializeField] private Image speakerPillImage;
+    [SerializeField] private Sprite speakerPillGreenSprite;
+    [SerializeField] private Sprite speakerPillTealSprite;
     [SerializeField] private TextMeshProUGUI dialogueBodyText;
     [SerializeField] private TextMeshProUGUI continueHintText;
+    [SerializeField] private RectTransform continueKeycapRect;
     [SerializeField] private Button acceptQuestButton;
+    [SerializeField] private GameObject choiceButtonsRoot;
+    [SerializeField] private Button notNowButton;
+    [SerializeField] private GameObject continuePromptRoot;
+    [SerializeField] private KeyCapPrompt continueKeyCapPrompt;
+    [SerializeField] private KeyCapPrompt acceptKeyCapPrompt;
+    [SerializeField] private KeyCapPrompt notNowKeyCapPrompt;
+    [SerializeField] private float advanceDelay = 0.5f;
+    [SerializeField] private GameObject dialogueNextTriangle;
+    [SerializeField] private RectTransform topLetterboxBar;
+    [SerializeField] private RectTransform bottomLetterboxBar;
+    [SerializeField] private RectTransform distanceArrowRect;
+
+    private float advanceLockTimer = 0f;
+    private NpcDialogueSpeakerAnimator activeSpeakerAnimator;
+    private Coroutine letterboxRoutine;
+    private Coroutine hudFadeRoutine;
+    private Vector3 triangleBaseLocalPos;
 
     [Header("Null-Safe Audio Hooks")]
     [SerializeField] private AudioSource sfxSource;
@@ -102,7 +134,7 @@ public class LitterbugQuestManager : MonoBehaviour
     }
 
     // 3 randomized intro variants (DESIGN 1)
-    private static readonly string[] GuideIntroVariants =
+    private static readonly string[] GuardianIntroVariants =
     {
         "Five citizens around the city are tossing trash right onto the sidewalks. Will you enlighten them and help clean up?",
         "Careless littering is cropping up across five blocks! Can you track down the litterbugs and explain where each item belongs?",
@@ -159,9 +191,23 @@ public class LitterbugQuestManager : MonoBehaviour
     private Coroutine dialogueFadeCoroutine;
     private Coroutine counterPunchCoroutine;
     private Coroutine panelAnimCoroutine;
+    private Coroutine speakerPunchCoroutine;
+    private float baseDialoguePosY = 40f;
+    private bool capturedDialoguePos;
+    private int savedCameraCullingMask;
+    private bool cameraCullingMaskModified;
+    private GameObject hiddenCarriedItem;
 
     public LitterbugQuestState QuestState => questState;
     public int CurrentRound => currentRound;
+    public Transform PlayerTransform => playerTransform;
+    public Transform QuestGiverTransform => questGiverTransform;
+    public float QuestGiverInteractRadius => questGiverInteractRadius;
+    public float AdvanceLockTimer => advanceLockTimer;
+    public bool CanInteractFountain => canInteractFountain;
+    public StarterAssets.FirstPersonController CachedFps => cachedFps;
+
+    private bool canInteractFountain = false;
     public int CompletedRounds => completedRounds;
     public int PersuadedCount => persuadedCount;
     public int ActivePageCount => activePages.Count;
@@ -179,6 +225,7 @@ public class LitterbugQuestManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        PerformSafetyReset();
         IsDialogueOpen = false;
         questState = LitterbugQuestState.Available;
         currentRound = 0;
@@ -199,6 +246,7 @@ public class LitterbugQuestManager : MonoBehaviour
     private void Start()
     {
         CacheSceneReferences();
+        PerformSafetyReset();
         InitializeHudDefaults();
         CreateQuestGiverOverheadMarker();
 
@@ -212,18 +260,24 @@ public class LitterbugQuestManager : MonoBehaviour
 
     private void CacheSceneReferences()
     {
-        mainCam = Camera.main;
+        mainCam = WorldInteractionPrompt.GetActiveWorldCamera();
 
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null)
-        {
-            playerTransform = playerObj.transform;
-            cachedFps = playerObj.GetComponent<StarterAssets.FirstPersonController>();
-            cachedInputs = playerObj.GetComponent<StarterAssets.StarterAssetsInputs>();
-        }
         if (cachedFps == null) cachedFps = FindFirstObjectByType<StarterAssets.FirstPersonController>();
-        if (cachedInputs == null) cachedInputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-        if (playerTransform == null && cachedFps != null) playerTransform = cachedFps.transform;
+        if (cachedFps != null)
+        {
+            playerTransform = cachedFps.transform;
+            cachedInputs = cachedFps.GetComponent<StarterAssets.StarterAssetsInputs>();
+        }
+        else
+        {
+            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+            if (playerObj != null)
+            {
+                playerTransform = playerObj.transform;
+                cachedFps = playerObj.GetComponent<StarterAssets.FirstPersonController>();
+                cachedInputs = playerObj.GetComponent<StarterAssets.StarterAssetsInputs>();
+            }
+        }
 
         if (npcSpawner == null) npcSpawner = FindFirstObjectByType<NpcSpawner>();
         if (playerCurrency == null) playerCurrency = FindFirstObjectByType<PlayerCurrency>();
@@ -233,13 +287,118 @@ public class LitterbugQuestManager : MonoBehaviour
         {
             acceptQuestButton.onClick.RemoveAllListeners();
             acceptQuestButton.onClick.AddListener(OnAcceptButtonClicked);
-            acceptQuestButton.gameObject.SetActive(false);
+        }
+
+        if (dialoguePanelRect == null && dialoguePanelGroup != null)
+            dialoguePanelRect = dialoguePanelGroup.GetComponent<RectTransform>();
+
+        if (dialoguePanelRect != null)
+        {
+            if (choiceButtonsRoot == null)
+            {
+                Transform cbr = dialoguePanelRect.Find("ChoiceButtonsRoot");
+                if (cbr != null) choiceButtonsRoot = cbr.gameObject;
+            }
+            if (choiceButtonsRoot != null)
+            {
+                if (acceptQuestButton == null)
+                {
+                    Transform ab = choiceButtonsRoot.transform.Find("AcceptQuestButton");
+                    if (ab != null) acceptQuestButton = ab.GetComponent<Button>();
+                }
+                if (notNowButton == null)
+                {
+                    Transform nnb = choiceButtonsRoot.transform.Find("NotNowButton");
+                    if (nnb != null) notNowButton = nnb.GetComponent<Button>();
+                }
+
+                if (acceptQuestButton != null)
+                {
+                    acceptQuestButton.onClick.RemoveAllListeners();
+                    acceptQuestButton.onClick.AddListener(OnAcceptButtonClicked);
+                    acceptQuestButton.gameObject.SetActive(true);
+                    if (acceptKeyCapPrompt == null) acceptKeyCapPrompt = acceptQuestButton.GetComponentInChildren<KeyCapPrompt>();
+                }
+                if (notNowButton != null)
+                {
+                    notNowButton.onClick.RemoveAllListeners();
+                    notNowButton.onClick.AddListener(OnNotNowButtonClicked);
+                    notNowButton.gameObject.SetActive(true);
+                    if (notNowKeyCapPrompt == null) notNowKeyCapPrompt = notNowButton.GetComponentInChildren<KeyCapPrompt>();
+                }
+            }
+
+            if (continuePromptRoot == null)
+            {
+                Transform cpr = dialoguePanelRect.Find("ContinuePromptRoot");
+                if (cpr != null) continuePromptRoot = cpr.gameObject;
+            }
+            if (continuePromptRoot != null && continueKeyCapPrompt == null)
+            {
+                continueKeyCapPrompt = continuePromptRoot.GetComponent<KeyCapPrompt>();
+            }
+
+            if (dialogueNextTriangle == null)
+            {
+                Transform dnt = dialoguePanelRect.Find("DialogueNextTriangle");
+                if (dnt != null) dialogueNextTriangle = dnt.gameObject;
+            }
+            if (dialogueNextTriangle != null)
+            {
+                triangleBaseLocalPos = dialogueNextTriangle.transform.localPosition;
+                dialogueNextTriangle.SetActive(false);
+            }
+        }
+
+        if (notNowButton != null)
+        {
+            notNowButton.onClick.RemoveAllListeners();
+            notNowButton.onClick.AddListener(OnNotNowButtonClicked);
+        }
+
+        if (acceptQuestButton != null)
+        {
+            acceptQuestButton.onClick.RemoveAllListeners();
+            acceptQuestButton.onClick.AddListener(OnAcceptButtonClicked);
+        }
+
+        if (topLetterboxBar == null)
+        {
+            GameObject tlb = GameObject.Find("TopLetterboxBar");
+            if (tlb != null) topLetterboxBar = tlb.GetComponent<RectTransform>();
+        }
+        if (bottomLetterboxBar == null)
+        {
+            GameObject blb = GameObject.Find("BottomLetterboxBar");
+            if (blb != null) bottomLetterboxBar = blb.GetComponent<RectTransform>();
         }
 
         if (dialogueVirtualCam != null)
         {
             dialogueVirtualCam.Priority.Value = 0;
             dialogueVirtualCam.gameObject.SetActive(false);
+        }
+
+        if (dialoguePanelRect == null && dialoguePanelGroup != null)
+            dialoguePanelRect = dialoguePanelGroup.GetComponent<RectTransform>();
+        if (dialoguePanelRect != null && !capturedDialoguePos)
+        {
+            baseDialoguePosY = dialoguePanelRect.anchoredPosition.y;
+            capturedDialoguePos = true;
+        }
+        if (speakerTabRect == null && speakerNameText != null)
+            speakerTabRect = speakerNameText.transform.parent as RectTransform;
+        if (speakerPillImage == null && speakerTabRect != null)
+            speakerPillImage = speakerTabRect.GetComponent<Image>();
+        if (distanceArrowRect == null && distanceHintText != null && distanceHintText.transform.parent != null)
+        {
+            Transform arrowT = distanceHintText.transform.parent.Find("DistanceArrow") ?? distanceHintText.transform.Find("DistanceArrow");
+            if (arrowT != null) distanceArrowRect = arrowT as RectTransform;
+        }
+        if (continueKeycapRect == null && continueHintText != null && continueHintText.transform.parent != null)
+        {
+            Transform keyT = continueHintText.transform.parent.Find("ContinueKeycap") ?? continueHintText.transform.Find("ContinueKeycap");
+            if (keyT != null) continueKeycapRect = keyT as RectTransform;
         }
     }
 
@@ -268,7 +427,7 @@ public class LitterbugQuestManager : MonoBehaviour
         targetCleanliness = 0f;
         if (cleanlinessFillImage != null) cleanlinessFillImage.fillAmount = 0f;
         if (cleanlinessPercentText != null) cleanlinessPercentText.text = "0%";
-        if (roundTitleText != null) roundTitleText.text = "Round 1";
+        if (roundTitleText != null) roundTitleText.text = "Quest";
         if (questCounterText != null) questCounterText.text = "Enlighten the litterbugs: 0/5";
         if (distanceHintText != null) distanceHintText.text = "";
     }
@@ -276,17 +435,30 @@ public class LitterbugQuestManager : MonoBehaviour
     private void CreateQuestGiverOverheadMarker()
     {
         if (questGiverTransform == null) return;
-        if (giverMarkerRoot != null) Destroy(giverMarkerRoot.gameObject);
 
-        GameObject go = new GameObject("FountainQuestOverheadMarker");
-        giverMarkerRoot = go.transform;
-        giverMarkerRoot.SetParent(questGiverTransform, false);
-        giverMarkerRoot.localPosition = new Vector3(0f, 2.25f, 0f);
-        giverMarkerRoot.localScale = Vector3.one * 0.44f;
+        Transform existing = questGiverTransform.Find("FountainQuestOverheadMarker");
+        if (existing != null)
+        {
+            giverMarkerRoot = existing;
+            giverMarkerRenderer = existing.GetComponent<SpriteRenderer>();
+        }
+        else
+        {
+            GameObject go = new GameObject("FountainQuestOverheadMarker");
+            giverMarkerRoot = go.transform;
+            giverMarkerRoot.SetParent(questGiverTransform, false);
+            giverMarkerRoot.localPosition = new Vector3(0f, 2.25f, 0f);
+            giverMarkerRoot.localScale = Vector3.one * 0.26f;
 
-        giverMarkerRenderer = go.AddComponent<SpriteRenderer>();
-        giverMarkerRenderer.sprite = exclamationSprite;
-        giverMarkerRenderer.sortingOrder = 22;
+            giverMarkerRenderer = go.AddComponent<SpriteRenderer>();
+            giverMarkerRenderer.sprite = exclamationSprite;
+            giverMarkerRenderer.sortingOrder = 22;
+        }
+
+        if (giverMarkerRenderer != null && giverMarkerRenderer.sprite == null && exclamationSprite != null)
+        {
+            giverMarkerRenderer.sprite = exclamationSprite;
+        }
     }
 
     private void Update()
@@ -323,6 +495,12 @@ public class LitterbugQuestManager : MonoBehaviour
             return;
         }
 
+        if (cachedFps == null) cachedFps = FindFirstObjectByType<StarterAssets.FirstPersonController>();
+        if (cachedFps != null && playerTransform != cachedFps.transform)
+        {
+            playerTransform = cachedFps.transform;
+        }
+
         if (playerTransform == null) return;
 
         bool modalBlocked = PauseMenuController.IsPaused
@@ -332,7 +510,7 @@ public class LitterbugQuestManager : MonoBehaviour
         Vector3 playerPos = playerTransform.position;
         int interactSlot = -1;
         float bestInteractSqr = float.MaxValue;
-        bool canInteractFountain = false;
+        canInteractFountain = false;
         float giverInteractSqr = questGiverInteractRadius * questGiverInteractRadius;
 
         // 1. Check Fountain Quest Giver squared distance
@@ -362,6 +540,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
         // 2. Check ONLY the 5 active target NPCs using squared distance
         float nearestActiveSqr = float.MaxValue;
+        Transform nearestActiveTarget = null;
         if (questState == LitterbugQuestState.Active || questState == LitterbugQuestState.ReadyToTurnIn)
         {
             for (int i = 0; i < TargetCount; i++)
@@ -381,7 +560,10 @@ public class LitterbugQuestManager : MonoBehaviour
                 float sqrXZ = diff.sqrMagnitude;
 
                 if (sqrXZ < nearestActiveSqr)
+                {
                     nearestActiveSqr = sqrXZ;
+                    nearestActiveTarget = targetSlots[i].brain.transform;
+                }
 
                 targetSlots[i].litterbug.TickFromManager(sqr3D, playerPos, false, dt);
 
@@ -393,19 +575,46 @@ public class LitterbugQuestManager : MonoBehaviour
                 }
             }
 
-            UpdateDistanceHintHud(playerPos, nearestActiveSqr);
+            UpdateDistanceHintHud(playerPos, nearestActiveSqr, nearestActiveTarget);
         }
 
-        // 3. Interaction prompt & E-key trigger
-        bool showPrompt = !modalBlocked && (interactSlot >= 0 || canInteractFountain);
-        if (interactPromptRoot != null && interactPromptRoot.activeSelf != showPrompt)
+        // Continue keycap gentle pulse
+        if (continueKeycapRect != null && IsDialogueOpen)
         {
-            interactPromptRoot.SetActive(showPrompt);
-            if (showPrompt && interactPromptText != null)
-                interactPromptText.text = "Press E to talk";
+            float pulse = 1f + 0.06f * Mathf.Sin(Time.unscaledTime * 5f);
+            continueKeycapRect.localScale = new Vector3(pulse, pulse, 1f);
         }
 
-        if (showPrompt && CanConsumeEKeyThisFrame() && Input.GetKeyDown(KeyCode.E))
+        // Bouncing dialogue triangle animation
+        if (dialogueNextTriangle != null && dialogueNextTriangle.activeSelf)
+        {
+            float bob = Mathf.Sin(Time.unscaledTime * 6f) * 3f;
+            dialogueNextTriangle.transform.localPosition = new Vector3(triangleBaseLocalPos.x, triangleBaseLocalPos.y + bob, 0f);
+        }
+
+        // 3. Interaction prompt & E-key trigger (World-anchored)
+        bool showPrompt = !modalBlocked && (interactSlot >= 0 || canInteractFountain);
+        if (showPrompt)
+        {
+            if (interactSlot >= 0 && targetSlots[interactSlot].brain != null)
+            {
+                Transform t = targetSlots[interactSlot].brain.transform;
+                WorldInteractionPrompt.Instance?.ShowPrompt(t, "Litterbug", "Talk", "E");
+            }
+            else if (canInteractFountain && questGiverTransform != null)
+            {
+                WorldInteractionPrompt.Instance?.ShowPrompt(questGiverTransform, "Guardian", "Talk", "E");
+            }
+        }
+        else
+        {
+            WorldInteractionPrompt.Instance?.HidePrompt();
+        }
+
+        if (interactPromptRoot != null && interactPromptRoot.activeSelf)
+            interactPromptRoot.SetActive(false);
+
+        if (showPrompt && CanConsumeEKeyThisFrame() && IsEKeyPressedThisFrame())
         {
             ConsumeInputCooldown(0.20f);
             if (interactSlot >= 0)
@@ -419,25 +628,34 @@ public class LitterbugQuestManager : MonoBehaviour
         }
     }
 
-    private void UpdateDistanceHintHud(Vector3 playerPos, float nearestLitterbugSqr)
+    private void UpdateDistanceHintHud(Vector3 playerPos, float nearestLitterbugSqr, Transform nearestActiveTarget)
     {
         if (distanceHintText == null) return;
 
         bool returnPhase = questState == LitterbugQuestState.ReadyToTurnIn;
         float distMeters = 0f;
+        Vector3 targetPos = Vector3.zero;
+        bool hasTarget = false;
 
         if (returnPhase)
         {
             if (questGiverTransform != null)
             {
-                Vector3 d = questGiverTransform.position - playerPos;
+                targetPos = questGiverTransform.position;
+                Vector3 d = targetPos - playerPos;
                 d.y = 0f;
                 distMeters = Mathf.Sqrt(d.sqrMagnitude);
+                hasTarget = true;
             }
         }
         else if (nearestLitterbugSqr < float.MaxValue * 0.5f)
         {
             distMeters = Mathf.Sqrt(nearestLitterbugSqr);
+            if (nearestActiveTarget != null)
+            {
+                targetPos = nearestActiveTarget.position;
+                hasTarget = true;
+            }
         }
 
         int rounded = Mathf.RoundToInt(distMeters);
@@ -446,8 +664,22 @@ public class LitterbugQuestManager : MonoBehaviour
             lastDisplayedDistanceMeters = rounded;
             lastWasReturnHint = returnPhase;
             distanceHintText.text = returnPhase
-                ? $"Guide: {rounded}m"
+                ? $"Guardian: {rounded}m"
                 : $"Nearest litterbug: {rounded}m";
+        }
+
+        if (distanceArrowRect != null && hasTarget && mainCam != null)
+        {
+            Vector3 toTarget = targetPos - playerPos;
+            toTarget.y = 0f;
+            if (toTarget.sqrMagnitude > 0.05f)
+            {
+                Vector3 camFwd = mainCam.transform.forward;
+                camFwd.y = 0f;
+                camFwd.Normalize();
+                float angle = Vector3.SignedAngle(camFwd, toTarget, Vector3.up);
+                distanceArrowRect.localRotation = Quaternion.Euler(0f, 0f, -angle);
+            }
         }
     }
 
@@ -456,7 +688,7 @@ public class LitterbugQuestManager : MonoBehaviour
         if (questState == LitterbugQuestState.Available) return;
         if (Mathf.Abs(displayedCleanliness - targetCleanliness) > 0.0005f)
         {
-            displayedCleanliness = Mathf.MoveTowards(displayedCleanliness, targetCleanliness, dt * 0.85f);
+            displayedCleanliness = Mathf.MoveTowards(displayedCleanliness, targetCleanliness, dt / 0.4f);
             if (cleanlinessFillImage != null)
                 cleanlinessFillImage.fillAmount = displayedCleanliness;
             if (cleanlinessPercentText != null)
@@ -468,17 +700,35 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (giverMarkerRoot == null) return;
 
-        bool showMarker = questState == LitterbugQuestState.Available || questState == LitterbugQuestState.ReadyToTurnIn;
-        if (giverMarkerRoot.gameObject.activeSelf != showMarker)
-            giverMarkerRoot.gameObject.SetActive(showMarker);
+        float distToPlayer = (playerTransform != null && questGiverTransform != null)
+            ? Vector3.Distance(questGiverTransform.position, playerTransform.position)
+            : 999f;
 
-        if (!showMarker) return;
+        // Hide marker during dialogue, when not available/ready, or within InteractRadius + 1.0m
+        bool shouldHide = IsDialogueOpen
+            || (questState != LitterbugQuestState.Available && questState != LitterbugQuestState.ReadyToTurnIn)
+            || (distToPlayer <= (questGiverInteractRadius + 1.0f));
+
+        if (shouldHide)
+        {
+            if (giverMarkerRoot.gameObject.activeSelf)
+                giverMarkerRoot.gameObject.SetActive(false);
+            return;
+        }
+
+        if (!giverMarkerRoot.gameObject.activeSelf)
+            giverMarkerRoot.gameObject.SetActive(true);
 
         if (giverMarkerRenderer != null && giverMarkerRenderer.sprite != exclamationSprite)
             giverMarkerRenderer.sprite = exclamationSprite;
 
-        float bob = Mathf.Sin(Time.time * 3.5f) * 0.09f;
+        float bob = Mathf.Sin(Time.time * 2.8f) * 0.07f;
         giverMarkerRoot.localPosition = new Vector3(0f, 2.25f + bob, 0f);
+
+        // Scale with distance: 0.5 to 1.0, capped at ~60% base scale at close range
+        float distFactor = Mathf.Clamp01((distToPlayer - 4f) / 16f);
+        float distScale = Mathf.Lerp(0.60f, 1.0f, distFactor);
+        giverMarkerRoot.localScale = Vector3.one * (0.24f * distScale);
 
         if (mainCam != null)
         {
@@ -538,7 +788,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
         if (cleanlinessFillImage != null) cleanlinessFillImage.fillAmount = 0f;
         if (cleanlinessPercentText != null) cleanlinessPercentText.text = "0%";
-        if (roundTitleText != null) roundTitleText.text = $"Round {currentRound}";
+        if (roundTitleText != null) roundTitleText.text = "Quest";
         if (questCounterText != null) questCounterText.text = "Enlighten the litterbugs: 0/5";
         if (questCounterRect != null) questCounterRect.localScale = Vector3.one;
         if (distanceHintText != null) distanceHintText.text = "";
@@ -843,7 +1093,11 @@ public class LitterbugQuestManager : MonoBehaviour
         {
             string speaker = (speakers != null && i < speakers.Length) ? speakers[i] : "NPC";
             string raw = lines[i] ?? string.Empty;
-            AppendLineAsPages(pages, speaker, raw.Trim(), maxChars);
+            var subPages = DialoguePresenter.SplitIntoPagesWithFitGuard(raw.Trim(), null, 1154f, 3, 34f);
+            foreach (var sp in subPages)
+            {
+                pages.Add(new DialoguePage { speaker = speaker, text = sp });
+            }
         }
         return pages;
     }
@@ -893,6 +1147,37 @@ public class LitterbugQuestManager : MonoBehaviour
         return Time.frameCount > lastInputFrame && Time.unscaledTime >= nextAllowedInputTime;
     }
 
+    public bool IsEKeyPressedThisFrame()
+    {
+        if (Input.GetKeyDown(KeyCode.E)) return true;
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) return true;
+        if (Gamepad.current != null && (Gamepad.current.buttonSouth.wasPressedThisFrame || Gamepad.current.buttonWest.wasPressedThisFrame)) return true;
+#endif
+        return false;
+    }
+
+    public bool IsQKeyPressedThisFrame()
+    {
+        if (Input.GetKeyDown(KeyCode.Q)) return true;
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame) return true;
+        if (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame) return true;
+#endif
+        return false;
+    }
+
+    public bool IsAdvanceOrConfirmPressedThisFrame()
+    {
+        if (IsEKeyPressedThisFrame() || Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
+            return true;
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) return true;
+        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) return true;
+#endif
+        return false;
+    }
+
     private void ConsumeInputCooldown(float cooldownSeconds = 0.16f)
     {
         lastInputFrame = Time.frameCount;
@@ -905,25 +1190,33 @@ public class LitterbugQuestManager : MonoBehaviour
 
         if (questState == LitterbugQuestState.Available)
         {
-            string randomIntro = GuideIntroVariants[sessionRng.Next(0, GuideIntroVariants.Length)];
-            string[] lines = completedRounds > 0
-                ? new[] { "Another round?", randomIntro }
-                : new[] { randomIntro };
-            string[] speakers = completedRounds > 0
-                ? new[] { "Guide", "Guide" }
-                : new[] { "Guide" };
+            List<string> offerLines = DialogueData.GetCityOffer(TargetCount);
+            string[] lines = offerLines.ToArray();
+            string[] speakers = new string[lines.Length];
+            for (int i = 0; i < speakers.Length; i++) speakers[i] = "Guardian";
 
             StartDialogueSession(DialogueMode.QuestGiverOffer, -1, questGiverTransform, speakers, lines);
             if (questGiverAnimator != null) questGiverAnimator.SetBool("IsTalking", true);
         }
         else if (questState == LitterbugQuestState.ReadyToTurnIn)
         {
-            StartDialogueSession(DialogueMode.QuestGiverTurnIn, -1, questGiverTransform, new[] { "Guide", "Guide" }, TurnInLines);
+            int roundReward = CalculateRewardForRound(currentRound);
+            List<string> turnInLines = DialogueData.GetCityTurnIn(roundReward);
+            string[] lines = turnInLines.ToArray();
+            string[] speakers = new string[lines.Length];
+            for (int i = 0; i < speakers.Length; i++) speakers[i] = "Guardian";
+
+            StartDialogueSession(DialogueMode.QuestGiverTurnIn, -1, questGiverTransform, speakers, lines);
             if (questGiverAnimator != null) questGiverAnimator.SetBool("IsTalking", true);
         }
         else
         {
-            StartDialogueSession(DialogueMode.QuestGiverInProgress, -1, questGiverTransform, new[] { "Guide" }, InProgressLines);
+            List<string> inProgressLines = DialogueData.GetCityInProgress(persuadedCount, TargetCount);
+            string[] lines = inProgressLines.ToArray();
+            string[] speakers = new string[lines.Length];
+            for (int i = 0; i < speakers.Length; i++) speakers[i] = "Guardian";
+
+            StartDialogueSession(DialogueMode.QuestGiverInProgress, -1, questGiverTransform, speakers, lines);
             if (questGiverAnimator != null) questGiverAnimator.SetBool("IsTalking", true);
         }
     }
@@ -957,13 +1250,30 @@ public class LitterbugQuestManager : MonoBehaviour
         currentPageIndex = 0;
 
         if (interactPromptRoot != null) interactPromptRoot.SetActive(false);
+        WorldInteractionPrompt.Instance?.SetBlocked(true);
+
+        if (speaker != null)
+        {
+            activeSpeakerAnimator = speaker.GetComponent<NpcDialogueSpeakerAnimator>();
+            if (activeSpeakerAnimator == null) activeSpeakerAnimator = speaker.gameObject.AddComponent<NpcDialogueSpeakerAnimator>();
+            activeSpeakerAnimator.BeginDialogue(playerTransform != null ? playerTransform : (mainCam != null ? mainCam.transform : null), mode == DialogueMode.QuestGiverOffer || mode == DialogueMode.QuestGiverTurnIn);
+        }
+
+        if (slotIdx >= 0 && slotIdx < TargetCount && targetSlots[slotIdx].litterbug != null)
+        {
+            targetSlots[slotIdx].litterbug.SetDialogueActive(true);
+        }
 
         LockPlayerMovement(mode == DialogueMode.QuestGiverOffer);
         EaseCameraTowardSpeaker(speaker);
 
-        if (dialogueFadeCoroutine != null) StopCoroutine(dialogueFadeCoroutine);
-        dialogueFadeCoroutine = StartCoroutine(FadeDialoguePanelRoutine(1f, 0.25f));
+        if (letterboxRoutine != null) StopCoroutine(letterboxRoutine);
+        letterboxRoutine = StartCoroutine(TransitionDialogueEnterRoutine());
 
+        if (dialogueFadeCoroutine != null) StopCoroutine(dialogueFadeCoroutine);
+        dialogueFadeCoroutine = StartCoroutine(FadeDialoguePanelRoutine(1f, 0.30f));
+
+        StartAdvanceLock();
         ShowCurrentDialoguePage();
     }
 
@@ -978,30 +1288,97 @@ public class LitterbugQuestManager : MonoBehaviour
         DialoguePage page = activePages[currentPageIndex];
         if (speakerNameText != null)
         {
-            speakerNameText.text = page.speaker;
-            speakerNameText.color = page.speaker == "YOU"
-                ? new Color(0.45f, 0.88f, 1.0f, 1f)
-                : new Color(0.46f, 0.96f, 0.60f, 1f);
+            string speaker = page.speaker;
+            if (activeDialogueMode == DialogueMode.LitterbugPersuade)
+            {
+                if (!speaker.Equals("YOU", System.StringComparison.OrdinalIgnoreCase))
+                    speaker = "Litterbug";
+            }
+            else if (activeDialogueMode == DialogueMode.QuestGiverOffer || activeDialogueMode == DialogueMode.QuestGiverTurnIn || activeDialogueMode == DialogueMode.QuestGiverInProgress)
+            {
+                if (!speaker.Equals("YOU", System.StringComparison.OrdinalIgnoreCase))
+                    speaker = "Guardian";
+            }
+
+            speakerNameText.text = speaker.ToUpperInvariant();
+            bool isPlayer = speaker.Equals("YOU", System.StringComparison.OrdinalIgnoreCase);
+            speakerNameText.color = isPlayer
+                ? new Color(0.85f, 1.0f, 0.95f, 1f)
+                : Color.white;
+
+            if (speakerPillImage != null)
+            {
+                if (speakerPillTealSprite != null && speakerPillGreenSprite != null)
+                {
+                    speakerPillImage.sprite = isPlayer ? speakerPillTealSprite : speakerPillGreenSprite;
+                }
+                else
+                {
+                    speakerPillImage.color = isPlayer
+                        ? new Color(0.18f, 0.55f, 0.46f, 1f)
+                        : new Color(0.36f, 0.67f, 0.35f, 1f);
+                }
+            }
         }
+
+        if (speakerPunchCoroutine != null) StopCoroutine(speakerPunchCoroutine);
+        speakerPunchCoroutine = StartCoroutine(PunchSpeakerTabRoutine());
+
+        if (activeSpeakerAnimator != null)
+            activeSpeakerAnimator.TriggerReactionBeat(currentPageIndex);
 
         bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
-        if (acceptQuestButton != null)
-            acceptQuestButton.gameObject.SetActive(isOfferFinalPage);
-
-        if (continueHintText != null)
+        if (choiceButtonsRoot != null)
         {
-            continueHintText.text = isOfferFinalPage
-                ? "Press [E] or click Accept"
-                : (currentPageIndex == activePages.Count - 1 ? "Press [E] to finish" : "Press [E] to continue");
+            choiceButtonsRoot.SetActive(false); // Only shows after typewriter finishes
         }
+        else if (acceptQuestButton != null)
+        {
+            acceptQuestButton.gameObject.SetActive(false);
+        }
+
+        if (continuePromptRoot != null)
+        {
+            continuePromptRoot.SetActive(!isOfferFinalPage);
+        }
+
+        if (continueKeyCapPrompt != null)
+        {
+            string act = (currentPageIndex == activePages.Count - 1) ? "Finish" : "Continue";
+            continueKeyCapPrompt.SetPrompt("E", act);
+            continueKeyCapPrompt.SetLocked(false);
+        }
+
+        if (dialogueNextTriangle != null)
+            dialogueNextTriangle.SetActive(false);
 
         if (typewriterCoroutine != null) StopCoroutine(typewriterCoroutine);
         typewriterCoroutine = StartCoroutine(TypewriterRoutine(page.text));
     }
 
+    private IEnumerator PunchSpeakerTabRoutine()
+    {
+        if (speakerTabRect == null) yield break;
+        float elapsed = 0f;
+        float dur = 0.22f;
+        while (elapsed < dur)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / dur);
+            float s = 1f + 0.12f * Mathf.Sin(t * Mathf.PI);
+            speakerTabRect.localScale = new Vector3(s, s, 1f);
+            yield return null;
+        }
+        speakerTabRect.localScale = Vector3.one;
+        speakerPunchCoroutine = null;
+    }
+
     private IEnumerator TypewriterRoutine(string fullText)
     {
         isTypingPage = true;
+        if (activeSpeakerAnimator != null) activeSpeakerAnimator.SetTyping(true);
+        if (dialogueNextTriangle != null) dialogueNextTriangle.SetActive(false);
+
         if (dialogueBodyText != null)
         {
             dialogueBodyText.text = fullText;
@@ -1014,16 +1391,48 @@ public class LitterbugQuestManager : MonoBehaviour
             if (dialogueBodyText != null)
                 dialogueBodyText.maxVisibleCharacters = i;
 
-            if (i % 2 == 1 && !char.IsWhiteSpace(fullText[i - 1]))
+            char c = fullText[i - 1];
+            if (i % 2 == 1 && !char.IsWhiteSpace(c))
                 PlayDialogueBlipAudio();
 
-            yield return new WaitForSecondsRealtime(0.022f);
+            if (c == ',' || c == '.' || c == '?' || c == '!')
+            {
+                if (activeSpeakerAnimator != null) activeSpeakerAnimator.TriggerPunctuationNod();
+                yield return new WaitForSecondsRealtime(0.12f);
+            }
+            else
+            {
+                yield return new WaitForSecondsRealtime(0.025f); // ~40 chars/s
+            }
         }
 
         if (dialogueBodyText != null)
             dialogueBodyText.maxVisibleCharacters = 99999;
 
         isTypingPage = false;
+        if (activeSpeakerAnimator != null) activeSpeakerAnimator.SetTyping(false);
+        bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
+        if (isOfferFinalPage)
+        {
+            if (choiceButtonsRoot != null)
+            {
+                choiceButtonsRoot.SetActive(true);
+                if (acceptQuestButton != null) acceptQuestButton.gameObject.SetActive(true);
+                if (notNowButton != null) notNowButton.gameObject.SetActive(true);
+            }
+            else if (acceptQuestButton != null)
+            {
+                acceptQuestButton.gameObject.SetActive(true);
+            }
+            if (continuePromptRoot != null) continuePromptRoot.SetActive(false);
+        }
+        else
+        {
+            if (dialogueNextTriangle != null)
+                dialogueNextTriangle.SetActive(false);
+        }
+
+        StartAdvanceLock();
         typewriterCoroutine = null;
     }
 
@@ -1044,6 +1453,38 @@ public class LitterbugQuestManager : MonoBehaviour
                 dialogueBodyText.maxVisibleCharacters = 99999;
             }
             isTypingPage = false;
+            if (activeSpeakerAnimator != null) activeSpeakerAnimator.SetTyping(false);
+
+            bool isOfferFinal = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
+            if (isOfferFinal)
+            {
+                if (choiceButtonsRoot != null)
+                {
+                    choiceButtonsRoot.SetActive(true);
+                    if (acceptQuestButton != null) acceptQuestButton.gameObject.SetActive(true);
+                    if (notNowButton != null) notNowButton.gameObject.SetActive(true);
+                }
+                else if (acceptQuestButton != null)
+                {
+                    acceptQuestButton.gameObject.SetActive(true);
+                }
+                if (continuePromptRoot != null) continuePromptRoot.SetActive(false);
+            }
+            else
+            {
+                if (dialogueNextTriangle != null) dialogueNextTriangle.SetActive(false);
+            }
+
+            StartAdvanceLock();
+            return;
+        }
+
+        if (advanceLockTimer > 0f) return;
+
+        bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
+        if (isOfferFinalPage)
+        {
+            OnAcceptButtonClicked();
             return;
         }
 
@@ -1062,16 +1503,68 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (!CanConsumeEKeyThisFrame()) return;
 
-        if (Input.GetKeyDown(KeyCode.E))
+        if (advanceLockTimer > 0f)
+        {
+            advanceLockTimer -= Time.unscaledDeltaTime;
+            if (advanceLockTimer <= 0f)
+            {
+                if (continueKeyCapPrompt != null) continueKeyCapPrompt.SetLocked(false);
+                if (acceptKeyCapPrompt != null) acceptKeyCapPrompt.SetLocked(false);
+                if (notNowKeyCapPrompt != null) notNowKeyCapPrompt.SetLocked(false);
+            }
+            return;
+        }
+
+        bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
+        if (isOfferFinalPage && !isTypingPage)
+        {
+            if (IsQKeyPressedThisFrame())
+            {
+                ConsumeInputCooldown(0.20f);
+                OnNotNowButtonClicked();
+                return;
+            }
+
+            if (IsAdvanceOrConfirmPressedThisFrame())
+            {
+                ConsumeInputCooldown(0.20f);
+                OnAcceptButtonClicked();
+                return;
+            }
+            return;
+        }
+
+        if (IsAdvanceOrConfirmPressedThisFrame())
         {
             ConsumeInputCooldown(0.16f);
             StepDialogueInput();
         }
     }
 
+    private void StartAdvanceLock()
+    {
+        advanceLockTimer = advanceDelay;
+        if (continueKeyCapPrompt != null) continueKeyCapPrompt.SetLocked(true);
+        if (acceptKeyCapPrompt != null) acceptKeyCapPrompt.SetLocked(true);
+        if (notNowKeyCapPrompt != null) notNowKeyCapPrompt.SetLocked(true);
+    }
+
+    private void OnNotNowButtonClicked()
+    {
+        if (!IsDialogueOpen || advanceLockTimer > 0f) return;
+        ConsumeInputCooldown(0.20f);
+        if (typewriterCoroutine != null)
+        {
+            StopCoroutine(typewriterCoroutine);
+            typewriterCoroutine = null;
+        }
+        isTypingPage = false;
+        CloseDialogueImmediateOrFade();
+    }
+
     private void OnAcceptButtonClicked()
     {
-        if (!IsDialogueOpen || activeDialogueMode != DialogueMode.QuestGiverOffer) return;
+        if (!IsDialogueOpen || activeDialogueMode != DialogueMode.QuestGiverOffer || advanceLockTimer > 0f) return;
         ConsumeInputCooldown(0.20f);
         if (typewriterCoroutine != null)
         {
@@ -1128,7 +1621,7 @@ public class LitterbugQuestManager : MonoBehaviour
         {
             questState = LitterbugQuestState.ReadyToTurnIn;
             if (questCounterText != null)
-                questCounterText.text = "Return to the Guide";
+                questCounterText.text = "Return to the Guardian";
 
             if (minimapTracker != null)
                 minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
@@ -1163,7 +1656,7 @@ public class LitterbugQuestManager : MonoBehaviour
         if (questCounterText != null)
             questCounterText.text = $"Complete! +{reward}";
         if (distanceHintText != null)
-            distanceHintText.text = "Talk to Guide for another round";
+            distanceHintText.text = "Talk to Guardian for another round";
 
         if (counterPunchCoroutine != null) StopCoroutine(counterPunchCoroutine);
         if (questCounterRect != null && questCounterRect.gameObject.activeInHierarchy)
@@ -1194,11 +1687,38 @@ public class LitterbugQuestManager : MonoBehaviour
             StopCoroutine(typewriterCoroutine);
             typewriterCoroutine = null;
         }
-        if (acceptQuestButton != null)
+
+        if (choiceButtonsRoot != null)
+            choiceButtonsRoot.SetActive(false);
+        else if (acceptQuestButton != null)
             acceptQuestButton.gameObject.SetActive(false);
+
+        if (continuePromptRoot != null)
+            continuePromptRoot.SetActive(false);
+
+        if (dialogueNextTriangle != null)
+            dialogueNextTriangle.SetActive(false);
+
+        if (activeSpeakerAnimator != null)
+        {
+            activeSpeakerAnimator.EndDialogue();
+            activeSpeakerAnimator = null;
+        }
+
+        for (int i = 0; i < TargetCount; i++)
+        {
+            if (targetSlots[i].litterbug != null)
+                targetSlots[i].litterbug.SetDialogueActive(false);
+        }
+
+        WorldInteractionPrompt.Instance?.SetBlocked(false);
 
         ReleaseCameraEase();
         UnlockPlayerMovement();
+
+        if (letterboxRoutine != null) StopCoroutine(letterboxRoutine);
+        if (isActiveAndEnabled)
+            letterboxRoutine = StartCoroutine(TransitionDialogueExitRoutine());
 
         if (dialogueFadeCoroutine != null) StopCoroutine(dialogueFadeCoroutine);
         if (isActiveAndEnabled && dialoguePanelGroup != null)
@@ -1213,36 +1733,78 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (speaker == null || mainCam == null || dialogueVirtualCam == null) return;
 
-        Vector3 speakerChest = speaker.position + Vector3.up * 1.42f;
-        Vector3 playerEye = playerTransform != null
-            ? playerTransform.position + Vector3.up * 1.48f
-            : mainCam.transform.position;
+        // Restore player head and accessories by enabling layer 7 (HiddenFromFirstPerson) on MainCamera
+        if (!cameraCullingMaskModified)
+        {
+            savedCameraCullingMask = mainCam.cullingMask;
+            mainCam.cullingMask |= (1 << 7);
+            cameraCullingMaskModified = true;
+        }
 
-        Vector3 fromSpeakerToPlayer = playerEye - speaker.position;
-        fromSpeakerToPlayer.y = 0f;
-        if (fromSpeakerToPlayer.sqrMagnitude < 0.01f)
-            fromSpeakerToPlayer = speaker.forward;
-        fromSpeakerToPlayer.Normalize();
+        // Hide carried item during dialogue
+        if (ItemCarry.ActiveCarriedItem != null)
+        {
+            hiddenCarriedItem = ItemCarry.ActiveCarriedItem;
+            hiddenCarriedItem.SetActive(false);
+        }
 
-        Vector3 rightOffset = Vector3.Cross(Vector3.up, fromSpeakerToPlayer) * 0.28f;
-        Vector3 shotPos = speaker.position + fromSpeakerToPlayer * 2.15f + rightOffset + Vector3.up * 1.50f;
-        Quaternion shotRot = Quaternion.LookRotation((speakerChest - shotPos).normalized, Vector3.up);
+        // Over-the-shoulder framing calculation
+        Vector3 playerPos = playerTransform != null ? playerTransform.position : (mainCam.transform.position - Vector3.up * 1.5f);
+        Vector3 speakerPos = speaker.position;
+
+        Vector3 toSpeaker = speakerPos - playerPos;
+        toSpeaker.y = 0f;
+        if (toSpeaker.sqrMagnitude < 0.01f)
+            toSpeaker = playerTransform != null ? playerTransform.forward : Vector3.forward;
+        toSpeaker.Normalize();
+
+        Vector3 rightOffset = Vector3.Cross(Vector3.up, toSpeaker) * 0.42f;
+        Vector3 playerEye = playerPos + Vector3.up * 1.52f;
+        Vector3 desiredShotPos = playerPos - toSpeaker * 0.85f + rightOffset + Vector3.up * 1.58f;
+
+        // Anti-clipping spherecast behind player
+        Vector3 rayDir = desiredShotPos - playerEye;
+        float rayDist = rayDir.magnitude;
+        if (rayDist > 0.05f)
+        {
+            rayDir /= rayDist;
+            int mask = ~((1 << 8) | (1 << 2)); // Ignore Player (layer 8) and Ignore Raycast (layer 2)
+            if (Physics.SphereCast(playerEye, 0.20f, rayDir, out RaycastHit hit, rayDist, mask, QueryTriggerInteraction.Ignore))
+            {
+                desiredShotPos = playerEye + rayDir * Mathf.Max(0.2f, hit.distance - 0.1f);
+            }
+        }
+
+        Vector3 speakerChest = speakerPos + Vector3.up * 1.35f;
+        Quaternion shotRot = Quaternion.LookRotation((speakerChest - desiredShotPos).normalized, Vector3.up);
 
         CinemachineBrain brain = mainCam.GetComponent<CinemachineBrain>();
         if (brain != null)
         {
             brain.IgnoreTimeScale = true;
-            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, 0.45f);
+            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, 0.35f);
         }
 
-        dialogueVirtualCam.transform.SetPositionAndRotation(shotPos, shotRot);
-        dialogueVirtualCam.Lens.FieldOfView = 52f;
+        dialogueVirtualCam.transform.SetPositionAndRotation(desiredShotPos, shotRot);
+        dialogueVirtualCam.Lens.FieldOfView = 42f; // Slight push (-8 deg FOV from 50)
         dialogueVirtualCam.gameObject.SetActive(true);
         dialogueVirtualCam.Priority.Value = 35;
     }
 
     private void ReleaseCameraEase()
     {
+        if (cameraCullingMaskModified && mainCam != null)
+        {
+            mainCam.cullingMask = savedCameraCullingMask;
+            cameraCullingMaskModified = false;
+        }
+
+        if (hiddenCarriedItem != null)
+        {
+            hiddenCarriedItem.SetActive(true);
+            hiddenCarriedItem = null;
+        }
+
         if (dialogueVirtualCam != null)
         {
             dialogueVirtualCam.Priority.Value = 0;
@@ -1277,7 +1839,6 @@ public class LitterbugQuestManager : MonoBehaviour
 
     private void UnlockPlayerMovement()
     {
-        if (!playerControlsLocked && cachedFps != null && cachedFps.enabled) return;
         playerControlsLocked = false;
 
         if (cachedFps != null) cachedFps.enabled = true;
@@ -1292,6 +1853,15 @@ public class LitterbugQuestManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
+#if ENABLE_INPUT_SYSTEM
+        var playerInput = cachedFps != null ? cachedFps.GetComponent<PlayerInput>() : FindFirstObjectByType<PlayerInput>();
+        if (playerInput != null && playerInput.actions != null)
+        {
+            playerInput.SwitchCurrentActionMap("Player");
+            playerInput.currentActionMap?.Enable();
+        }
+#endif
+
         if (CenterScreenCursor.Instance != null)
             CenterScreenCursor.Instance.SetVisible(true);
     }
@@ -1300,10 +1870,24 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (dialoguePanelGroup == null) yield break;
 
+        RectTransform panelRT = dialoguePanelRect != null ? dialoguePanelRect : dialoguePanelGroup.GetComponent<RectTransform>();
+        if (panelRT != null && !capturedDialoguePos)
+        {
+            baseDialoguePosY = panelRT.anchoredPosition.y;
+            capturedDialoguePos = true;
+        }
+
         if (targetAlpha > 0f && !dialoguePanelGroup.gameObject.activeSelf)
+        {
             dialoguePanelGroup.gameObject.SetActive(true);
+            if (panelRT != null)
+                panelRT.anchoredPosition = new Vector2(panelRT.anchoredPosition.x, baseDialoguePosY - 30f);
+        }
 
         float startAlpha = dialoguePanelGroup.alpha;
+        float startPosY = panelRT != null ? panelRT.anchoredPosition.y : baseDialoguePosY;
+        float endPosY = (targetAlpha > 0f) ? baseDialoguePosY : (baseDialoguePosY - 30f);
+
         bool interactive = targetAlpha > 0.5f;
         if (!interactive)
         {
@@ -1317,10 +1901,18 @@ public class LitterbugQuestManager : MonoBehaviour
             elapsed += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             dialoguePanelGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, t);
+            if (panelRT != null)
+            {
+                panelRT.anchoredPosition = new Vector2(panelRT.anchoredPosition.x, Mathf.Lerp(startPosY, endPosY, t));
+            }
             yield return null;
         }
 
         dialoguePanelGroup.alpha = targetAlpha;
+        if (panelRT != null)
+        {
+            panelRT.anchoredPosition = new Vector2(panelRT.anchoredPosition.x, endPosY);
+        }
         dialoguePanelGroup.interactable = interactive;
         dialoguePanelGroup.blocksRaycasts = interactive;
 
@@ -1328,6 +1920,135 @@ public class LitterbugQuestManager : MonoBehaviour
             dialoguePanelGroup.gameObject.SetActive(false);
 
         dialogueFadeCoroutine = null;
+    }
+
+    private void SetHudVisibility(bool visible, float duration = 0.25f)
+    {
+        if (hudFadeRoutine != null) StopCoroutine(hudFadeRoutine);
+        if (isActiveAndEnabled)
+            hudFadeRoutine = StartCoroutine(HudFadeRoutine(visible, duration));
+    }
+
+    private IEnumerator HudFadeRoutine(bool visible, float duration)
+    {
+        float targetAlpha = visible ? 1f : 0f;
+        var cgs = new System.Collections.Generic.List<CanvasGroup>();
+
+        var coinsGo = GameObject.Find("UI_Coins");
+        if (coinsGo != null)
+        {
+            var cg = coinsGo.GetComponent<CanvasGroup>();
+            if (cg != null) cgs.Add(cg);
+        }
+        var mapGo = GameObject.Find("UI_Minimap");
+        if (mapGo != null)
+        {
+            var cg = mapGo.GetComponent<CanvasGroup>();
+            if (cg != null) cgs.Add(cg);
+        }
+        var setGo = GameObject.Find("UI_HUD_SettingsButton");
+        if (setGo != null)
+        {
+            var cg = setGo.GetComponent<CanvasGroup>();
+            if (cg != null) cgs.Add(cg);
+        }
+        var qpGo = GameObject.Find("QuestPanel");
+        if (qpGo != null)
+        {
+            var cg = qpGo.GetComponent<CanvasGroup>();
+            if (cg != null) cgs.Add(cg);
+        }
+
+        if (cgs.Count == 0) yield break;
+
+        float[] startAlphas = new float[cgs.Count];
+        for (int i = 0; i < cgs.Count; i++)
+        {
+            startAlphas[i] = cgs[i].alpha;
+            if (!visible)
+            {
+                cgs[i].blocksRaycasts = false;
+                cgs[i].interactable = false;
+            }
+        }
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            for (int i = 0; i < cgs.Count; i++)
+            {
+                if (cgs[i] != null)
+                    cgs[i].alpha = Mathf.Lerp(startAlphas[i], targetAlpha, t);
+            }
+            yield return null;
+        }
+
+        for (int i = 0; i < cgs.Count; i++)
+        {
+            if (cgs[i] != null)
+            {
+                cgs[i].alpha = targetAlpha;
+                cgs[i].blocksRaycasts = visible;
+                cgs[i].interactable = visible;
+            }
+        }
+        hudFadeRoutine = null;
+    }
+
+    private IEnumerator TransitionDialogueEnterRoutine()
+    {
+        SetHudVisibility(false, 0.25f);
+
+        float elapsed = 0f;
+        float dur = 0.6f;
+        Vector2 topStart = new Vector2(0f, 86f);
+        Vector2 topEnd = Vector2.zero;
+        Vector2 botStart = new Vector2(0f, -86f);
+        Vector2 botEnd = Vector2.zero;
+
+        while (elapsed < dur)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / dur);
+            float smooth = Mathf.SmoothStep(0f, 1f, t);
+
+            if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = Vector2.Lerp(topStart, topEnd, smooth);
+            if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = Vector2.Lerp(botStart, botEnd, smooth);
+            yield return null;
+        }
+
+        if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = topEnd;
+        if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = botEnd;
+        letterboxRoutine = null;
+    }
+
+    private IEnumerator TransitionDialogueExitRoutine()
+    {
+        SetHudVisibility(true, 0.25f);
+
+        float elapsed = 0f;
+        float dur = 0.6f;
+        Vector2 topStart = topLetterboxBar != null ? topLetterboxBar.anchoredPosition : Vector2.zero;
+        Vector2 topEnd = new Vector2(0f, 86f);
+        Vector2 botStart = bottomLetterboxBar != null ? bottomLetterboxBar.anchoredPosition : Vector2.zero;
+        Vector2 botEnd = new Vector2(0f, -86f);
+
+        while (elapsed < dur)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / dur);
+            float smooth = Mathf.SmoothStep(0f, 1f, t);
+
+            if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = Vector2.Lerp(topStart, topEnd, smooth);
+            if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = Vector2.Lerp(botStart, botEnd, smooth);
+            yield return null;
+        }
+
+        if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = topEnd;
+        if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = botEnd;
+        letterboxRoutine = null;
     }
 
     private IEnumerator SlideInQuestPanelRoutine()
@@ -1345,7 +2066,7 @@ public class LitterbugQuestManager : MonoBehaviour
         questPanelGroup.interactable = false;
         questPanelGroup.blocksRaycasts = false;
 
-        Vector2 hiddenPos = questPanelShownAnchoredPos + new Vector2(420f, 0f);
+        Vector2 hiddenPos = questPanelShownAnchoredPos - new Vector2(350f, 0f);
         questPanelRect.anchoredPosition = hiddenPos;
 
         float duration = 0.38f;
@@ -1466,7 +2187,10 @@ public class LitterbugQuestManager : MonoBehaviour
     public void PlayDialogueBlipAudio()
     {
         if (sfxSource != null && dialogueBlipClip != null)
+        {
+            sfxSource.pitch = UnityEngine.Random.Range(0.94f, 1.06f);
             sfxSource.PlayOneShot(dialogueBlipClip, 0.45f);
+        }
     }
 
     public void PlayCoinAudio()
@@ -1490,18 +2214,66 @@ public class LitterbugQuestManager : MonoBehaviour
         Debug.Log("[LitterbugQuest] 15-type repeatable self-check passed.");
     }
 
-    private void OnDisable()
+    public void PerformSafetyReset()
     {
         IsDialogueOpen = false;
+        advanceLockTimer = 0f;
+        isTypingPage = false;
+        activeDialogueMode = DialogueMode.None;
+        activeSlotIndex = -1;
+        activeSpeakerTransform = null;
+
+        if (typewriterCoroutine != null)
+        {
+            StopCoroutine(typewriterCoroutine);
+            typewriterCoroutine = null;
+        }
+
+        if (choiceButtonsRoot != null) choiceButtonsRoot.SetActive(false);
+        if (acceptQuestButton != null) acceptQuestButton.gameObject.SetActive(false);
+        if (notNowButton != null) notNowButton.gameObject.SetActive(false);
+        if (continuePromptRoot != null) continuePromptRoot.SetActive(false);
+        if (dialogueNextTriangle != null) dialogueNextTriangle.SetActive(false);
+
+        if (activeSpeakerAnimator != null)
+        {
+            activeSpeakerAnimator.EndDialogue();
+            activeSpeakerAnimator = null;
+        }
+
+        for (int i = 0; i < TargetCount; i++)
+        {
+            if (targetSlots[i].litterbug != null)
+                targetSlots[i].litterbug.SetDialogueActive(false);
+        }
+
         ReleaseCameraEase();
         UnlockPlayerMovement();
+
+        if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = new Vector2(0f, 86f);
+        if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = new Vector2(0f, -86f);
+
+        if (dialoguePanelGroup != null)
+        {
+            dialoguePanelGroup.alpha = 0f;
+            dialoguePanelGroup.blocksRaycasts = false;
+            dialoguePanelGroup.interactable = false;
+            dialoguePanelGroup.gameObject.SetActive(false);
+        }
+
+        SetHudVisibility(true, 0f);
+        Time.timeScale = 1f;
+        WorldInteractionPrompt.Instance?.SetBlocked(false);
+    }
+
+    private void OnDisable()
+    {
+        PerformSafetyReset();
     }
 
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
-        IsDialogueOpen = false;
-        ReleaseCameraEase();
-        UnlockPlayerMovement();
+        PerformSafetyReset();
     }
 }

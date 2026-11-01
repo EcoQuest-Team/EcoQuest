@@ -1,0 +1,104 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3685b770278ccd489251a6eb12b07dd, type: 3}
+  m_Name: UITheme
+  m_EditorClassIdentifier: Assembly-CSharp::UITheme
+  useLegacyPopups: 0
+  panelColor: {r: 0.043, g: 0.141, b: 0.098, a: 0.97}
+  borderColor: {r: 0.427, g: 0.745, b: 0.427, a: 1}
+  accentColor: {r: 0.18, g: 0.49, b: 0.31, a: 1}
+  textWhite: {r: 1, g: 1, b: 1, a: 1}
+  textMuted: {r: 0.89, g: 0.96, b: 0.89, a: 1}
+  textHint: {r: 0.835, g: 0.925, b: 0.835, a: 1}
+  successColor: {r: 0.18, g: 0.545, b: 0.341, a: 1}
+  errorColor: {r: 0.702, g: 0.255, b: 0.235, a: 1}
+  warnColor: {r: 0.949, g: 0.757, b: 0.306, a: 1}
+  backdropColor: {r: 0, g: 0, b: 0, a: 0.55}
+  quizAnswerIdle: {r: 0.09, g: 0.251, b: 0.184, a: 1}
+  quizAnswerHover: {r: 0.133, g: 0.388, b: 0.278, a: 1}
+  quizAnswerSelected: {r: 0.18, g: 0.49, b: 0.31, a: 1}
+  quizAnswerCorrect: {r: 0.18, g: 0.545, b: 0.341, a: 1}
+  quizAnswerWrong: {r: 0.702, g: 0.255, b: 0.235, a: 1}
+  titleFont: {fileID: 11400000, guid: 8e290d08363f5c248b47d432d6c44096, type: 2}
+  bodyFont: {fileID: 11400000, guid: f98bcf67ee2d3064c907a81fd39bfe41, type: 2}
+  fontSizeBody: 34
+  fontSizeTitle: 40
+  fontSizeLabel: 24
+  fontSizeSmall: 20
+  modalEnterDuration: 0.28
+  modalExitDuration: 0.18
+  modalCrossfadeDuration: 0.25
+  hudFadeDuration: 0.25
+  advanceDelayDuration: 0.5
+  tutorialStepGap: 0.15
+  transitionStartScale: 0.95
+  openEaseCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  closeEaseCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panelBackgroundSprite: {fileID: 21300000, guid: 8be502f52fc705d46a893c184a072552, type: 3}
+  speakerTabGreenSprite: {fileID: 21300000, guid: 3da72e91ff53ff948963bcf83f758e9a, type: 3}
+  speakerTabTealSprite: {fileID: 21300000, guid: 322ed388e45b96c488b419f12ce9e158, type: 3}
+  imageFrameBorderSprite: {fileID: 0}
+  keycapFaceSprite: {fileID: 21300000, guid: 094b90579ebc7c74583c3abe1d9ad9d0, type: 3}
+  keycapBaseSprite: {fileID: 21300000, guid: 99992d033318df04ab0c9d1151f447d3, type: 3}
+  buttonHoverSound: {fileID: 0}
+  buttonClickSound: {fileID: 0}
+  modalOpenSound: {fileID: 0}
+  modalCloseSound: {fileID: 0}
+  quizCorrectSound: {fileID: 0}
+  quizWrongSound: {fileID: 0}
+  coinPickupSound: {fileID: 0}

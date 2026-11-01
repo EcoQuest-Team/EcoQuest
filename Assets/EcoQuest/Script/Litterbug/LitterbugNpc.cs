@@ -1,42 +1,60 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public enum LitterbugState
 {
-    WalkingToNode = 0,
-    Idle = 1,
-    Throwing = 2,
-    Listening = 3,
-    Persuaded = 4
+    Idle,
+    WalkingToNode,
+    Throwing,
+    Listening,
+    Persuaded
 }
 
+/// <summary>
+/// Controller for individual Litterbug NPCs.
+/// Manages throwing behavior (in front of player within 8m, 4-5s intervals, scripted arc, max 4 items),
+/// overhead distance-scaled "!" marker (hides inside InteractRadius+1m or during dialogue),
+/// and humanoid arm throw animation.
+/// </summary>
 public class LitterbugNpc : MonoBehaviour
 {
     public const int MaxLitterPerNpc = 4;
 
-    [Header("Detection Radii (Inspector Configurable)")]
+    [Header("Radii & Landing Tuning (Inspector)")]
     [SerializeField] private float triggerRadius = 20f;
-    [SerializeField] private float triggerExitBuffer = 2f;
-    [SerializeField] private float interactRadius = 2.5f;
-
-    private NpcBrain brain;
-    private Animator anim;
-    private Transform rightUpperArm;
-    private Transform rightLowerArm;
-    private Transform rightHand;
-    private Transform mainCamTransform;
+    [SerializeField] private float triggerExitBuffer = 3f;
+    [SerializeField] private float interactRadius = 2.4f;
+    [SerializeField] private float throwAtPlayerRadius = 8f;
+    [SerializeField] private Vector2 landingDistRange = new Vector2(2.5f, 3.5f);
+    [SerializeField] private Vector2 throwIntervalRange = new Vector2(4.0f, 5.0f);
 
     private LitterbugQuestManager manager;
+    private NpcBrain brain;
     private LitterTypeEntry assignedEntry;
     private Sprite exclamationSprite;
     private Sprite greenCheckSprite;
     private AnimationClip customThrowClip;
+    private Transform mainCamTransform;
+
+    private Animator anim;
+    private Transform rightUpperArm;
+    private Transform rightLowerArm;
+    private Transform rightHand;
 
     private Transform markerRoot;
     private SpriteRenderer markerRenderer;
     private float bobPhase;
-    private float markerBaseScale = 0.42f;
+    private float markerBaseScale = 0.24f;
     private float markerPopTimer;
+    private bool isDialogueActive = false;
+
+    public void SetDialogueActive(bool active)
+    {
+        isDialogueActive = active;
+        if (markerRoot != null)
+            markerRoot.gameObject.SetActive(!active && State != LitterbugState.Persuaded);
+    }
 
     private float nextThrowTimer;
     private bool isSwingingThrow;
@@ -47,6 +65,7 @@ public class LitterbugNpc : MonoBehaviour
     private float armBlendWeight;
     private Vector3 lastKnownPlayerPos;
     private Vector3 lastThrownDirectionXZ;
+    private bool wasInTriggerLastFrame = false;
 
     private readonly Queue<LitterProp> spawnedLitter = new Queue<LitterProp>(MaxLitterPerNpc + 1);
     private int groundMask;
@@ -60,6 +79,7 @@ public class LitterbugNpc : MonoBehaviour
     public Vector3 LastThrownDirectionXZ => lastThrownDirectionXZ;
 
     public float TriggerRadius => triggerRadius;
+    public float ThrowAtPlayerRadius => throwAtPlayerRadius;
     public float InteractRadius => interactRadius;
     public float TriggerRadiusSqr => triggerRadius * triggerRadius;
     public float TriggerExitRadiusSqr => (triggerRadius + triggerExitBuffer) * (triggerRadius + triggerExitBuffer);
@@ -81,9 +101,9 @@ public class LitterbugNpc : MonoBehaviour
         manager = questManager;
         brain = npcBrain;
         assignedEntry = entry;
-        triggerRadius = trigRadius;
+        triggerRadius = trigRadius > 0f ? trigRadius : 20f;
         triggerExitBuffer = trigExitBuf;
-        interactRadius = interRadius;
+        interactRadius = interRadius > 0f ? interRadius : 2.4f;
         exclamationSprite = exclSprite;
         greenCheckSprite = checkSprite;
         customThrowClip = optionalThrowClip;
@@ -104,9 +124,9 @@ public class LitterbugNpc : MonoBehaviour
             anim.runtimeAnimatorController = aoc;
         }
 
-        groundMask = ~LayerMask.GetMask("Ignore Raycast", "UI");
+        groundMask = ~LayerMask.GetMask("Ignore Raycast", "UI", "Player");
         bobPhase = Random.Range(0f, Mathf.PI * 2f);
-        nextThrowTimer = Random.Range(0.9f, 1.5f);
+        nextThrowTimer = 0.3f;
         isSwingingThrow = false;
         swingElapsed = 0f;
         armBlendWeight = 0f;
@@ -140,10 +160,11 @@ public class LitterbugNpc : MonoBehaviour
         {
             State = LitterbugState.WalkingToNode;
             isSwingingThrow = false;
+            wasInTriggerLastFrame = false;
             return;
         }
 
-        if (inDialogueWithThisNpc)
+        if (inDialogueWithThisNpc || isDialogueActive)
         {
             State = LitterbugState.Listening;
             isSwingingThrow = false;
@@ -159,7 +180,9 @@ public class LitterbugNpc : MonoBehaviour
         if (State == LitterbugState.Listening)
         {
             if (sqrDistToPlayer > interExitSqr)
+            {
                 State = sqrDistToPlayer <= trigSqr ? LitterbugState.Throwing : LitterbugState.Idle;
+            }
         }
         else if (sqrDistToPlayer <= interSqr)
         {
@@ -172,13 +195,19 @@ public class LitterbugNpc : MonoBehaviour
             {
                 State = LitterbugState.Idle;
                 isSwingingThrow = false;
+                wasInTriggerLastFrame = false;
             }
         }
         else
         {
-            State = sqrDistToPlayer <= trigSqr ? LitterbugState.Throwing : LitterbugState.Idle;
-            if (State == LitterbugState.Throwing && nextThrowTimer > 1.6f)
-                nextThrowTimer = Random.Range(0.8f, 1.4f);
+            bool inTrigger = sqrDistToPlayer <= trigSqr;
+            State = inTrigger ? LitterbugState.Throwing : LitterbugState.Idle;
+            if (inTrigger && !wasInTriggerLastFrame)
+            {
+                // Entering TriggerRadius (20m): first throw after ~0.3s
+                nextThrowTimer = 0.3f;
+            }
+            wasInTriggerLastFrame = inTrigger;
         }
 
         if (State == LitterbugState.Listening)
@@ -187,6 +216,8 @@ public class LitterbugNpc : MonoBehaviour
         }
         else if (State == LitterbugState.Throwing)
         {
+            // Turn toward player (yaw only)
+            FacePositionSmooth(playerPos, dt * 7f);
             UpdateThrowingCycle(dt);
         }
     }
@@ -208,7 +239,7 @@ public class LitterbugNpc : MonoBehaviour
             {
                 isSwingingThrow = false;
                 swingElapsed = 0f;
-                nextThrowTimer = Random.Range(4f, 5f);
+                nextThrowTimer = Random.Range(throwIntervalRange.x, throwIntervalRange.y);
             }
         }
         else
@@ -234,35 +265,10 @@ public class LitterbugNpc : MonoBehaviour
         releasedTrashThisSwing = false;
     }
 
-    private Vector3 ChooseNonPlayerThrowDirection(Vector3 playerPos)
-    {
-        Vector3 toPlayer = playerPos - transform.position;
-        toPlayer.y = 0f;
-        bool hasPlayerDir = toPlayer.sqrMagnitude > 0.001f;
-        if (hasPlayerDir) toPlayer.Normalize();
-
-        // Candidate front/side offsets relative to NPC forward; reject any direction pointing toward player
-        float[] baseAngles = { -85f, 85f, -55f, 55f, 0f, -95f, 95f };
-        int start = Random.Range(0, baseAngles.Length);
-
-        for (int i = 0; i < baseAngles.Length; i++)
-        {
-            float yaw = baseAngles[(start + i) % baseAngles.Length] + Random.Range(-8f, 8f);
-            Vector3 cand = Quaternion.Euler(0f, yaw, 0f) * transform.forward;
-            cand.y = 0f;
-            if (cand.sqrMagnitude < 0.001f) continue;
-            cand.Normalize();
-
-            if (!hasPlayerDir || Vector3.Dot(cand, toPlayer) <= 0.0f)
-                return cand;
-        }
-
-        // Guaranteed perpendicular/away fallback if NPC is facing directly toward the player
-        Vector3 side = hasPlayerDir ? Vector3.Cross(Vector3.up, toPlayer).normalized : transform.right;
-        if (Random.value < 0.5f) side = -side;
-        return (side - (hasPlayerDir ? toPlayer * 0.22f : Vector3.zero)).normalized;
-    }
-
+    /// <summary>
+    /// Computes landing position in front of player (if <=8m) or in front of NPC toward player (if >8m),
+    /// snaps to ground, validates NavMesh/overlap, and launches scripted arc.
+    /// </summary>
     private LitterProp SpawnThrownTrash(Vector3 playerPos)
     {
         if (assignedEntry == null || assignedEntry.propPrefab == null) return null;
@@ -271,13 +277,37 @@ public class LitterbugNpc : MonoBehaviour
             ? rightHand.position
             : (transform.position + Vector3.up * 1.25f + transform.forward * 0.28f + transform.right * 0.2f);
 
-        Vector3 flatDir = ChooseNonPlayerThrowDirection(playerPos);
-        lastThrownDirectionXZ = flatDir;
-        float throwDist = Random.Range(1.15f, 1.95f);
-        Vector3 candidateXZ = transform.position + flatDir * throwDist;
+        Vector3 candidateXZ;
+        float distToPlayer = Vector3.Distance(transform.position, playerPos);
 
+        if (distToPlayer <= throwAtPlayerRadius)
+        {
+            // Within 8m: lands 2.5-3.5m in front of player along camera yaw, lateral offset +-0.8m
+            Vector3 camForwardXZ = (mainCamTransform != null)
+                ? Vector3.ProjectOnPlane(mainCamTransform.forward, Vector3.up).normalized
+                : (playerPos - transform.position).normalized;
+
+            if (camForwardXZ.sqrMagnitude < 0.01f) camForwardXZ = transform.forward;
+            Vector3 camRightXZ = Vector3.Cross(Vector3.up, camForwardXZ).normalized;
+
+            float forwardDist = Random.Range(landingDistRange.x, landingDistRange.y);
+            float lateralOffset = Random.Range(-0.8f, 0.8f);
+
+            candidateXZ = playerPos + (camForwardXZ * forwardDist) + (camRightXZ * lateralOffset);
+        }
+        else
+        {
+            // Beyond 8m: lands 2-3m in front of NPC toward player
+            Vector3 toPlayerXZ = Vector3.ProjectOnPlane(playerPos - transform.position, Vector3.up).normalized;
+            if (toPlayerXZ.sqrMagnitude < 0.01f) toPlayerXZ = transform.forward;
+
+            float forwardDist = Random.Range(2.0f, 3.0f);
+            candidateXZ = transform.position + toPlayerXZ * forwardDist;
+        }
+
+        // Snap to ground by raycast
         float groundY = transform.position.y + 0.02f;
-        RaycastHit[] hits = Physics.RaycastAll(candidateXZ + Vector3.up * 2.5f, Vector3.down, 6f, groundMask, QueryTriggerInteraction.Ignore);
+        RaycastHit[] hits = Physics.RaycastAll(candidateXZ + Vector3.up * 3.5f, Vector3.down, 7f, groundMask, QueryTriggerInteraction.Ignore);
         float bestY = -999f;
         for (int i = 0; i < hits.Length; i++)
         {
@@ -291,20 +321,67 @@ public class LitterbugNpc : MonoBehaviour
 
         Vector3 landingPos = new Vector3(candidateXZ.x, groundY, candidateXZ.z);
 
+        // Validate: NavMesh walkable within 1.2m and no heavy obstacle overlap
+        bool isValid = true;
+        if (NavMesh.SamplePosition(landingPos, out NavMeshHit nmHit, 1.2f, NavMesh.AllAreas))
+        {
+            landingPos = nmHit.position + Vector3.up * 0.02f;
+        }
+        else
+        {
+            isValid = false;
+        }
+
+        Collider[] overlaps = Physics.OverlapSphere(landingPos + Vector3.up * 0.3f, 0.3f, groundMask, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < overlaps.Length; i++)
+        {
+            if (overlaps[i].CompareTag("Player") || overlaps[i].GetComponentInParent<NpcBrain>() != null)
+            {
+                isValid = false;
+                break;
+            }
+        }
+
+        if (!isValid)
+        {
+            // Safe fallback between NPC and player 1.5m from player
+            Vector3 toNpc = (transform.position - playerPos);
+            toNpc.y = 0f;
+            Vector3 fbPos = playerPos + toNpc.normalized * 1.5f;
+            if (Physics.Raycast(fbPos + Vector3.up * 3.5f, Vector3.down, out RaycastHit fbHit, 7f, groundMask, QueryTriggerInteraction.Ignore))
+            {
+                landingPos = fbHit.point + Vector3.up * 0.02f;
+            }
+            else
+            {
+                landingPos = fbPos;
+            }
+        }
+
+        lastThrownDirectionXZ = (landingPos - handPos);
+        lastThrownDirectionXZ.y = 0f;
+        if (lastThrownDirectionXZ.sqrMagnitude > 0.001f) lastThrownDirectionXZ.Normalize();
+
+        // Enforce max 4 litter per NPC (oldest shrinks away)
         while (spawnedLitter.Count > 0 && spawnedLitter.Peek() == null)
             spawnedLitter.Dequeue();
 
         while (spawnedLitter.Count >= MaxLitterPerNpc)
         {
             LitterProp oldest = spawnedLitter.Dequeue();
-            if (oldest != null) Destroy(oldest.gameObject);
+            if (oldest != null) oldest.ShrinkAndDestroy();
         }
 
         LitterProp instance = Instantiate(assignedEntry.propPrefab, handPos, Quaternion.identity);
         spawnedLitter.Enqueue(instance);
 
         if (manager != null) manager.PlayThrowAudio();
-        instance.Launch(handPos, landingPos, Random.Range(0.45f, 0.72f), Random.Range(0.46f, 0.58f), OnLitterLanded);
+
+        float flightDist = Vector3.Distance(handPos, landingPos);
+        float apex = Mathf.Clamp(1.5f + (flightDist / 10f) * 1.5f, 1.5f, 3.0f);
+        float flightDuration = Mathf.Clamp(0.6f + (flightDist / 15f) * 0.4f, 0.6f, 1.0f);
+
+        instance.Launch(handPos, landingPos, apex, flightDuration, OnLitterLanded);
         return instance;
     }
 
@@ -356,19 +433,15 @@ public class LitterbugNpc : MonoBehaviour
 
     public void CleanupIfReassigned()
     {
-        while (spawnedLitter.Count > 0)
-        {
-            LitterProp prop = spawnedLitter.Dequeue();
-            if (prop != null) Destroy(prop.gameObject);
-        }
+        ShrinkRemainingLitter();
         if (markerRoot != null) Destroy(markerRoot.gameObject);
-        if (brain != null && brain.IsQuestTarget) brain.ReleaseFromQuestTarget();
+        if (brain != null) brain.ReleaseFromQuestTarget();
         Destroy(this);
     }
 
-    private void FacePositionSmooth(Vector3 targetWorldPos, float t)
+    public void FacePositionSmooth(Vector3 worldPos, float t)
     {
-        Vector3 dir = targetWorldPos - transform.position;
+        Vector3 dir = worldPos - transform.position;
         dir.y = 0f;
         if (dir.sqrMagnitude > 0.001f)
         {
@@ -387,21 +460,37 @@ public class LitterbugNpc : MonoBehaviour
     {
         if (markerRoot == null) return;
 
+        // Hide marker during dialogue, when persuaded, or when within InteractRadius + 1.0m
+        float distToPlayer = Vector3.Distance(transform.position, lastKnownPlayerPos);
+        bool shouldHide = isDialogueActive || (State == LitterbugState.Persuaded) || (distToPlayer <= (interactRadius + 1.0f));
+
+        if (shouldHide)
+        {
+            if (markerRoot.gameObject.activeSelf) markerRoot.gameObject.SetActive(false);
+            return;
+        }
+
+        if (!markerRoot.gameObject.activeSelf) markerRoot.gameObject.SetActive(true);
+
         float bob = (State != LitterbugState.Persuaded)
             ? Mathf.Sin(Time.time * 3.6f + bobPhase) * 0.085f
             : 0f;
         markerRoot.localPosition = new Vector3(0f, 2.22f + bob, 0f);
+
+        // Scale with distance: 0.5 to 1.0, capped at ~60% base scale at close range
+        float distFactor = Mathf.Clamp01((distToPlayer - 4f) / 16f);
+        float distScale = Mathf.Lerp(0.60f, 1.0f, distFactor);
 
         if (markerPopTimer > 0f)
         {
             markerPopTimer -= Time.deltaTime;
             float p = 1f - Mathf.Clamp01(markerPopTimer / 0.32f);
             float punch = 1f + 0.38f * Mathf.Sin(p * Mathf.PI);
-            markerRoot.localScale = Vector3.one * (markerBaseScale * punch);
+            markerRoot.localScale = Vector3.one * (markerBaseScale * punch * distScale);
         }
         else
         {
-            markerRoot.localScale = Vector3.one * markerBaseScale;
+            markerRoot.localScale = Vector3.one * (markerBaseScale * distScale);
         }
 
         if (mainCamTransform != null)
@@ -436,35 +525,25 @@ public class LitterbugNpc : MonoBehaviour
         else if (norm < 0.62f)
         {
             float k = Mathf.SmoothStep(0f, 1f, (norm - 0.36f) / 0.26f);
-            upperPitch = Mathf.Lerp(34f, -58f, k);
+            upperPitch = Mathf.Lerp(34f, -48f, k);
             upperYaw = Mathf.Lerp(22f, -14f, k);
             lowerBend = Mathf.Lerp(-62f, -12f, k);
         }
         else
         {
             float k = Mathf.SmoothStep(0f, 1f, (norm - 0.62f) / 0.38f);
-            upperPitch = Mathf.Lerp(-58f, 0f, k);
+            upperPitch = Mathf.Lerp(-48f, 0f, k);
             upperYaw = Mathf.Lerp(-14f, 0f, k);
             lowerBend = Mathf.Lerp(-12f, 0f, k);
         }
 
-        Quaternion worldUpperDelta = Quaternion.AngleAxis(upperPitch * armBlendWeight, transform.right)
-                                   * Quaternion.AngleAxis(upperYaw * armBlendWeight, transform.up);
-        rightUpperArm.rotation = worldUpperDelta * rightUpperArm.rotation;
+        Quaternion targetUpper = Quaternion.Euler(upperPitch, upperYaw, 0f);
+        Quaternion targetLower = Quaternion.Euler(lowerBend, 0f, 0f);
 
+        rightUpperArm.localRotation = Quaternion.Slerp(rightUpperArm.localRotation, rightUpperArm.localRotation * targetUpper, armBlendWeight);
         if (rightLowerArm != null)
         {
-            Quaternion worldLowerDelta = Quaternion.AngleAxis(lowerBend * armBlendWeight, transform.right);
-            rightLowerArm.rotation = worldLowerDelta * rightLowerArm.rotation;
-        }
-    }
-
-    private void OnDestroy()
-    {
-        while (spawnedLitter.Count > 0)
-        {
-            LitterProp prop = spawnedLitter.Dequeue();
-            if (prop != null) Destroy(prop.gameObject);
+            rightLowerArm.localRotation = Quaternion.Slerp(rightLowerArm.localRotation, rightLowerArm.localRotation * targetLower, armBlendWeight);
         }
     }
 }

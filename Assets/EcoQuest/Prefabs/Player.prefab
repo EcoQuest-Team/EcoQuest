@@ -746,8 +746,6 @@ MonoBehaviour:
   WalkSpeed: 2
   MoveSpeed: 2
   SprintSpeed: 5.8
-  CrouchSpeedMultiplier: 0.4
-  CrouchHeightMultiplier: 0.68
   RotationSpeed: 1
   SpeedChangeRate: 10
   JumpHeight: 1.2
@@ -1057,10 +1055,7 @@ MonoBehaviour:
   viewmodelAnimator: {fileID: 0}
   viewmodelBob: {fileID: 0}
   coyoteTime: 0.1
-  crouchKey: 99
   waveKey: 104
-  crouchHeightMultiplier: 0.68
-  crouchSpeedMultiplier: 0.4
 --- !u!114 &101999848127899630
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1417,7 +1412,6 @@ MonoBehaviour:
   useProcedural: 0
   HorizontalSpeed: 0
   IsGrounded: 1
-  IsCrouching: 0
   IsSprinting: 0
   WalkSpeed: 4
   RunSpeed: 6.4

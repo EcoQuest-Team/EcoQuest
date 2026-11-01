@@ -13,7 +13,16 @@ using TMPro;
 /// </summary>
 public class SequentialWASDTutorial : MonoBehaviour
 {
-    public static SequentialWASDTutorial Instance { get; private set; }
+    private static SequentialWASDTutorial _instance;
+    public static SequentialWASDTutorial Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = Object.FindFirstObjectByType<SequentialWASDTutorial>(FindObjectsInactive.Include);
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     public enum TutorialState { None, Move, Jump, Sprint, FreeMouse, All }
     public static TutorialState AllowedState { get; set; } = TutorialState.All;
@@ -95,6 +104,17 @@ public class SequentialWASDTutorial : MonoBehaviour
         StartCoroutine(RunTutorialSequence());
     }
 
+    private void Update()
+    {
+#if UNITY_EDITOR
+        if (Input.GetKeyDown(KeyCode.F4))
+        {
+            ApplyTutorialHintsSetting(false);
+            Debug.Log("[SequentialWASDTutorial] F4 pressed: Tutorial skipped via editor shortcut.");
+        }
+#endif
+    }
+
     private bool wasSkippedBySettings = false;
 
     public void ApplyTutorialHintsSetting(bool enabled)
@@ -133,6 +153,26 @@ public class SequentialWASDTutorial : MonoBehaviour
         }
     }
 
+    private IEnumerator WaitForModals()
+    {
+        bool wasModalOpen = false;
+        while ((ModalManager.Instance != null && ModalManager.Instance.IsAnyModalOpen) ||
+               PauseMenuController.IsPaused)
+        {
+            wasModalOpen = true;
+            if (tipCardUI != null && tipCardUI.gameObject.activeSelf)
+            {
+                tipCardUI.SetImmediateHidden();
+            }
+            yield return null;
+        }
+
+        if (wasModalOpen && tipCardUI != null && !isCompleted)
+        {
+            tipCardUI.EnsureBannerActive();
+        }
+    }
+
     private IEnumerator RunTutorialSequence()
     {
         // Short breath / title intro
@@ -149,30 +189,36 @@ public class SequentialWASDTutorial : MonoBehaviour
         }
 
         if (tipCardUI == null) tipCardUI = FindFirstObjectByType<ControlTipCardUI>(FindObjectsInactive.Include);
+        if (tipCardUI != null) tipCardUI.EnsureBannerActive();
 
         // -------------------------------------------------------------
         // STEP 1 OF 6: MOVE (W A S D)
         // -------------------------------------------------------------
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunMoveStep());
 
         // -------------------------------------------------------------
         // STEP 2 OF 6: JUMP (SPACE)
         // -------------------------------------------------------------
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunJumpStep());
 
         // -------------------------------------------------------------
         // STEP 3 OF 6: SPRINT (SHIFT)
         // -------------------------------------------------------------
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunSprintStep());
 
         // -------------------------------------------------------------
         // STEP 4 OF 6: FREE MOUSE (CTRL)
         // -------------------------------------------------------------
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunCtrlStep());
 
         // -------------------------------------------------------------
         // STEP 5 OF 6: OPEN THE MAP (M / CLICK MINIMAP)
         // -------------------------------------------------------------
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunMapStep());
 
         // -------------------------------------------------------------
@@ -191,12 +237,18 @@ public class SequentialWASDTutorial : MonoBehaviour
         // -------------------------------------------------------------
         // STEP 6 OF 6: TALK TO NPC (Follow arrow, ends when dialogue begins)
         // -------------------------------------------------------------
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunTalkStep());
 
         // -------------------------------------------------------------
         // ALL 6 STEPS COMPLETED
         // -------------------------------------------------------------
         isCompleted = true;
+        isActionTipsCompleted = true;
+        AllowedState = TutorialState.All;
+        MinimapController.IsMapTutorialUnlocked = true;
+        HudVisibilityService.Instance?.ShowToast("Tutorial complete! Talk to the Guardian", 3.0f);
+        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.FreePlay);
         OnTutorialCompletedEvent?.Invoke();
     }
 
@@ -209,6 +261,9 @@ public class SequentialWASDTutorial : MonoBehaviour
     private IEnumerator RunFromMapStepRoutine()
     {
         if (tipCardUI == null) tipCardUI = FindFirstObjectByType<ControlTipCardUI>(FindObjectsInactive.Include);
+        if (tipCardUI != null) tipCardUI.EnsureBannerActive();
+
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunMapStep());
 
         isActionTipsCompleted = true;
@@ -221,6 +276,7 @@ public class SequentialWASDTutorial : MonoBehaviour
             npc.OnTutorialUnlocked();
         }
 
+        yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunTalkStep());
 
         isCompleted = true;
@@ -234,11 +290,15 @@ public class SequentialWASDTutorial : MonoBehaviour
         tipCardUI.ShowTip(tipsData.moveTip, 1, 6);
 
         float moveTimer = 0f;
+        float displayTimer = 0f;
         float reqDuration = tipsData.moveTip.requiredDuration > 0f ? tipsData.moveTip.requiredDuration : 1.0f;
         bool isDone = false;
 
-        while (!isDone)
+        while (!isDone || displayTimer < 1.2f)
         {
+            yield return StartCoroutine(WaitForModals());
+            displayTimer += Time.unscaledDeltaTime;
+
             bool isMoving = (playerInputs != null && playerInputs.move.sqrMagnitude > 0.05f) ||
                             Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) ||
                             Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.D);
@@ -266,12 +326,19 @@ public class SequentialWASDTutorial : MonoBehaviour
 
         tipCardUI.ShowTip(tipsData.jumpTip, 2, 6);
 
+        var fpc = FindFirstObjectByType<StarterAssets.FirstPersonController>();
         bool isDone = false;
         float timer = 0f;
+        float displayTimer = 0f;
 
-        while (!isDone)
+        while (!isDone || displayTimer < 1.2f)
         {
-            bool jumpPressed = (playerInputs != null && playerInputs.jump) || Input.GetKey(KeyCode.Space);
+            yield return StartCoroutine(WaitForModals());
+            displayTimer += Time.unscaledDeltaTime;
+
+            bool jumpPressed = (playerInputs != null && playerInputs.jump) ||
+                               Input.GetKey(KeyCode.Space) ||
+                               (fpc != null && !fpc.Grounded);
             tipCardUI.SetKeyHeld(jumpPressed);
 
             if (jumpPressed)
@@ -298,44 +365,40 @@ public class SequentialWASDTutorial : MonoBehaviour
 
         tipCardUI.ShowTip(tipsData.sprintTip, 3, 6);
 
-        // If player already completed sprint previously, complete after a brief display
-        if (sprintCtrl != null && sprintCtrl.HasCompletedSprintStep)
-        {
-            yield return new WaitForSecondsRealtime(0.4f);
-        }
-        else
-        {
-            float sprintTimer = 0f;
-            float reqTime = tipsData.sprintTip.requiredDuration > 0f ? tipsData.sprintTip.requiredDuration : 1.5f;
-            bool isDone = false;
+        float sprintTimer = 0f;
+        float displayTimer = 0f;
+        float reqTime = tipsData.sprintTip.requiredDuration > 0f ? tipsData.sprintTip.requiredDuration : 1.5f;
+        bool isDone = false;
 
-            while (!isDone)
+        while (!isDone || displayTimer < 1.2f)
+        {
+            yield return StartCoroutine(WaitForModals());
+            displayTimer += Time.unscaledDeltaTime;
+
+            bool isSprinting = (sprintCtrl != null && sprintCtrl.IsSprinting) ||
+                               (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+
+            tipCardUI.SetKeyHeld(isSprinting);
+
+            if (isSprinting && playerInputs != null && playerInputs.move.sqrMagnitude > 0.01f)
             {
-                bool isSprinting = (sprintCtrl != null && sprintCtrl.IsSprinting) ||
-                                   (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
-
-                tipCardUI.SetKeyHeld(isSprinting);
-
-                if (isSprinting && playerInputs != null && playerInputs.move.sqrMagnitude > 0.01f)
-                {
-                    sprintTimer += Time.unscaledDeltaTime;
-                    if (sprintTimer >= reqTime)
-                    {
-                        isDone = true;
-                    }
-                }
-                else
-                {
-                    sprintTimer = Mathf.Max(0f, sprintTimer - Time.unscaledDeltaTime * 0.5f);
-                }
-
-                if (sprintCtrl != null && sprintCtrl.HasCompletedSprintStep)
+                sprintTimer += Time.unscaledDeltaTime;
+                if (sprintTimer >= reqTime)
                 {
                     isDone = true;
                 }
-
-                yield return null;
             }
+            else
+            {
+                sprintTimer = Mathf.Max(0f, sprintTimer - Time.unscaledDeltaTime * 0.5f);
+            }
+
+            if (sprintCtrl != null && sprintCtrl.HasCompletedSprintStep)
+            {
+                isDone = true;
+            }
+
+            yield return null;
         }
 
         bool stepFinished = false;
@@ -353,42 +416,38 @@ public class SequentialWASDTutorial : MonoBehaviour
 
         tipCardUI.ShowTip(tipsData.ctrlTip, 4, 6);
 
-        // If player already completed CTRL hold previously, complete after a brief display
-        if (ctrl != null && ctrl.HasCompletedHoldStep)
-        {
-            yield return new WaitForSecondsRealtime(0.4f);
-        }
-        else
-        {
-            float ctrlHoldTimer = 0f;
-            float reqTime = tipsData.ctrlTip.requiredDuration > 0f ? tipsData.ctrlTip.requiredDuration : 1.0f;
-            bool isDone = false;
+        float ctrlHoldTimer = 0f;
+        float displayTimer = 0f;
+        float reqTime = tipsData.ctrlTip.requiredDuration > 0f ? tipsData.ctrlTip.requiredDuration : 1.0f;
+        bool isDone = false;
 
-            while (!isDone)
+        while (!isDone || displayTimer < 1.2f)
+        {
+            yield return StartCoroutine(WaitForModals());
+            displayTimer += Time.unscaledDeltaTime;
+
+            bool ctrlHeld = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            tipCardUI.SetKeyHeld(ctrlHeld);
+
+            if (ctrlHeld)
             {
-                bool ctrlHeld = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-                tipCardUI.SetKeyHeld(ctrlHeld);
-
-                if (ctrlHeld)
-                {
-                    ctrlHoldTimer += Time.unscaledDeltaTime;
-                    if (ctrlHoldTimer >= reqTime)
-                    {
-                        isDone = true;
-                    }
-                }
-                else
-                {
-                    ctrlHoldTimer = 0f;
-                }
-
-                if (ctrl != null && ctrl.HasCompletedHoldStep)
+                ctrlHoldTimer += Time.unscaledDeltaTime;
+                if (ctrlHoldTimer >= reqTime)
                 {
                     isDone = true;
                 }
-
-                yield return null;
             }
+            else
+            {
+                ctrlHoldTimer = 0f;
+            }
+
+            if (ctrl != null && ctrl.HasCompletedHoldStep)
+            {
+                isDone = true;
+            }
+
+            yield return null;
         }
 
         bool stepFinished = false;
@@ -464,8 +523,12 @@ public class SequentialWASDTutorial : MonoBehaviour
         }
 
         bool isDone = false;
-        while (!isDone)
+        float displayTimer = 0f;
+        while (!isDone || displayTimer < 1.2f)
         {
+            yield return StartCoroutine(WaitForModals());
+            displayTimer += Time.unscaledDeltaTime;
+
             bool mHeld = Input.GetKey(KeyCode.M);
             tipCardUI.SetKeyHeld(mHeld);
 
@@ -485,7 +548,7 @@ public class SequentialWASDTutorial : MonoBehaviour
                 }
             }
 
-            if (mapCtrl != null && mapCtrl.HasCompletedMapCycle && !mapCtrl.IsFullMapOpen)
+            if (mapCtrl == null || (mapCtrl.HasCompletedMapCycle && !mapCtrl.IsFullMapOpen))
             {
                 isDone = true;
             }
@@ -552,6 +615,7 @@ public class SequentialWASDTutorial : MonoBehaviour
 
         while (!dialogueStarted)
         {
+            yield return StartCoroutine(WaitForModals());
             if (npc != null && npc.IsTalking)
             {
                 dialogueStarted = true;

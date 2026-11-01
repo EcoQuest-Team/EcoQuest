@@ -14,7 +14,12 @@ public static class HeldItemValidator
     }
 
     [MenuItem("Tools/EcoQuest/Validate Held Items")]
-    public static void ValidateHeldItems()
+    public static void ValidateHeldItemsMenu()
+    {
+        ValidateHeldItems(true);
+    }
+
+    public static void ValidateHeldItems(bool showDialog = false)
     {
         List<ValidationIssue> issues = new List<ValidationIssue>();
         int sceneItemCount = 0;
@@ -73,9 +78,12 @@ public static class HeldItemValidator
         if (issues.Count == 0)
         {
             Debug.Log("<color=green>[HeldItemValidator] PASS: All held items are valid! Zero issues found.</color>");
-            EditorUtility.DisplayDialog("Held Item Validation",
-                $"Validation PASSED!\n\nScanned {sceneItemCount} scene items and {prefabCount} prefabs.\nZero issues found.",
-                "OK");
+            if (showDialog)
+            {
+                EditorUtility.DisplayDialog("Held Item Validation",
+                    $"Validation PASSED!\n\nScanned {sceneItemCount} scene items and {prefabCount} prefabs.\nZero issues found.",
+                    "OK");
+            }
         }
         else
         {
@@ -84,9 +92,12 @@ public static class HeldItemValidator
             {
                 Debug.LogWarning($"[HeldItemValidator] Issue on '{issue.objectName}' ({issue.assetPath}): {issue.issueDescription}");
             }
-            EditorUtility.DisplayDialog("Held Item Validation",
-                $"Validation found {issues.Count} issue(s).\nCheck the Unity Console for detailed reports.",
-                "OK");
+            if (showDialog)
+            {
+                EditorUtility.DisplayDialog("Held Item Validation",
+                    $"Validation found {issues.Count} issue(s).\nCheck the Unity Console for detailed reports.",
+                    "OK");
+            }
         }
     }
 

@@ -148,6 +148,11 @@ public class PauseMenuController : MonoBehaviour
     {
         if (hudSettingsButtonCanvasGroup == null) return;
 
+        if (HudVisibilityService.Instance != null && !HudVisibilityService.Instance.IsElementOwned(hudSettingsButtonCanvasGroup))
+        {
+            HudVisibilityService.Instance.RegisterOwnedElement(hudSettingsButtonCanvasGroup);
+        }
+
         // If Settings panel is open, hide HUD gear button
         if (settingsPanelObject != null && settingsPanelObject.activeSelf)
         {
@@ -157,20 +162,17 @@ public class PauseMenuController : MonoBehaviour
             return;
         }
 
-        // If paused, gear button is visible and can be clicked to resume
-        if (IsPaused)
+        // If HUD is hidden by HudVisibilityService or UIOrchestrator (e.g. modals, dialogues), let service control fade
+        if ((HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden) ||
+            (UIOrchestrator.Instance != null && UIOrchestrator.Instance.AreModalsOpen))
         {
-            hudSettingsButtonCanvasGroup.alpha = 1f;
-            hudSettingsButtonCanvasGroup.interactable = true;
-            hudSettingsButtonCanvasGroup.blocksRaycasts = true;
             return;
         }
 
-        // In gameplay: visible and clickable ONLY when free-roam is allowed
-        bool canOpen = CanOpenPauseMenu();
-        hudSettingsButtonCanvasGroup.alpha = canOpen ? 1f : 0f;
-        hudSettingsButtonCanvasGroup.interactable = canOpen;
-        hudSettingsButtonCanvasGroup.blocksRaycasts = canOpen;
+        // In gameplay & paused: gear button is visible and active
+        hudSettingsButtonCanvasGroup.alpha = 1f;
+        hudSettingsButtonCanvasGroup.interactable = true;
+        hudSettingsButtonCanvasGroup.blocksRaycasts = true;
     }
 
     public void HandleEscapePressed()
@@ -286,10 +288,6 @@ public class PauseMenuController : MonoBehaviour
         // Block if Lesson / Tutorial Infographic overlay is open
         var tm = FindFirstObjectByType<TutorialManager>();
         if (tm != null && tm.tutorialOverlay != null && tm.tutorialOverlay.activeInHierarchy)
-            return false;
-
-        // Block during initial WASD tutorial prompt
-        if (SequentialWASDTutorial.Instance != null && !SequentialWASDTutorial.Instance.IsCompleted)
             return false;
 
         return true;

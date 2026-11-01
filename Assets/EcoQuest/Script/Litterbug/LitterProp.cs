@@ -3,6 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Thrown litter prop. Parabolic arc flight without Rigidbody, no player collision during flight,
+/// ground-safe landing (trigger collider, non-blocking), shatter visual for glass, and smooth shrink disposal.
+/// </summary>
 public class LitterProp : MonoBehaviour
 {
     [SerializeField] private int litterId = 1;
@@ -58,8 +62,15 @@ public class LitterProp : MonoBehaviour
         if (intactVisual != null) intactVisual.SetActive(true);
         if (shatteredShardsVisual != null) shatteredShardsVisual.SetActive(false);
 
+        // Disable colliders during flight: trash can never hit, push, or damage the player
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            colliders[i].enabled = false;
+        }
+
         if (activeRoutine != null) StopCoroutine(activeRoutine);
-        activeRoutine = StartCoroutine(FlightRoutine(startPos, groundPos, arcHeight, Mathf.Max(0.15f, flightDuration), onLanded));
+        activeRoutine = StartCoroutine(FlightRoutine(startPos, groundPos, arcHeight, Mathf.Max(0.2f, flightDuration), onLanded));
     }
 
     private IEnumerator FlightRoutine(Vector3 startPos, Vector3 endPos, float arcHeight, float duration, Action<LitterProp> onLanded)
@@ -68,6 +79,8 @@ public class LitterProp : MonoBehaviour
         if (spinAxis.sqrMagnitude < 0.01f) spinAxis = Vector3.right;
         float spinSpeed = 380f;
 
+        Camera mainCam = Camera.main;
+
         float elapsed = 0f;
         while (elapsed < duration)
         {
@@ -75,6 +88,19 @@ public class LitterProp : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
             Vector3 pos = Vector3.Lerp(startPos, endPos, t);
             pos.y += 4f * arcHeight * t * (1f - t);
+
+            // Arc stays at least 1.2m from camera
+            if (mainCam != null)
+            {
+                Vector3 camPos = mainCam.transform.position;
+                Vector3 toPos = pos - camPos;
+                float dist = toPos.magnitude;
+                if (dist < 1.2f && dist > 0.01f)
+                {
+                    pos = camPos + (toPos / dist) * 1.2f;
+                }
+            }
+
             transform.position = pos;
             transform.Rotate(spinAxis, spinSpeed * Time.deltaTime, Space.World);
             yield return null;
@@ -83,6 +109,17 @@ public class LitterProp : MonoBehaviour
         transform.position = endPos;
         ApplyLandingState();
 
+        // Re-enable colliders as triggers so litter does not block player movement
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            colliders[i].isTrigger = true;
+            colliders[i].enabled = true;
+        }
+
+        // Small squash & bounce on landing
+        yield return StartCoroutine(LandingBounceRoutine());
+
         if (shattersOnLanding && shatteredShardsVisual != null)
         {
             yield return StartCoroutine(ScatterShardsBrief(shatteredShardsVisual.transform));
@@ -90,6 +127,26 @@ public class LitterProp : MonoBehaviour
 
         activeRoutine = null;
         onLanded?.Invoke(this);
+    }
+
+    private IEnumerator LandingBounceRoutine()
+    {
+        Vector3 baseScale = transform.localScale;
+        float dur = 0.18f;
+        float elapsed = 0f;
+
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / dur);
+            // Squash Y, stretch XZ, then recover
+            float squash = 1f - 0.22f * Mathf.Sin(t * Mathf.PI);
+            float stretch = 1f + 0.12f * Mathf.Sin(t * Mathf.PI);
+            transform.localScale = new Vector3(baseScale.x * stretch, baseScale.y * squash, baseScale.z * stretch);
+            yield return null;
+        }
+
+        transform.localScale = baseScale;
     }
 
     public void ApplyLandingState()
@@ -143,76 +200,54 @@ public class LitterProp : MonoBehaviour
     private IEnumerator ShrinkRoutine()
     {
         Vector3 startScale = transform.localScale;
-        float duration = 0.42f;
+        float duration = 0.35f;
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            float curve = t < 0.2f
-                ? Mathf.Lerp(1f, 1.18f, t / 0.2f)
-                : Mathf.Lerp(1.18f, 0f, (t - 0.2f) / 0.8f);
-            transform.localScale = startScale * curve;
+            float s = 1f - Mathf.SmoothStep(0f, 1f, t);
+            transform.localScale = startScale * s;
             yield return null;
         }
 
         Destroy(gameObject);
     }
 
+    private static void SpawnSparkleBurst(Vector3 pos)
+    {
+        GameObject go = new GameObject("LitterShrinkPuff");
+        go.transform.position = pos;
+        var ps = go.AddComponent<ParticleSystem>();
+        var pr = go.GetComponent<ParticleSystemRenderer>();
+
+        if (cachedParticleMat == null)
+        {
+            Shader sh = Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply");
+            if (sh != null) cachedParticleMat = new Material(sh);
+        }
+        if (cachedParticleMat != null) pr.material = cachedParticleMat;
+
+        var main = ps.main;
+        main.startLifetime = 0.32f;
+        main.startSpeed = 1.4f;
+        main.startSize = 0.08f;
+        main.startColor = new Color(0.9f, 0.95f, 0.85f, 0.8f);
+        main.stopAction = ParticleSystemStopAction.Destroy;
+
+        var em = ps.emission;
+        em.SetBursts(new[] { new ParticleSystem.Burst(0f, 8) });
+
+        ps.Play();
+    }
+
     public static Material GetSharedParticleMaterial()
     {
         if (cachedParticleMat != null) return cachedParticleMat;
-
-        Shader sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        Shader sh = Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply");
         if (sh == null) sh = Shader.Find("Sprites/Default");
-        if (sh != null)
-        {
-            cachedParticleMat = new Material(sh);
-            if (cachedParticleMat.HasProperty("_BaseColor"))
-                cachedParticleMat.SetColor("_BaseColor", Color.white);
-        }
+        if (sh != null) cachedParticleMat = new Material(sh);
         return cachedParticleMat;
-    }
-
-    private static void SpawnSparkleBurst(Vector3 worldPos)
-    {
-        GameObject fxGo = new GameObject("LitterCleanSparkleFX");
-        fxGo.transform.position = worldPos;
-
-        ParticleSystem ps = fxGo.AddComponent<ParticleSystem>();
-        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        var main = ps.main;
-        main.playOnAwake = false;
-        main.loop = false;
-        main.duration = 0.7f;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.45f, 0.75f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.8f, 2.1f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.11f);
-        main.gravityModifier = -0.15f;
-        main.startColor = new ParticleSystem.MinMaxGradient(
-            new Color(0.35f, 1f, 0.55f, 1f),
-            new Color(1f, 0.95f, 0.4f, 1f));
-
-        var emission = ps.emission;
-        emission.enabled = true;
-        emission.rateOverTime = 0f;
-        emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 14) });
-
-        var shape = ps.shape;
-        shape.enabled = true;
-        shape.shapeType = ParticleSystemShapeType.Sphere;
-        shape.radius = 0.16f;
-
-        var sizeOverLifetime = ps.sizeOverLifetime;
-        sizeOverLifetime.enabled = true;
-        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 1f, 1f, 0f));
-
-        var psr = fxGo.GetComponent<ParticleSystemRenderer>();
-        Material mat = GetSharedParticleMaterial();
-        if (mat != null) psr.sharedMaterial = mat;
-
-        ps.Play();
-        Destroy(fxGo, 1.1f);
     }
 }

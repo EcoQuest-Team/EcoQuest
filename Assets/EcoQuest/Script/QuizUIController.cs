@@ -64,6 +64,13 @@ public class QuizUIController : MonoBehaviour
     [SerializeField] private Color normalTextColor = new Color(0.23f, 0.16f, 0.10f, 1f);
     [SerializeField] private Color highlightedTextColor = Color.white;
 
+    [Header("Transition Settings (Unscaled Time)")]
+    [SerializeField] private float modalOpenDuration = 0.28f;
+    [SerializeField] private float modalCloseDuration = 0.18f;
+    [SerializeField] private float modalStartScale = 0.95f;
+    [SerializeField] private AnimationCurve modalOpenCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    [SerializeField] private AnimationCurve modalCloseCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
     private bool isAnimating = false;
     public bool IsAnimating => isAnimating;
     public static bool IsAnyQuizOpen { get; private set; }
@@ -103,6 +110,8 @@ public class QuizUIController : MonoBehaviour
             }
         }
 
+        ApplyThemeStyling();
+
         if (nextQuestionButton != null)
         {
             nextQuestionButton.onClick.AddListener(() => HandleNextClicked());
@@ -123,6 +132,297 @@ public class QuizUIController : MonoBehaviour
 
         // Initially hide when Play starts at runtime
         HideImmediate();
+    }
+
+    public void ApplyThemeStyling()
+    {
+        bool useLegacy = UITheme.Instance != null && UITheme.Instance.useLegacyPopups;
+        if (!useLegacy)
+        {
+            normalButtonColor = new Color(0.090f, 0.251f, 0.184f, 1f); // #17402F
+            normalTextColor = Color.white;
+            correctHighlightColor = new Color(0.180f, 0.545f, 0.341f, 1f); // #2E8B57
+            dimmedButtonColor = new Color(0.090f, 0.251f, 0.184f, 0.85f);
+            highlightedTextColor = Color.white;
+
+            if (modalPanelRect != null)
+            {
+                var bg = modalPanelRect.GetComponent<Image>();
+                if (bg != null && UITheme.Instance != null && UITheme.Instance.panelBackgroundSprite != null)
+                {
+                    bg.sprite = UITheme.Instance.panelBackgroundSprite;
+                    bg.type = Image.Type.Sliced;
+                    bg.color = Color.white;
+                }
+
+                EnsureQuizPillTab(modalPanelRect, "QUESTION 1 OF 5");
+            }
+
+            if (feedbackPanel != null)
+            {
+                var fbImg = feedbackPanel.GetComponent<Image>();
+                if (fbImg != null && UITheme.Instance != null && UITheme.Instance.panelBackgroundSprite != null)
+                {
+                    fbImg.sprite = UITheme.Instance.panelBackgroundSprite;
+                    fbImg.type = Image.Type.Sliced;
+                    fbImg.color = Color.white;
+                }
+                var fbRt = feedbackPanel.GetComponent<RectTransform>();
+                if (fbRt != null)
+                {
+                    fbRt.anchoredPosition = new Vector2(245.3f, 30f);
+                    fbRt.sizeDelta = new Vector2(760f, 128f);
+                }
+                if (feedbackTitleText != null)
+                {
+                    var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                    if (titleFont != null) feedbackTitleText.font = titleFont;
+                    feedbackTitleText.fontSize = 26.4f;
+                    feedbackTitleText.fontStyle = FontStyles.Bold;
+                }
+                if (explanationText != null)
+                {
+                    var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
+                    if (bodyFont != null) explanationText.font = bodyFont;
+                    explanationText.fontSize = 22f;
+                    explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+                    explanationText.enableWordWrapping = true;
+                }
+                if (nextQuestionButton != null)
+                {
+                    var btnImg = nextQuestionButton.GetComponent<Image>();
+                    if (btnImg != null && UITheme.Instance != null)
+                    {
+                        btnImg.color = UITheme.Instance.successColor;
+                    }
+                    var btnTxt = nextQuestionButton.GetComponentInChildren<TextMeshProUGUI>();
+                    if (btnTxt != null)
+                    {
+                        var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                        if (titleFont != null) btnTxt.font = titleFont;
+                        btnTxt.color = Color.white;
+                        btnTxt.fontSize = 24f;
+                        btnTxt.fontStyle = FontStyles.Bold;
+                    }
+                }
+            }
+
+            if (resultsPanel != null)
+            {
+                var rRect = resultsPanel.GetComponent<RectTransform>();
+                if (rRect != null)
+                {
+                    var rBg = resultsPanel.GetComponent<Image>();
+                    if (rBg != null && UITheme.Instance != null && UITheme.Instance.panelBackgroundSprite != null)
+                    {
+                        rBg.sprite = UITheme.Instance.panelBackgroundSprite;
+                        rBg.type = Image.Type.Sliced;
+                        rBg.color = Color.white;
+                    }
+                    EnsureQuizPillTab(rRect, "RESULTS");
+                }
+
+                if (resultsTitleText != null)
+                {
+                    var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                    if (titleFont != null) resultsTitleText.font = titleFont;
+                    resultsTitleText.color = Color.white;
+                    resultsTitleText.fontSize = 35f;
+                    resultsTitleText.fontStyle = FontStyles.Bold;
+                }
+
+                if (preScoreText != null)
+                {
+                    var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
+                    if (bodyFont != null) preScoreText.font = bodyFont;
+                    preScoreText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+                    preScoreText.fontSize = 26f;
+                    preScoreText.fontStyle = FontStyles.Bold;
+                }
+
+                if (postScoreText != null)
+                {
+                    var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
+                    if (bodyFont != null) postScoreText.font = bodyFont;
+                    postScoreText.color = new Color(0.29f, 0.88f, 0.46f, 1f); // Bright success green #4AE076
+                    postScoreText.fontSize = 26f;
+                    postScoreText.fontStyle = FontStyles.Bold;
+                }
+
+                if (improvementBadgeRect != null)
+                {
+                    var badgeImg = improvementBadgeRect.GetComponent<Image>();
+                    if (badgeImg != null && UITheme.Instance != null && UITheme.Instance.speakerTabGreenSprite != null)
+                    {
+                        badgeImg.sprite = UITheme.Instance.speakerTabGreenSprite;
+                        badgeImg.type = Image.Type.Sliced;
+                        badgeImg.color = Color.white;
+                    }
+                }
+
+                if (improvementText != null)
+                {
+                    var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                    if (titleFont != null) improvementText.font = titleFont;
+                    improvementText.color = Color.white;
+                    improvementText.fontSize = 26f;
+                    improvementText.fontStyle = FontStyles.Bold;
+                }
+
+                if (encouragingMessageText != null)
+                {
+                    var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
+                    if (bodyFont != null) encouragingMessageText.font = bodyFont;
+                    encouragingMessageText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+                    encouragingMessageText.fontSize = 24f;
+                }
+
+                if (bonusGoldText != null)
+                {
+                    var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                    if (titleFont != null) bonusGoldText.font = titleFont;
+                    bonusGoldText.color = UITheme.Instance != null ? UITheme.Instance.warnColor : new Color(0.95f, 0.76f, 0.31f, 1f);
+                    bonusGoldText.fontSize = 25f;
+                    bonusGoldText.fontStyle = FontStyles.Bold;
+                }
+
+                if (continueButton != null)
+                {
+                    var btnImg = continueButton.GetComponent<Image>();
+                    if (btnImg != null && UITheme.Instance != null)
+                    {
+                        btnImg.color = UITheme.Instance.successColor;
+                    }
+                    var btnTxt = continueButton.GetComponentInChildren<TextMeshProUGUI>();
+                    if (btnTxt != null)
+                    {
+                        var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                        if (titleFont != null) btnTxt.font = titleFont;
+                        btnTxt.color = Color.white;
+                        btnTxt.fontSize = 24f;
+                        btnTxt.fontStyle = FontStyles.Bold;
+                    }
+                }
+            }
+
+            if (modalPanelCanvasGroup != null)
+            {
+                modalPanelCanvasGroup.alpha = 1f;
+            }
+
+            if (questionText != null)
+            {
+                questionText.color = Color.white;
+                questionText.fontSize = 34f;
+            }
+
+            if (progressText != null)
+            {
+                progressText.color = new Color(0.890f, 0.960f, 0.890f, 1f); // #E3F5E3
+            }
+
+            if (questionIllustrationImage != null)
+            {
+                questionIllustrationImage.color = Color.white;
+                questionIllustrationImage.preserveAspect = true;
+
+                var frameOutline = questionIllustrationImage.GetComponent<UnityEngine.UI.Outline>();
+                if (frameOutline != null) Destroy(frameOutline);
+
+                if (questionIllustrationImage.sprite != null && questionIllustrationImage.sprite.texture != null)
+                {
+                    questionIllustrationImage.sprite.texture.filterMode = FilterMode.Bilinear;
+                }
+            }
+        }
+    }
+
+    private void EnsureQuizPillTab(RectTransform parentRect, string defaultLabel)
+    {
+        if (parentRect == null) return;
+        var tab = parentRect.Find("PillTab");
+        if (tab == null)
+        {
+            var tabGo = new GameObject("PillTab", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            tabGo.transform.SetParent(parentRect, false);
+            var tabRt = tabGo.GetComponent<RectTransform>();
+            tabRt.anchorMin = new Vector2(0f, 1f);
+            tabRt.anchorMax = new Vector2(0f, 1f);
+            tabRt.pivot = new Vector2(0f, 0.5f);
+            tabRt.anchoredPosition = new Vector2(32f, 0f);
+            tabRt.sizeDelta = new Vector2(240f, 44f);
+
+            var tabImg = tabGo.GetComponent<UnityEngine.UI.Image>();
+            if (UITheme.Instance != null && UITheme.Instance.speakerTabGreenSprite != null)
+            {
+                tabImg.sprite = UITheme.Instance.speakerTabGreenSprite;
+                tabImg.type = UnityEngine.UI.Image.Type.Sliced;
+            }
+            tabImg.color = Color.white;
+
+            var txtGo = new GameObject("TabText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            txtGo.transform.SetParent(tabGo.transform, false);
+            var txtRt = txtGo.GetComponent<RectTransform>();
+            txtRt.anchorMin = Vector2.zero;
+            txtRt.anchorMax = Vector2.one;
+            txtRt.offsetMin = Vector2.zero;
+            txtRt.offsetMax = Vector2.zero;
+
+            var tText = txtGo.GetComponent<TextMeshProUGUI>();
+            var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+            if (titleFont != null) tText.font = titleFont;
+            tText.text = defaultLabel;
+            tText.fontSize = 22f;
+            tText.fontStyle = FontStyles.Bold;
+            tText.alignment = TextAlignmentOptions.Center;
+            tText.color = Color.white;
+        }
+        else
+        {
+            var tText = tab.Find("TabText")?.GetComponent<TextMeshProUGUI>();
+            if (tText != null)
+            {
+                var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                if (titleFont != null) tText.font = titleFont;
+                tText.color = Color.white;
+            }
+        }
+    }
+
+    private void Update()
+    {
+        if (!IsAnyQuizOpen || isAnimating) return;
+
+        // Number keys 1-4 for answers
+        if (quizPanel != null && quizPanel.activeInHierarchy && (feedbackPanel == null || !feedbackPanel.activeInHierarchy))
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) SelectButtonByIndex(0);
+            else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) SelectButtonByIndex(1);
+            else if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) SelectButtonByIndex(2);
+            else if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) SelectButtonByIndex(3);
+        }
+        else if (feedbackPanel != null && feedbackPanel.activeInHierarchy)
+        {
+            if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
+            {
+                HandleNextClicked();
+            }
+        }
+        else if (resultsPanel != null && resultsPanel.activeInHierarchy)
+        {
+            if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
+            {
+                HandleContinueClicked();
+            }
+        }
+    }
+
+    private void SelectButtonByIndex(int index)
+    {
+        if (answerButtons != null && index >= 0 && index < answerButtons.Length && answerButtons[index] != null && answerButtons[index].interactable)
+        {
+            HandleAnswerClicked(index);
+        }
     }
 
     private void OnDisable()
@@ -182,6 +482,9 @@ public class QuizUIController : MonoBehaviour
             modalPanelRect.gameObject.SetActive(false);
         }
 
+        Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
+        if (quizModalTab != null) quizModalTab.gameObject.SetActive(true);
+
         if (quizPanel != null) quizPanel.SetActive(true);
         if (feedbackPanel != null) feedbackPanel.SetActive(false);
         if (resultsPanel != null) resultsPanel.SetActive(false);
@@ -194,6 +497,8 @@ public class QuizUIController : MonoBehaviour
     public void PreviewQuizPanel()
     {
         SetAllVisibleEditMode();
+        Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
+        if (quizModalTab != null) quizModalTab.gameObject.SetActive(true);
         if (quizPanel != null) quizPanel.SetActive(true);
         if (questionContainerRect != null) questionContainerRect.gameObject.SetActive(true);
         if (answersContainer != null) answersContainer.gameObject.SetActive(true);
@@ -220,6 +525,8 @@ public class QuizUIController : MonoBehaviour
     public void PreviewFeedbackPanel()
     {
         SetAllVisibleEditMode();
+        Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
+        if (quizModalTab != null) quizModalTab.gameObject.SetActive(true);
         if (quizPanel != null) quizPanel.SetActive(true);
         if (questionContainerRect != null) questionContainerRect.gameObject.SetActive(true);
         if (answersContainer != null) answersContainer.gameObject.SetActive(true);
@@ -246,6 +553,8 @@ public class QuizUIController : MonoBehaviour
     public void PreviewResultsPanel()
     {
         SetAllVisibleEditMode();
+        Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
+        if (quizModalTab != null) quizModalTab.gameObject.SetActive(false);
         if (quizPanel != null) quizPanel.SetActive(false);
         if (questionContainerRect != null) questionContainerRect.gameObject.SetActive(false);
         if (answersContainer != null) answersContainer.gameObject.SetActive(false);
@@ -401,6 +710,9 @@ public class QuizUIController : MonoBehaviour
         if (resultsPanel != null) resultsPanel.SetActive(false);
         if (celebratoryParticlesGroup != null) celebratoryParticlesGroup.SetActive(false);
 
+        Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
+        if (quizModalTab != null) quizModalTab.gameObject.SetActive(true);
+
         if (questionContainerRect != null)
         {
             questionContainerRect.gameObject.SetActive(true);
@@ -426,16 +738,29 @@ public class QuizUIController : MonoBehaviour
         if (modalPanelRect != null)
         {
             QuizUIAnimator.StopTransitionsOn(modalPanelRect, modalPanelCanvasGroup);
-            modalPanelRect.localScale = Vector3.one * 0.8f;
-            if (modalPanelCanvasGroup != null) modalPanelCanvasGroup.alpha = 0f;
+            modalPanelRect.localScale = Vector3.one * modalStartScale;
+            if (modalPanelCanvasGroup != null)
+            {
+                modalPanelCanvasGroup.alpha = 0f;
+                modalPanelCanvasGroup.interactable = false;
+                modalPanelCanvasGroup.blocksRaycasts = false;
+            }
             modalPanelRect.gameObject.SetActive(true);
         }
 
-        // Overlay fade in (0.3s)
-        Coroutine overlayRoutine = StartCoroutine(QuizUIAnimator.FadeCanvasGroup(overlayCanvasGroup, 0f, 1f, 0.3f));
-        // Modal bounce pop-in (0.8 -> 1.05 -> 1.0)
-        yield return QuizUIAnimator.PopInPanel(modalPanelRect, modalPanelCanvasGroup, 0.8f, 0.35f);
+        ApplyThemeStyling();
+        ModalManager.Instance?.RequestModal(ModalManager.ModalType.Quiz, gameObject, null, null, priority: 6);
+
+        // Overlay fade in + Modal pop-in (0.95 -> 1.0 over 0.28s)
+        Coroutine overlayRoutine = StartCoroutine(QuizUIAnimator.FadeCanvasGroup(overlayCanvasGroup, 0f, 1f, modalOpenDuration));
+        yield return QuizUIAnimator.PopInPanel(modalPanelRect, modalPanelCanvasGroup, modalStartScale, modalOpenDuration);
         yield return overlayRoutine;
+
+        if (modalPanelCanvasGroup != null)
+        {
+            modalPanelCanvasGroup.interactable = true;
+            modalPanelCanvasGroup.blocksRaycasts = true;
+        }
 
         isAnimating = false;
     }
@@ -465,6 +790,9 @@ public class QuizUIController : MonoBehaviour
         if (feedbackPanel != null) feedbackPanel.SetActive(false);
         if (resultsPanel != null) resultsPanel.SetActive(false);
         if (celebratoryParticlesGroup != null) celebratoryParticlesGroup.SetActive(false);
+
+        Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
+        if (quizModalTab != null) quizModalTab.gameObject.SetActive(true);
 
         if (questionContainerRect != null && !hasRecordedQuestionBasePos)
         {
@@ -497,7 +825,20 @@ public class QuizUIController : MonoBehaviour
         }
 
         // Update question text and illustration
-        if (questionText != null) questionText.text = question;
+        if (modalPanelRect != null)
+        {
+            var tabText = modalPanelRect.Find("PillTab/TabText")?.GetComponent<TextMeshProUGUI>();
+            if (tabText != null) tabText.text = $"QUESTION {questionIndex + 1} OF {totalQuestions}";
+        }
+        if (questionText != null)
+        {
+            questionText.text = question;
+            questionText.color = Color.white;
+        }
+        if (progressText != null)
+        {
+            progressText.color = new Color(0.890f, 0.960f, 0.890f, 1f);
+        }
 
         if (questionIllustrationImage != null)
         {
@@ -663,20 +1004,39 @@ public class QuizUIController : MonoBehaviour
         if (feedbackPanel != null)
         {
             feedbackPanel.SetActive(true);
+            Color stateColor = isCorrect
+                ? (UITheme.Instance != null ? UITheme.Instance.successColor : correctColor)
+                : (UITheme.Instance != null ? UITheme.Instance.errorColor : wrongColor);
+
             if (feedbackTitleText != null)
             {
                 feedbackTitleText.text = isCorrect ? "CORRECT!" : "NOT QUITE!";
-                feedbackTitleText.color = isCorrect ? correctColor : wrongColor;
+                feedbackTitleText.color = stateColor;
             }
             if (explanationText != null)
             {
                 explanationText.text = explanation;
+                explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+                explanationText.fontSize = 22f;
+            }
+
+            Transform accentBar = feedbackPanel.transform.Find("AccentBar");
+            if (accentBar != null)
+            {
+                var barImg = accentBar.GetComponent<Image>();
+                if (barImg != null) barImg.color = stateColor;
             }
 
             if (feedbackCanvasGroup != null)
             {
                 yield return QuizUIAnimator.FadeCanvasGroup(feedbackCanvasGroup, 0f, 1f, 0.25f);
             }
+        }
+
+        if (isCorrect)
+        {
+            yield return new WaitForSecondsRealtime(0.9f);
+            HandleNextClicked();
         }
 
         isAnimating = false;
@@ -709,14 +1069,33 @@ public class QuizUIController : MonoBehaviour
         if (progressBarFill != null && progressBarFill.transform.parent != null)
             progressBarFill.transform.parent.gameObject.SetActive(false);
         if (progressText != null) progressText.gameObject.SetActive(false);
+
+        // Hide quiz modal tab so only the RESULTS tab is visible
+        Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
+        if (quizModalTab != null) quizModalTab.gameObject.SetActive(false);
+
         if (resultsTitleText != null)
+        {
             resultsTitleText.text = "EcoQuest Learning Results";
+            resultsTitleText.color = Color.white;
+        }
         else if (titleText != null)
+        {
             titleText.text = "EcoQuest Learning Results";
+            titleText.color = Color.white;
+        }
 
         if (resultsPanel != null) resultsPanel.SetActive(true);
-        if (preScoreText != null) preScoreText.gameObject.SetActive(true);
-        if (postScoreText != null) postScoreText.gameObject.SetActive(true);
+        if (preScoreText != null)
+        {
+            preScoreText.gameObject.SetActive(true);
+            preScoreText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+        }
+        if (postScoreText != null)
+        {
+            postScoreText.gameObject.SetActive(true);
+            postScoreText.color = new Color(0.29f, 0.88f, 0.46f, 1f); // #4AE076
+        }
         if (rewardGiftIcon != null)
         {
             StopAndResetRewardGift();
@@ -743,17 +1122,17 @@ public class QuizUIController : MonoBehaviour
             if (diff > 0)
             {
                 improvementText.text = $"+{diff} Points Improvement!";
-                improvementText.color = correctColor;
+                improvementText.color = Color.white;
             }
             else if (diff == 0)
             {
                 improvementText.text = "Consistent Performance!";
-                improvementText.color = normalTextColor;
+                improvementText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
             }
             else
             {
                 improvementText.text = "Review & Keep Growing!";
-                improvementText.color = normalTextColor;
+                improvementText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
             }
         }
 
@@ -765,6 +1144,7 @@ public class QuizUIController : MonoBehaviour
         // Encouraging message
         if (encouragingMessageText != null)
         {
+            encouragingMessageText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
             if (diff > 0)
             {
                 encouragingMessageText.text = "Fantastic job! Your knowledge of waste sorting and environmental protection grew significantly during this quest!";
@@ -966,8 +1346,16 @@ public class QuizUIController : MonoBehaviour
         isAnimating = true;
         StopAndResetRewardGift();
 
-        Coroutine overlayRoutine = StartCoroutine(QuizUIAnimator.FadeCanvasGroup(overlayCanvasGroup, 1f, 0f, 0.25f));
-        yield return QuizUIAnimator.PopOutPanel(modalPanelRect, modalPanelCanvasGroup, 0.85f, 0.25f);
+        if (modalPanelCanvasGroup != null)
+        {
+            modalPanelCanvasGroup.interactable = false;
+            modalPanelCanvasGroup.blocksRaycasts = false;
+        }
+
+        ModalManager.Instance?.CloseModal(gameObject);
+
+        Coroutine overlayRoutine = StartCoroutine(QuizUIAnimator.FadeCanvasGroup(overlayCanvasGroup, 1f, 0f, modalCloseDuration));
+        yield return QuizUIAnimator.PopOutPanel(modalPanelRect, modalPanelCanvasGroup, modalStartScale, modalCloseDuration);
         yield return overlayRoutine;
 
         HideImmediate();

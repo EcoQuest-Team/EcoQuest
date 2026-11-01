@@ -10,7 +10,6 @@ public class ProceduralRangerAnimator : MonoBehaviour
     [Header("Live Inputs (Driven by RangerAnimationDriver)")]
     public float HorizontalSpeed;
     public bool IsGrounded = true;
-    public bool IsCrouching;
     public bool IsSprinting;
 
     [Header("Reference Speeds")]

@@ -113,6 +113,7 @@ public class ControlTipsData : ScriptableObject
         title = "Hide Your Quest List",
         instruction = "Press TAB to hide it. Press TAB again to show it.",
         doneMessage = "Quest list hidden and back again. Nice!",
+        keyLabelOverride = "TAB",
         isWASDCluster = false,
         requiredDuration = 0f
     };

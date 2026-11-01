@@ -14,7 +14,12 @@ public static class HeldItemTestHarness
     }
 
     [MenuItem("Tools/EcoQuest/Run Held Item Test Harness")]
-    public static void RunTests()
+    public static void RunTestsMenu()
+    {
+        RunTests(true);
+    }
+
+    public static void RunTests(bool showDialog = false)
     {
         List<TestResult> results = new List<TestResult>();
         Debug.Log("<b><color=#43A84A>[HeldItemTestHarness] Starting test suite across 13 dummy types...</color></b>");
@@ -190,7 +195,10 @@ public static class HeldItemTestHarness
             Debug.LogError($"[HeldItemTestHarness] {summaryMsg}");
         }
 
-        EditorUtility.DisplayDialog("Held Item Test Harness", summaryMsg, "OK");
+        if (showDialog)
+        {
+            EditorUtility.DisplayDialog("Held Item Test Harness", summaryMsg, "OK");
+        }
     }
 
     private static void RunSingleDummyTest(

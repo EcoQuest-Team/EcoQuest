@@ -8,6 +8,14 @@ public class QuestManager : MonoBehaviour
     [Header("Trash Bin Settings")]
     [Tooltip("What kind of trash does THIS specific bin accept? ('Biodegradable', 'Recyclable', 'NonBiodegradable')")]
     [SerializeField] private string acceptedTag; 
+    [Tooltip("Target point inside the bin where deposited trash items animate to.")]
+    [SerializeField] private Transform depositPoint;
+
+    public Vector3 GetDepositTargetPosition()
+    {
+        if (depositPoint != null) return depositPoint.position;
+        return transform.position + Vector3.up * 0.60f;
+    } 
 
     [Header("Quest UI Settings")]
     [Tooltip("Assign the progress bar for THIS specific category.")]
@@ -36,6 +44,64 @@ public class QuestManager : MonoBehaviour
     public static bool IsQuestComplete => isQuestComplete;
     public static bool IsRepeatQuest { get; set; } = false;
 
+    public static int GetTotalRequiredWaste()
+    {
+        int total = 0;
+        foreach (var kvp in targets) total += kvp.Value;
+        return total > 0 ? total : 9;
+    }
+
+    public static int GetTotalSortedWaste()
+    {
+        int done = 0;
+        foreach (var kvp in currentCounts) done += kvp.Value;
+        return done;
+    }
+
+    public static int GetCategoryTarget(string category)
+    {
+        return targets.TryGetValue(category, out int t) ? t : 0;
+    }
+
+    public static int GetCategoryCurrentCount(string category)
+    {
+        return currentCounts.TryGetValue(category, out int c) ? c : 0;
+    }
+
+    public static void ResetAllQuestCountsToZero()
+    {
+        mistakes = 0;
+        isQuestComplete = false;
+        List<string> keys = new List<string>(currentCounts.Keys);
+        foreach (string key in keys)
+        {
+            currentCounts[key] = 0;
+            if (progressBars.ContainsKey(key) && progressBars[key] != null)
+            {
+                progressBars[key].fillAmount = 0f;
+            }
+            if (countLabels.ContainsKey(key) && countLabels[key] != null && targets.ContainsKey(key))
+            {
+                countLabels[key].text = $"0/{targets[key]}";
+            }
+        }
+        collectedTrash.Clear();
+        QuestPanelToggleController.Instance?.RefreshProgressBars(true);
+    }
+
+    public static void ResetStaticState()
+    {
+        currentCounts.Clear();
+        targets.Clear();
+        progressBars.Clear();
+        countLabels.Clear();
+        collectedTrash.Clear();
+        mistakes = 0;
+        lastMistakeTime = 0f;
+        isQuestComplete = false;
+        IsRepeatQuest = false;
+    }
+
     public string AcceptedTag => acceptedTag;
 
     private void Awake()
@@ -63,7 +129,8 @@ public class QuestManager : MonoBehaviour
             if (fillImage != null)
             {
                 progressBars[acceptedTag] = fillImage;
-                fillImage.fillAmount = (float)currentCounts[acceptedTag] / targets[acceptedTag];
+                int target = targets.ContainsKey(acceptedTag) ? targets[acceptedTag] : 0;
+                fillImage.fillAmount = target > 0 ? Mathf.Clamp01((float)currentCounts[acceptedTag] / target) : 0f;
             }
 
             if (countText == null && fillImage != null && fillImage.transform.parent != null)
@@ -82,12 +149,30 @@ public class QuestManager : MonoBehaviour
         IsRepeatQuest = false;
     }
 
+    public bool TryProcessTrashItem(TrashItem trash)
+    {
+        if (trash == null || isQuestComplete || !TrashItem.AreTrashItemsAllowed) return false;
+        if (trash.IsDeposited || trash.IsOnDepositCooldown) return false;
+
+        bool isCorrectCategory = IsItemMatchingCategory(trash.gameObject, acceptedTag);
+        if (isCorrectCategory)
+        {
+            HandleCorrectTrash(trash.gameObject);
+        }
+        else
+        {
+            HandleWrongTrash(trash.gameObject);
+        }
+        return true;
+    }
+
     private void OnTriggerEnter(Collider other)
     {
-        if (isQuestComplete) return;
+        if (isQuestComplete || !TrashItem.AreTrashItemsAllowed) return;
 
         TrashItem trash = other.GetComponent<TrashItem>();
         if (trash == null) return; // Ignore if it is not trash
+        if (trash.IsDeposited || trash.IsOnDepositCooldown) return;
 
         bool isCorrectCategory = IsItemMatchingCategory(other.gameObject, acceptedTag);
 
@@ -130,6 +215,12 @@ public class QuestManager : MonoBehaviour
 
     private void HandleWrongTrash(GameObject trashObject)
     {
+        TrashItem trash = trashObject.GetComponent<TrashItem>();
+        if (trash != null)
+        {
+            trash.SetDepositCooldown(1.0f);
+        }
+
         if (WrongTrashPopup.Instance != null)
         {
             WrongTrashPopup.Instance.Show();
@@ -141,32 +232,39 @@ public class QuestManager : MonoBehaviour
             HandleMistake();
         }
 
-        // Release from player drag if being held
         DragAndDrop drag = trashObject.GetComponent<DragAndDrop>();
-        if (drag != null) drag.ForceRelease();
-
-        // Calculate position in front of this trash bin
-        Vector3 binFrontPos = transform.position + transform.forward * 1.5f + Vector3.up * 0.4f;
-
-        Rigidbody rb = trashObject.GetComponent<Rigidbody>();
-        if (rb != null)
+        if (drag != null)
         {
-            rb.isKinematic = false;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            trashObject.transform.position = binFrontPos;
-            
-            // Pop force outward in front of bin
-            rb.AddForce((transform.forward * 2.5f + Vector3.up * 1.8f), ForceMode.Impulse);
+            drag.OnEjectedFromBin(transform);
         }
         else
         {
-            trashObject.transform.position = binFrontPos;
+            Vector3 binFrontPos = transform.position + transform.forward * 1.5f + Vector3.up * 0.4f;
+            Rigidbody rb = trashObject.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = false;
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                trashObject.transform.position = binFrontPos;
+                rb.AddForce((transform.forward * 2.5f + Vector3.up * 1.8f), ForceMode.Impulse);
+                rb.WakeUp();
+            }
+            else
+            {
+                trashObject.transform.position = binFrontPos;
+            }
         }
     }
 
     private void HandleCorrectTrash(GameObject trashObject)
     {
+        TrashItem trash = trashObject.GetComponent<TrashItem>();
+        if (trash != null)
+        {
+            trash.IsDeposited = true;
+        }
+
         if (string.IsNullOrEmpty(acceptedTag)) acceptedTag = "Recyclable";
 
         if (!targets.ContainsKey(acceptedTag))
@@ -179,29 +277,50 @@ public class QuestManager : MonoBehaviour
             currentCounts[acceptedTag] = 0;
         }
 
-        if (currentCounts[acceptedTag] >= targets[acceptedTag]) return;
+        bool canIncrement = currentCounts[acceptedTag] < targets[acceptedTag];
+        if (canIncrement)
+        {
+            currentCounts[acceptedTag]++;
+            Debug.Log($"[QuestManager] '{gameObject.name}' HandleCorrectTrash: '{trashObject.name}' -> acceptedTag='{acceptedTag}', count={currentCounts[acceptedTag]}/{targets[acceptedTag]}");
+        }
+        else
+        {
+            Debug.Log($"[QuestManager] '{gameObject.name}' HandleCorrectTrash (Over-quota): '{trashObject.name}' -> category already at max {targets[acceptedTag]}");
+        }
 
-        currentCounts[acceptedTag]++;
-        
-        Debug.Log($"[QuestManager] '{gameObject.name}' HandleCorrectTrash: '{trashObject.name}' -> acceptedTag='{acceptedTag}', count={currentCounts[acceptedTag]}/{targets[acceptedTag]}");
-        
-        trashObject.SetActive(false);
+        DragAndDrop drag = trashObject.GetComponent<DragAndDrop>();
+        if (drag != null)
+        {
+            drag.OnDepositedCorrectly(GetDepositTargetPosition());
+        }
+        else
+        {
+            trashObject.SetActive(false);
+        }
+
         if (!collectedTrash.Contains(trashObject))
         {
             collectedTrash.Add(trashObject);
         }
 
-        if (progressBars.ContainsKey(acceptedTag) && progressBars[acceptedTag] != null)
+        if (canIncrement)
         {
-            progressBars[acceptedTag].fillAmount = (float)currentCounts[acceptedTag] / targets[acceptedTag];
-        }
+            if (progressBars.ContainsKey(acceptedTag) && progressBars[acceptedTag] != null)
+            {
+                int target = targets.ContainsKey(acceptedTag) ? targets[acceptedTag] : 0;
+                float fill = target > 0 ? Mathf.Clamp01((float)currentCounts[acceptedTag] / target) : 0f;
+                progressBars[acceptedTag].fillAmount = fill;
+            }
 
-        if (countLabels.ContainsKey(acceptedTag) && countLabels[acceptedTag] != null)
-        {
-            countLabels[acceptedTag].text = $"{currentCounts[acceptedTag]}/{targets[acceptedTag]}";
-        }
+            QuestPanelToggleController.Instance?.RefreshProgressBars();
 
-        CheckForWin();
+            if (countLabels.ContainsKey(acceptedTag) && countLabels[acceptedTag] != null)
+            {
+                countLabels[acceptedTag].text = $"{currentCounts[acceptedTag]}/{targets[acceptedTag]}";
+            }
+
+            CheckForWin();
+        }
     }
 
     private void HandleMistake()
@@ -308,6 +427,8 @@ public class QuestManager : MonoBehaviour
                 countLabels[key].text = $"0/{targets[key]}";
             }
         }
+
+        QuestPanelToggleController.Instance?.RefreshProgressBars();
 
         if (questCanvas != null && (IntroSequenceController.Instance == null || IsRepeatQuest))
         {

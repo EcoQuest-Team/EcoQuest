@@ -111,6 +111,11 @@ public class WrongTrashPopup : MonoBehaviour
         }
         else
         {
+            if (ModalManager.Instance != null && ModalManager.Instance.ActiveModal?.modalObject != gameObject)
+            {
+                ModalManager.Instance.RequestModal(ModalManager.ModalType.Warning, gameObject, null, () => Hide(), priority: 3);
+            }
+
             // Start pop-in animation from offscreen
             if (activeAnimationCoroutine != null)
             {
@@ -126,6 +131,12 @@ public class WrongTrashPopup : MonoBehaviour
     public void Hide()
     {
         if (!isVisible) return;
+        isVisible = false;
+
+        if (ModalManager.Instance != null && ModalManager.Instance.ActiveModal?.modalObject == gameObject)
+        {
+            ModalManager.Instance.CloseModal(gameObject);
+        }
 
         if (activeAnimationCoroutine != null)
         {

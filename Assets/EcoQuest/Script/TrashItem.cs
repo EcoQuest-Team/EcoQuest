@@ -5,6 +5,58 @@ using UnityEngine;
 public class TrashItem : MonoBehaviour
 {
     private static readonly List<TrashItem> allTrashItems = new List<TrashItem>();
+    public static IReadOnlyList<TrashItem> AllTrashItems
+    {
+        get
+        {
+            allTrashItems.RemoveAll(item => item == null);
+            if (allTrashItems.Count == 0)
+            {
+                var found = Object.FindObjectsByType<TrashItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                for (int i = 0; i < found.Length; i++)
+                {
+                    if (found[i] != null && !allTrashItems.Contains(found[i]))
+                    {
+                        allTrashItems.Add(found[i]);
+                    }
+                }
+            }
+            return allTrashItems;
+        }
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticOnSubsystemRegistration()
+    {
+        ResetStaticState();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void ResetStaticOnBeforeSceneLoad()
+    {
+        ResetStaticState();
+    }
+
+    public static void ResetStaticState()
+    {
+        allTrashItems.Clear();
+        areTrashItemsAllowed = false;
+        playerTransform = null;
+    }
+
+    private static bool areTrashItemsAllowed = false;
+    public static bool AreTrashItemsAllowed
+    {
+        get => areTrashItemsAllowed;
+        set
+        {
+            areTrashItemsAllowed = value;
+            if (areTrashItemsAllowed)
+            {
+                DragAndDrop.SelfHealAllUnheldItems("tutorial unlocked trash");
+            }
+        }
+    }
 
     private Rigidbody rb;
     private DragAndDrop dragAndDrop;
@@ -12,6 +64,20 @@ public class TrashItem : MonoBehaviour
     private Quaternion startRotation;
     private bool hasRecordedStart = false;
     private static Transform playerTransform;
+
+    public bool IsDeposited { get; set; } = false;
+    private float depositCooldownUntil = 0f;
+    public bool IsOnDepositCooldown => Time.time < depositCooldownUntil;
+
+    public void SetDepositCooldown(float duration = 1.0f)
+    {
+        depositCooldownUntil = Time.time + duration;
+    }
+
+    public void ClearDepositCooldown()
+    {
+        depositCooldownUntil = 0f;
+    }
 
     private void Awake()
     {
@@ -21,10 +87,35 @@ public class TrashItem : MonoBehaviour
         RecordStartPositionIfNeeded();
         EnsureCameraRendersTrash();
 
+        if (playerTransform == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null) playerTransform = player.transform;
+        }
+
         if (GetComponent<MinimapIcon>() == null)
         {
             MinimapIcon icon = gameObject.AddComponent<MinimapIcon>();
             icon.type = MinimapIcon.IconType.Trash;
+        }
+    }
+
+    private void OnEnable()
+    {
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        if (dragAndDrop == null) dragAndDrop = GetComponent<DragAndDrop>();
+        if (AreTrashItemsAllowed)
+        {
+            if (dragAndDrop != null && !dragAndDrop.IsGrabbed)
+            {
+                dragAndDrop.EnsurePickable();
+            }
+            else if (rb != null)
+            {
+                rb.isKinematic = false;
+                rb.useGravity = true;
+                rb.WakeUp();
+            }
         }
     }
 
@@ -72,53 +163,47 @@ public class TrashItem : MonoBehaviour
     {
         if (!hasRecordedStart || startPosition == Vector3.zero) return;
 
-        if (transform.position.y < -2f)
+        // Kill plane: respawn safely if item falls out of world
+        if (transform.position.y < -10f)
         {
             ResetTrash();
             return;
-        }
-
-        if (dragAndDrop != null && dragAndDrop.IsGrabbed) return;
-
-        if (playerTransform == null)
-        {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null) playerTransform = player.transform;
-        }
-
-        if (playerTransform != null)
-        {
-            Vector3 diff = transform.position - playerTransform.position;
-            float horizDistSq = diff.x * diff.x + diff.z * diff.z;
-            if (horizDistSq < 0.35f * 0.35f && diff.y >= 0.15f && diff.y <= 1.85f)
-            {
-                ResetTrash();
-            }
         }
     }
 
     public void ResetTrash()
     {
         RecordStartPositionIfNeeded();
+        IsDeposited = false;
+        ClearDepositCooldown();
 
         DragAndDrop drag = GetComponent<DragAndDrop>();
         if (drag != null) drag.ForceRelease();
 
-        gameObject.SetActive(true);
+        transform.SetPositionAndRotation(startPosition, startRotation);
 
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
-            rb.isKinematic = true;
-            transform.SetPositionAndRotation(startPosition, startRotation);
-            rb.isKinematic = false;
-            rb.useGravity = true;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            if (AreTrashItemsAllowed)
+            {
+                rb.isKinematic = false;
+                rb.useGravity = true;
+                rb.WakeUp();
+            }
+            else
+            {
+                rb.isKinematic = true;
+            }
         }
-        else
+
+        gameObject.SetActive(AreTrashItemsAllowed);
+
+        if (AreTrashItemsAllowed && drag != null)
         {
-            transform.SetPositionAndRotation(startPosition, startRotation);
+            drag.EnsurePickable(preserveReleasedState: false, logSelfHeal: true);
         }
     }
 

@@ -58,10 +58,13 @@ public class IntroSequenceController : MonoBehaviour
     [SerializeField] private StarterAssets.StarterAssetsInputs playerInputs;
 
     private bool hasRunIntro = false;
+    private readonly System.Collections.Generic.List<TrashItem> cachedTrashItems = new System.Collections.Generic.List<TrashItem>();
 
     public IntroState CurrentState => currentState;
     public bool HasRunIntro => hasRunIntro;
+    public bool IsTrashVisible { get; private set; } = false;
     public event System.Action OnIntroCompleted;
+    public event System.Action OnTutorialCompleted;
 
     private void Awake()
     {
@@ -73,6 +76,12 @@ public class IntroSequenceController : MonoBehaviour
         Instance = this;
 
         ResolveReferences();
+        CacheTrashItemsOnce();
+
+        bool alreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
+        SetTrashVisible(alreadyDone, false, alreadyDone
+            ? "Returning player at Awake (EcoQuest_TabTipDone == 1)"
+            : "Fresh start at Awake - hiding trash until Step 6 (FreePlay)");
     }
 
     private void OnEnable()
@@ -84,25 +93,108 @@ public class IntroSequenceController : MonoBehaviour
 
     private void OnDisable()
     {
+        StopAllCoroutines();
         UnsubscribeEvents();
     }
 
     private void Start()
     {
         ResolveReferences();
+        CacheTrashItemsOnce();
 
-        // Quest HUD starts HIDDEN at the beginning of the game.
-        // It pops up when the player reads the last dialogue on trash bin introduction.
-        if (questHud != null) questHud.SetVisibleImmediate(false);
+        // Trash & Flow gating:
+        // Fresh start (EcoQuest_TabTipDone == 0): trash and quest tab stay hidden for Steps 1-5 until Step 6.
+        // Returning player (EcoQuest_TabTipDone == 1): skip tutorial and enable quest tab & trash right at scene start.
+        bool alreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
+        if (alreadyDone)
+        {
+            hasRunIntro = true;
+            NPCInteraction.IsAnyQuestActive = true;
+            SetTrashVisible(true, false, "Returning player at Scene Start (EcoQuest_TabTipDone == 1)");
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "Returning player at Scene Start (EcoQuest_TabTipDone == 1)");
+        }
+        else
+        {
+            SetTrashVisible(false, false, "Fresh start at Scene Start - hiding trash until Step 6");
+            if (questHud != null) questHud.SetVisibleImmediate(false);
+        }
 
-        // Coin counter remains visible in gameplay
         if (coinHud != null) coinHud.SetVisibleImmediate(true);
     }
 
     private void OnDestroy()
     {
+        StopAllCoroutines();
         UnsubscribeEvents();
         if (Instance == this) Instance = null;
+    }
+
+    private void CacheTrashItemsOnce()
+    {
+        if (cachedTrashItems.Count > 0) return;
+
+        var found = FindObjectsByType<TrashItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var item in found)
+        {
+            if (item != null && !cachedTrashItems.Contains(item))
+            {
+                cachedTrashItems.Add(item);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Single authority controlling trash visibility across the 3D world, minimap/full-map icons,
+    /// pickup/drag interaction, and quest progress counters.
+    /// Never deactivates IntroSequenceController itself.
+    /// </summary>
+    public void SetTrashVisible(bool visible, bool animateReveal = false, string reason = "")
+    {
+        CacheTrashItemsOnce();
+
+        IsTrashVisible = visible;
+
+        if (trashContainer != null && trashContainer != gameObject)
+        {
+            trashContainer.SetActive(visible);
+        }
+
+        for (int i = 0; i < cachedTrashItems.Count; i++)
+        {
+            var item = cachedTrashItems[i];
+            if (item == null) continue;
+
+            if (!visible)
+            {
+                var drag = item.GetComponent<DragAndDrop>();
+                if (drag != null && drag.IsGrabbed)
+                {
+                    drag.ForceRelease();
+                }
+            }
+
+            if (item.gameObject.activeSelf != visible)
+            {
+                item.gameObject.SetActive(visible);
+            }
+        }
+
+        TrashItem.AreTrashItemsAllowed = visible;
+        MinimapIcon.SetTrashIconsActive(visible);
+
+        if (!visible)
+        {
+            QuestManager.ResetAllQuestCountsToZero();
+        }
+        else
+        {
+            DragAndDrop.SelfHealAllUnheldItems("trash unlocked and enabled");
+        }
+
+        if (visible && animateReveal && isActiveAndEnabled)
+        {
+            StartCoroutine(StaggeredTrashRevealRoutine());
+        }
     }
 
     public void SubscribeEvents()
@@ -116,11 +208,9 @@ public class IntroSequenceController : MonoBehaviour
             guardianNPC.OnLastDialogueLineReached += HandleLastDialogueReached;
         }
 
-        if (tutorialManager != null)
-        {
-            tutorialManager.OnLastCardReached += HandleLastCardReached;
-            tutorialManager.OnTutorialClosed += HandleTutorialClosed;
-        }
+        // NOTE: Do NOT subscribe tutorialManager.OnLastCardReached or OnTutorialClosed here!
+        // Step 2 (InfoCards) -> Step 3 (Quiz) is driven strictly sequentially by NPCInteraction.GuardianFlowRoutine,
+        // and the Quest Tab must remain hidden during Steps 1-4 until Step 5 (TabTutorial).
 
         var tipsMgr = GameplayControlTipsManager.Instance != null 
             ? GameplayControlTipsManager.Instance 
@@ -129,10 +219,6 @@ public class IntroSequenceController : MonoBehaviour
         {
             tipsMgr.OnTabTipCompleted -= HandleTabTipCompleted;
             tipsMgr.OnTabTipCompleted += HandleTabTipCompleted;
-            if (tipsMgr.HasCompletedAllTips && hasRunIntro)
-            {
-                HandleTabTipCompleted();
-            }
         }
     }
 
@@ -258,67 +344,18 @@ public class IntroSequenceController : MonoBehaviour
     }
 
     /// <summary>
-    /// Called when dialogue with Guardian NPC ends (accept mission).
-    /// State: Dialogue -> BinIntro.
-    /// Enforces sequential transition: close dialogue -> keep player frozen & cursor unlocked -> StartPreQuiz -> OpenTutorialCards.
+    /// Legacy dialogue ended callback.
+    /// Info cards and pre-quiz are owned exclusively by NPCInteraction.GuardianFlowRoutine.
     /// </summary>
     public void HandleDialogueEnded()
     {
-        if (currentState == IntroState.BinIntro) return;
-        if (hasRunIntro && runOnlyOnce && currentState != IntroState.Dialogue) return;
-
-        currentState = IntroState.BinIntro;
-
-        // Step B: Keep player controls frozen and mouse cursor unlocked (Time.timeScale = 1f so camera blend finishes)
-        if (Time.timeScale == 0f) Time.timeScale = 1f;
-        SetPlayerControlsFrozen(true);
-        SetCursorState(true);
-
-        // Ensure UI_TutorialCards stays hidden while UI_Quiz is active
-        if (tutorialManager != null)
-        {
-            if (tutorialManager.tutorialOverlay != null)
-                tutorialManager.tutorialOverlay.SetActive(false);
-            if (tutorialManager.tutorialCards != null)
-            {
-                foreach (var card in tutorialManager.tutorialCards)
-                {
-                    if (card != null) card.SetActive(false);
-                }
-            }
-        }
-
-        // Step C & D: Run Pre-Quiz first; only open the 3 Bin Educational Cards after Pre-Quiz closes
-        QuizManager qm = QuizManager.Instance != null ? QuizManager.Instance : FindFirstObjectByType<QuizManager>();
-        if (qm != null && !qm.IsPreQuizCompleted)
-        {
-            qm.StartPreQuiz(() =>
-            {
-                SetPlayerControlsFrozen(true);
-                SetCursorState(true);
-                OpenTutorialCards();
-            });
-        }
-        else
-        {
-            OpenTutorialCards();
-        }
+        // Single Owner: GuardianFlowRoutine manages the exclusive flow
+        return;
     }
 
     private void OpenTutorialCards()
     {
-        // Keep player frozen and cursor unlocked for the 3 bin cards
-        SetPlayerControlsFrozen(true);
-        SetCursorState(true);
-
-        // Open Info Cards in selected mode (all cards or single card)
-        if (tutorialManager != null)
-        {
-            if (showAllTutorialCards)
-                tutorialManager.ShowTutorial(0, singleCard: false);
-            else
-                tutorialManager.ShowSingleCard(0);
-        }
+        // Disabled: Info cards are owned exclusively by GuardianFlowRoutine
     }
 
     /// <summary>
@@ -327,7 +364,8 @@ public class IntroSequenceController : MonoBehaviour
     /// </summary>
     public void HandleLastCardReached()
     {
-        if (popUpOnLastBinCard)
+        // Only show quest tab if no modal is actively open; otherwise let HandleTutorialClosed show it
+        if (popUpOnLastBinCard && (ModalManager.Instance == null || !ModalManager.Instance.IsAnyModalOpen))
         {
             ShowQuestTab();
         }
@@ -338,6 +376,12 @@ public class IntroSequenceController : MonoBehaviour
     /// </summary>
     public void ShowQuestTab()
     {
+        // Defer if a modal is currently open so quest panel does not bleed behind modals
+        if (ModalManager.Instance != null && ModalManager.Instance.IsAnyModalOpen)
+        {
+            return;
+        }
+
         if (questHud != null)
         {
             if (questHud.transform.parent != null && !questHud.transform.parent.gameObject.activeSelf)
@@ -378,8 +422,7 @@ public class IntroSequenceController : MonoBehaviour
     {
         currentState = IntroState.Dialogue;
 
-        if (questHud != null) questHud.SetVisible(false, hudFadeDuration);
-        if (coinHud != null) coinHud.SetVisible(false, hudFadeDuration);
+        HudVisibilityService.Instance?.HideHUD("Cutscene", hudFadeDuration);
 
         SetPlayerControlsFrozen(true);
         SetCursorState(true);
@@ -397,15 +440,12 @@ public class IntroSequenceController : MonoBehaviour
         SetCursorState(false);
         SetPlayerControlsFrozen(false);
 
-        if (coinHud != null) coinHud.SetVisible(true, hudFadeDuration);
+        HudVisibilityService.Instance?.ShowHUD("Cutscene", hudFadeDuration);
 
         if (acceptedQuest)
         {
-            if (trashContainer != null)
-            {
-                trashContainer.SetActive(true);
-            }
-            MinimapIcon.SetTrashIconsActive(true);
+            SetTrashVisible(true, false, "Repeat quest accepted");
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "Repeat quest accepted");
             ShowQuestTab();
             if (QuestPanelToggleController.Instance != null)
             {
@@ -415,14 +455,11 @@ public class IntroSequenceController : MonoBehaviour
     }
 
     /// <summary>
-    /// Called when the Info Card is closed by clicking anywhere or pressing E.
-    /// State: BinIntro -> Gameplay.
-    /// Re-locks cursor, unfreezes player, ensures HUD is visible, and spawns trash.
+    /// Called when the Guardian tutorial sequence (Steps 1-4) finishes.
+    /// Does NOT prematurely enable trash before Step 6 (FreePlay).
     /// </summary>
     public void HandleTutorialClosed()
     {
-        if (currentState != IntroState.BinIntro) return;
-
         currentState = IntroState.Gameplay;
         hasRunIntro = true;
 
@@ -432,8 +469,6 @@ public class IntroSequenceController : MonoBehaviour
         // 2. Unfreeze player controls
         SetPlayerControlsFrozen(false);
 
-        // 3. Ensure Quest panel and Coin counter are visible
-        ShowQuestTab();
         if (coinHud != null) coinHud.SetVisible(true, hudFadeDuration);
 
         OnIntroCompleted?.Invoke();
@@ -441,11 +476,50 @@ public class IntroSequenceController : MonoBehaviour
 
     public void HandleTabTipCompleted()
     {
-        if (trashContainer != null)
+        QuestManager.ResetAllQuestCountsToZero();
+        SetTrashVisible(true, animateReveal: true, "Step 6 (FreePlay): TAB tutorial completed");
+        UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "TAB tutorial completed -> FreePlay (trash enabled)");
+        OnTutorialCompleted?.Invoke();
+        HudVisibilityService.Instance?.ShowToast("Find the trash and sort it into the right bin!", 3.5f);
+        UITheme.PlaySound(UITheme.Instance != null ? UITheme.Instance.buttonClickSound : null);
+    }
+
+    private IEnumerator StaggeredTrashRevealRoutine()
+    {
+        if (trashContainer == null) yield break;
+        int childCount = trashContainer.transform.childCount;
+        var initialScales = new Vector3[childCount];
+        for (int i = 0; i < childCount; i++)
         {
-            trashContainer.SetActive(true);
+            var child = trashContainer.transform.GetChild(i);
+            initialScales[i] = child.localScale;
+            child.localScale = Vector3.zero;
         }
-        MinimapIcon.SetTrashIconsActive(true);
+
+        for (int i = 0; i < childCount; i++)
+        {
+            var child = trashContainer.transform.GetChild(i);
+            StartCoroutine(ScaleChildPop(child, initialScales[i], 0.25f));
+            yield return new WaitForSecondsRealtime(0.03f);
+        }
+    }
+
+    private IEnumerator ScaleChildPop(Transform t, Vector3 targetScale, float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration && t != null)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float tNorm = Mathf.Clamp01(elapsed / duration);
+            float s = Mathf.Sin(tNorm * Mathf.PI * 0.5f);
+            t.localScale = targetScale * s;
+            yield return null;
+        }
+        if (t != null)
+        {
+            t.localScale = targetScale;
+            t.GetComponent<DragAndDrop>()?.EnsurePickable(preserveReleasedState: true);
+        }
     }
 
     /// <summary>

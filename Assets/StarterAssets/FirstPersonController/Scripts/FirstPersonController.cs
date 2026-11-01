@@ -14,10 +14,6 @@ namespace StarterAssets
 		public float MoveSpeed = 2.0f;
 		[Tooltip("Sprint speed of the character in m/s (Run)")]
 		public float SprintSpeed = 5.8f;
-		[Tooltip("Crouch speed multiplier applied to MoveSpeed")]
-		public float CrouchSpeedMultiplier = 0.4f;
-		[Tooltip("Crouch collider height multiplier")]
-		public float CrouchHeightMultiplier = 0.68f;
 		[Tooltip("Rotation speed of the character")]
 		public float RotationSpeed = 1.0f;
 		[Tooltip("Acceleration and deceleration")]
@@ -125,7 +121,6 @@ namespace StarterAssets
 		private static readonly int HashGrounded = Animator.StringToHash("Grounded");
 		private static readonly int HashVerticalVelocity = Animator.StringToHash("VerticalVelocity");
 		private static readonly int HashJump = Animator.StringToHash("Jump");
-		private static readonly int HashCrouch = Animator.StringToHash("Crouch");
 		private static readonly int HashIdleIndex = Animator.StringToHash("IdleIndex");
 		private static readonly int HashIsCarrying = Animator.StringToHash("IsCarrying");
 		private static readonly int HashPickUp = Animator.StringToHash("PickUp");
@@ -135,7 +130,6 @@ namespace StarterAssets
 
 		public float VerticalVelocity => _verticalVelocity;
 		public float CurrentHorizontalSpeed { get; private set; }
-		public bool IsCrouching { get; private set; }
 		public bool IsCarrying { get; private set; }
 
 		private bool IsCurrentDeviceMouse
@@ -221,7 +215,6 @@ namespace StarterAssets
 			{
 				float runFactor = Mathf.Clamp01((CurrentHorizontalSpeed - (MoveSpeed + 0.1f)) / Mathf.Max(0.1f, SprintSpeed - MoveSpeed));
 				float interval = Mathf.Lerp(WalkFootstepInterval, RunFootstepInterval, runFactor);
-				if (IsCrouching) interval = WalkFootstepInterval * 1.3f;
 
 				_stepTimer += Time.deltaTime;
 				if (_stepTimer >= interval)
@@ -343,9 +336,7 @@ namespace StarterAssets
 		{
 			bool slowWalk = (Keyboard.current != null && Keyboard.current.leftAltKey.isPressed) || Input.GetKey(KeyCode.LeftAlt);
 			float carrySpeedMult = DragAndDrop.IsAnyItemGrabbed ? 0.85f : 1.0f;
-			float baseTargetSpeed = IsCrouching
-				? (MoveSpeed * CrouchSpeedMultiplier)
-				: (_input.sprint ? SprintSpeed : (slowWalk ? WalkSpeed : MoveSpeed));
+			float baseTargetSpeed = _input.sprint ? SprintSpeed : (slowWalk ? WalkSpeed : MoveSpeed);
 			float targetSpeed = baseTargetSpeed * carrySpeedMult;
 
 			if (_input.move == Vector2.zero) targetSpeed = 0.0f;
@@ -421,7 +412,6 @@ namespace StarterAssets
 
 			if (_jumpBufferTimer > 0.0f && withinCoyote && _jumpTimeoutDelta <= 0.0f)
 			{
-				if (IsCrouching) SetCrouch(false);
 				_verticalVelocity = Mathf.Sqrt(JumpHeight * -2f * Gravity);
 				_jumpBufferTimer = 0.0f;
 				_lastGroundedTime = -999f;
@@ -463,7 +453,6 @@ namespace StarterAssets
 				CharacterAnimator.ResetTrigger(HashJump);
 			}
 			CharacterAnimator.SetFloat(HashVerticalVelocity, _verticalVelocity);
-			CharacterAnimator.SetBool(HashCrouch, IsCrouching);
 			CharacterAnimator.SetBool(HashIsCarrying, carrying);
 
 			if (CharacterAnimator.layerCount > 1)
@@ -485,7 +474,7 @@ namespace StarterAssets
 			}
 
 			// Random idle variations after ~8s when grounded and stationary
-			bool stationaryIdle = Grounded && !IsCrouching && !carrying && CurrentHorizontalSpeed < 0.05f && (_input == null || _input.move == Vector2.zero);
+			bool stationaryIdle = Grounded && !carrying && CurrentHorizontalSpeed < 0.05f && (_input == null || _input.move == Vector2.zero);
 			if (stationaryIdle)
 			{
 				AnimatorStateInfo st = CharacterAnimator.GetCurrentAnimatorStateInfo(0);
@@ -515,20 +504,6 @@ namespace StarterAssets
 				{
 					CharacterAnimator.SetInteger(HashIdleIndex, 0);
 				}
-			}
-		}
-
-		public void SetCrouch(bool crouch)
-		{
-			if (IsCrouching == crouch) return;
-			IsCrouching = crouch;
-
-			if (_controller != null)
-			{
-				float newHeight = IsCrouching ? (_baseColliderHeight * CrouchHeightMultiplier) : _baseColliderHeight;
-				float heightDiff = _baseColliderHeight - newHeight;
-				_controller.height = newHeight;
-				_controller.center = new Vector3(_baseColliderCenter.x, _baseColliderCenter.y - heightDiff * 0.5f, _baseColliderCenter.z);
 			}
 		}
 

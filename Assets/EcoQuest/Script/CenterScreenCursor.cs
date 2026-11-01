@@ -39,8 +39,13 @@ public class CenterScreenCursor : MonoBehaviour
 
     private void Update()
     {
+        bool modalsOpen = (ModalManager.Instance != null && ModalManager.Instance.IsAnyModalOpen)
+            || (UIOrchestrator.Instance != null && UIOrchestrator.Instance.AreModalsOpen)
+            || QuizUIController.IsAnyQuizOpen
+            || (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue);
+
         bool shouldShow = requestedVisible
-            && !QuizUIController.IsAnyQuizOpen
+            && !modalsOpen
             && Cursor.lockState == CursorLockMode.Locked
             && (IntroSequenceController.Instance == null || IntroSequenceController.Instance.CurrentState == IntroSequenceController.IntroState.Gameplay);
 
@@ -58,10 +63,14 @@ public class CenterScreenCursor : MonoBehaviour
         if (mainCam != null)
         {
             Ray ray = mainCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-            if (Physics.Raycast(ray, out RaycastHit hit, 8f))
+            int layerMask = ~LayerMask.GetMask("Player", "Ignore Raycast", "BinSolid");
+            if (Physics.Raycast(ray, out RaycastHit hit, 8f, layerMask, QueryTriggerInteraction.Ignore))
             {
                 string tag = hit.collider.tag;
-                if (tag == "Player" || tag == "Biodegradable" || tag == "Recyclable" || tag == "NonBiodegradable" || hit.collider.GetComponent<NPCInteraction>() != null || hit.collider.GetComponent<TrashItem>() != null)
+                if (tag == "Biodegradable" || tag == "Recyclable" || tag == "NonBiodegradable" ||
+                    hit.collider.GetComponentInParent<NPCInteraction>() != null ||
+                    hit.collider.GetComponentInParent<TrashItem>() != null ||
+                    hit.collider.GetComponentInParent<DragAndDrop>() != null)
                 {
                     isHoveringInteractable = true;
                 }
@@ -83,12 +92,11 @@ public class CenterScreenCursor : MonoBehaviour
         cursorCanvas = canvasObj.AddComponent<Canvas>();
         cursorCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         cursorCanvas.sortingOrder = 999; // Always on top
+        canvasObj.AddComponent<CanvasGroup>();
 
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
-
-        canvasObj.AddComponent<GraphicRaycaster>();
 
         // 2. Create Center Dot Image
         GameObject dotObj = new GameObject("CenterCrosshairDot");
@@ -97,6 +105,7 @@ public class CenterScreenCursor : MonoBehaviour
         cursorImage = dotObj.AddComponent<Image>();
         cursorImage.sprite = CreateCircleSprite();
         cursorImage.color = normalColor;
+        cursorImage.raycastTarget = false;
 
         cursorRect = dotObj.GetComponent<RectTransform>();
         cursorRect.anchorMin = new Vector2(0.5f, 0.5f);

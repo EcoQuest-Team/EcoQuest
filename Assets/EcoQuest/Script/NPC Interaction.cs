@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -52,6 +54,7 @@ public class NPCInteraction : MonoBehaviour
     [SerializeField] private string[] dialogueLines;
     [SerializeField] private string repeatOfferLine = "Great work, Guardian of the forest! Would you like to clean up again?";
     
+    [SerializeField] private float interactDistance = 3.5f;
     [SerializeField] private float typingSpeed = 0.04f;
     [SerializeField] private float nextLineDelay = 0.5f;
 
@@ -71,6 +74,7 @@ public class NPCInteraction : MonoBehaviour
     private Coroutine typingCoroutine;
     private Coroutine cameraBlendCoroutine;
     private bool isTyping = false;
+    private float advanceLockTimer = 0f;
     private bool canContinue = false;
 
     // Fallback camera lerp state
@@ -109,8 +113,11 @@ public class NPCInteraction : MonoBehaviour
         EnsureCameraPointSetup();
         EnsureUIReferences();
 
-        if (interactPrompt != null) interactPrompt.SetActive(false);
-        if (dialogueBox != null) dialogueBox.SetActive(false);
+        SetLegacyInteractPromptActive(false);
+        if (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue)
+            DialoguePresenter.Instance.CloseDialogue();
+
+        if (dialogueBox != null && DialoguePresenter.Instance == null) dialogueBox.SetActive(false);
         if (acceptMissionButton != null)
         {
             acceptMissionButton.onClick.RemoveAllListeners();
@@ -123,10 +130,25 @@ public class NPCInteraction : MonoBehaviour
             notNowButton.onClick.AddListener(DeclineRepeatMission);
             notNowButton.gameObject.SetActive(false);
         }
-        if (continueHint != null) continueHint.gameObject.SetActive(false);
+        SetContinueHintActive(false);
         
         if (questCanvas != null && IntroSequenceController.Instance == null) questCanvas.SetActive(false);
-        if (trashContainer != null) trashContainer.SetActive(false);
+        bool tabTipAlreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
+        if (tabTipAlreadyDone)
+        {
+            hasAcceptedQuest = true;
+            IsAnyQuestActive = true;
+        }
+        if (IntroSequenceController.Instance != null)
+        {
+            IntroSequenceController.Instance.SetTrashVisible(tabTipAlreadyDone, false, "NPCInteraction.Start");
+        }
+        else
+        {
+            TrashItem.AreTrashItemsAllowed = tabTipAlreadyDone;
+            if (trashContainer != null) trashContainer.SetActive(tabTipAlreadyDone);
+            MinimapIcon.SetTrashIconsActive(tabTipAlreadyDone);
+        }
 
         if (tutorialNotification != null) tutorialNotification.SetActive(true);
 
@@ -163,6 +185,8 @@ public class NPCInteraction : MonoBehaviour
 
     private void Update()
     {
+        AnimateOverheadMarker();
+
         if (playerTransform == null)
         {
             GameObject p = GameObject.FindGameObjectWithTag("Player");
@@ -201,10 +225,22 @@ public class NPCInteraction : MonoBehaviour
             StartDialogue();
         }
 
-        // Support advancing dialogue via Click, E, Space, or Return
+        // Support advancing dialogue via Click, E, Space, or Return, and declining with Q
         if (isTalking)
         {
+            if (advanceLockTimer > 0f)
+            {
+                advanceLockTimer -= Time.unscaledDeltaTime;
+                return;
+            }
+
             bool isLastLine = isRepeatOfferDialogue || (dialogueLines != null && currentLineIndex >= dialogueLines.Length - 1);
+
+            if (isLastLine && !isTyping && Input.GetKeyDown(KeyCode.Q))
+            {
+                DeclineRepeatMission();
+                return;
+            }
 
             if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
             {
@@ -388,7 +424,7 @@ public class NPCInteraction : MonoBehaviour
     }
 
     private TextMeshProUGUI promptText;
-    private string defaultPromptText = "Press E to Talk";
+    private string defaultPromptText = "Talk";
 
     public bool IsTutorialLocked()
     {
@@ -412,10 +448,85 @@ public class NPCInteraction : MonoBehaviour
         }
     }
 
-    private void HandleInteractionPrompt(bool isQuestActive)
+    private void AnimateOverheadMarker()
+    {
+        if (overheadMarker == null) return;
+
+        float distToPlayer = (playerTransform != null)
+            ? Vector3.Distance(transform.position, playerTransform.position)
+            : 999f;
+
+        // Hide marker during dialogue, when quest is actively running, or within interactDistance + 1.0m
+        bool isQuestActive = hasAcceptedQuest && !QuestManager.IsQuestComplete;
+        bool shouldHide = isTalking || isQuestActive || (distToPlayer <= (interactDistance + 1.0f));
+
+        if (shouldHide)
+        {
+            if (overheadMarker.activeSelf)
+                overheadMarker.SetActive(false);
+            return;
+        }
+
+        if (!overheadMarker.activeSelf)
+            overheadMarker.SetActive(true);
+
+        float bob = Mathf.Sin(Time.time * 2.8f) * 0.07f;
+        overheadMarker.transform.localPosition = new Vector3(0f, 2.3f + bob, 0f);
+
+        // Scale with distance: 0.60 to 1.0, capped close
+        float distFactor = Mathf.Clamp01((distToPlayer - 4f) / 16f);
+        float distScale = Mathf.Lerp(0.60f, 1.0f, distFactor);
+        overheadMarker.transform.localScale = Vector3.one * (0.24f * distScale);
+
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 toCam = overheadMarker.transform.position - cam.transform.position;
+            toCam.y = 0f;
+            if (toCam.sqrMagnitude > 0.001f)
+                overheadMarker.transform.rotation = Quaternion.LookRotation(toCam.normalized, Vector3.up);
+        }
+    }
+
+    private void SetLegacyInteractPromptActive(bool active)
     {
         if (interactPrompt == null) return;
+        if (interactPrompt.GetComponent<WorldInteractionPrompt>() != null) return;
+        if (interactPrompt.activeSelf != active) interactPrompt.SetActive(active);
+    }
+
+    private void SetContinueHintActive(bool active)
+    {
+        if (continueHint == null) return;
+        KeyCapPrompt kcp = continueHint.GetComponentInParent<KeyCapPrompt>(true);
+        if (kcp != null && kcp.transform.parent != null && kcp.transform.parent.name == "ContinuePromptRoot")
+        {
+            kcp.transform.parent.gameObject.SetActive(active);
+        }
+        else if (kcp != null)
+        {
+            kcp.gameObject.SetActive(active);
+        }
+        else
+        {
+            continueHint.gameObject.SetActive(active);
+        }
+    }
+
+    private void HandleInteractionPrompt(bool isQuestActive)
+    {
         bool shouldShowPrompt = isPlayerNearby && !isTalking && !isQuestActive;
+        if (shouldShowPrompt)
+        {
+            string act = IsTutorialLocked() ? "Tips locked" : "Talk";
+            WorldInteractionPrompt.Instance?.ShowPrompt(transform, "Guardian", act, "E");
+        }
+        else if (WorldInteractionPrompt.Instance != null && WorldInteractionPrompt.Instance.ActiveTarget == transform)
+        {
+            WorldInteractionPrompt.Instance.HidePrompt();
+        }
+
+        if (interactPrompt == null || interactPrompt.GetComponent<WorldInteractionPrompt>() != null) return;
         
         if (interactPrompt.activeSelf != shouldShowPrompt)
         {
@@ -429,7 +540,7 @@ public class NPCInteraction : MonoBehaviour
             {
                 if (string.IsNullOrEmpty(defaultPromptText) || defaultPromptText == "Finish the tips first!")
                 {
-                    defaultPromptText = "Press E to Talk";
+                    defaultPromptText = "Talk";
                 }
                 promptText.text = IsTutorialLocked() ? "Finish the tips first!" : defaultPromptText;
             }
@@ -443,9 +554,19 @@ public class NPCInteraction : MonoBehaviour
         isTalking = true;
         isRepeatOfferDialogue = hasCompletedFirstQuest;
         currentLineIndex = 0;
+        advanceLockTimer = 0.5f;
 
-        if (interactPrompt != null) interactPrompt.SetActive(false);
-        if (dialogueBox != null) dialogueBox.SetActive(true);
+        WorldInteractionPrompt.Instance?.SetBlocked(true);
+        SetLegacyInteractPromptActive(false);
+        if (DialoguePresenter.Instance != null)
+        {
+            DialoguePresenter.Instance.EnsureActiveHierarchy();
+        }
+        else if (dialogueBox != null)
+        {
+            dialogueBox.SetActive(true);
+        }
+        StartCoroutine(DialogueFailSafeRoutine());
         bool hasIntroController = (IntroSequenceController.Instance != null || FindFirstObjectByType<IntroSequenceController>() != null);
         if (questCanvas != null && !hasIntroController && !isRepeatOfferDialogue) questCanvas.SetActive(true);
         
@@ -482,7 +603,427 @@ public class NPCInteraction : MonoBehaviour
         OnDialogueStarted?.Invoke();
         OnDialogueStart?.Invoke();
 
+        if (DialoguePresenter.Instance != null)
+        {
+            int total = QuestManager.GetTotalRequiredWaste();
+            int done = QuestManager.GetTotalSortedWaste();
+            int reward = 100;
+
+            List<string> linesToShow;
+            bool showChoices = false;
+            string acceptLabel = isRepeatOfferDialogue ? "Yes, let's go!" : "Accept Quest";
+            string declineLabel = "Not now";
+            Action onAcceptAction = null;
+            Action onDeclineAction = null;
+
+            if (hasAcceptedQuest && !QuestManager.IsQuestComplete)
+            {
+                linesToShow = DialogueData.GetForestInProgress(done, total);
+            }
+            else if (hasAcceptedQuest && QuestManager.IsQuestComplete)
+            {
+                linesToShow = DialogueData.GetForestComplete(reward);
+                onAcceptAction = () => EndDialogue();
+            }
+            else
+            {
+                // Exclusive GuardianFlowRoutine: [intro dialogue] -> out -> [info card(s)] -> out -> [quiz] -> out -> [quest dialogue] -> out -> quest starts
+                DialoguePresenter.RunCoroutine(GuardianFlowRoutine(total));
+                return;
+            }
+
+            DialoguePresenter.Instance.ShowDialogue(
+                speakerName: "Guardian",
+                lines: linesToShow,
+                showChoicesAtEnd: showChoices,
+                acceptLabel: acceptLabel,
+                declineLabel: declineLabel,
+                onAccept: onAcceptAction,
+                onDecline: onDeclineAction,
+                onComplete: () => {
+                    EndDialogue();
+                }
+            );
+            return;
+        }
+
         UpdateDialogueText();
+    }
+
+    public bool IsRunningGuardianFlow { get; private set; } = false;
+    public static event Action<string> OnFlowCompleted;
+    public static string CurrentFlowStep { get; private set; } = "Idle";
+    public static bool IsAnyQuestActive { get; set; } = false;
+    public static bool IsAnyGuardianFlowRunning { get; private set; } = false;
+    public static bool IsAnyQuestActiveSignal => IsAnyQuestActive && !QuestManager.IsQuestComplete;
+
+    private Coroutine flowWatchdogRoutine;
+    private string activeGuardianFlowToken = null;
+    private bool flowEndExecuted = false;
+
+    private IEnumerator GuardianFlowRoutine(int total)
+    {
+        if (IsRunningGuardianFlow || IsAnyGuardianFlowRunning)
+        {
+            Debug.LogWarning("[FlowState] Blocked duplicate GuardianFlowRoutine start because a flow is already active.");
+            yield break;
+        }
+
+        string flowToken = System.Guid.NewGuid().ToString("N");
+        activeGuardianFlowToken = flowToken;
+        IsRunningGuardianFlow = true;
+        IsAnyGuardianFlowRunning = true;
+        flowEndExecuted = false;
+        bool accepted = false;
+
+        // Ensure trash and quest tab remain strictly hidden throughout Steps 1-4
+        IntroSequenceController.Instance?.SetTrashVisible(false, false, $"GuardianFlow Start (token: {flowToken})");
+
+        if (flowWatchdogRoutine != null) StopCoroutine(flowWatchdogRoutine);
+        flowWatchdogRoutine = StartCoroutine(GuardianFlowWatchdogRoutine(flowToken));
+
+        try
+        {
+            // =========================================================================
+            // Step 1: Intro dialogue (NPC)
+            // =========================================================================
+            if (activeGuardianFlowToken != flowToken) yield break;
+            CurrentFlowStep = "IntroDialogue";
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Intro, $"Step 1 Enter: IntroDialogue (token: {flowToken})");
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] Step 1 Enter: IntroDialogue (token: {flowToken})");
+#endif
+            FreezePlayerControls();
+            bool introDone = false;
+            DialoguePresenter.Instance.ShowDialogue(
+                speakerName: "Guardian",
+                lines: DialogueData.GetForestIntro(total),
+                showChoicesAtEnd: false,
+                onComplete: () => { introDone = true; }
+            );
+
+            while (!introDone)
+            {
+                if (activeGuardianFlowToken != flowToken) yield break;
+                yield return null;
+            }
+
+            // Fade OUT dialogue fully (0.20s: alpha 0 AND inactive) before Step 2 starts
+            DialoguePresenter.Instance.CloseDialogue();
+            yield return new WaitForSecondsRealtime(0.20f);
+            while (DialoguePresenter.Instance != null && DialoguePresenter.Instance.CurrentAlpha > 0.01f)
+            {
+                yield return null;
+            }
+
+            // =========================================================================
+            // Step 2: Info cards ("BIN INFO" panels, one per bin)
+            // =========================================================================
+            if (activeGuardianFlowToken != flowToken) yield break;
+            CurrentFlowStep = "InfoCards";
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.InfoCards, $"Step 2 Enter: InfoCards (token: {flowToken})");
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] Step 2 Enter: InfoCards (token: {flowToken})");
+#endif
+            // Keep world moving (Time.timeScale = 1f) while player input remains frozen
+            Time.timeScale = 1f;
+            FreezePlayerControls();
+
+            var tm = FindFirstObjectByType<TutorialManager>();
+            if (tm != null)
+            {
+                bool cardsDone = false;
+                Action onCardsClosed = () => { cardsDone = true; };
+                tm.OnTutorialClosed += onCardsClosed;
+
+                tm.ShowTutorial(0, singleCard: false, flowToken: flowToken);
+
+                while (!cardsDone)
+                {
+                    if (activeGuardianFlowToken != flowToken)
+                    {
+                        tm.OnTutorialClosed -= onCardsClosed;
+                        yield break;
+                    }
+                    yield return null;
+                }
+                tm.OnTutorialClosed -= onCardsClosed;
+                yield return new WaitForSecondsRealtime(0.20f); // Wait for InfoCards close transition
+            }
+
+            // =========================================================================
+            // Step 3: Questions panel (the 1-6 Pre-Quiz)
+            // =========================================================================
+            if (activeGuardianFlowToken != flowToken) yield break;
+            CurrentFlowStep = "PreQuiz";
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Quiz, $"Step 3 Enter: PreQuiz (token: {flowToken})");
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] Step 3 Enter: PreQuiz (token: {flowToken})");
+#endif
+            Time.timeScale = 1f;
+            FreezePlayerControls();
+
+            var qm = QuizManager.Instance != null ? QuizManager.Instance : FindFirstObjectByType<QuizManager>();
+            if (qm != null)
+            {
+                if (qm.IsPreQuizCompleted && PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 0)
+                {
+                    qm.ResetQuizzes();
+                }
+
+                if (!qm.IsPreQuizCompleted)
+                {
+                    bool quizDone = false;
+                    qm.StartPreQuiz(() => { quizDone = true; });
+
+                    while (!quizDone)
+                    {
+                        if (activeGuardianFlowToken != flowToken) yield break;
+                        yield return null;
+                    }
+                    yield return new WaitForSecondsRealtime(0.20f); // Wait for Quiz close transition
+                }
+            }
+
+            // =========================================================================
+            // Step 4: Guardian dialogue (QuestOffer)
+            // =========================================================================
+            if (activeGuardianFlowToken != flowToken) yield break;
+            CurrentFlowStep = "QuestOffer";
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Guardian, $"Step 4 Enter: QuestOffer (token: {flowToken})");
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] Step 4 Enter: QuestOffer (token: {flowToken})");
+#endif
+            Time.timeScale = 1f;
+            FreezePlayerControls();
+
+            bool choiceMade = false;
+
+            DialoguePresenter.Instance.ShowDialogue(
+                speakerName: "Guardian",
+                lines: DialogueData.GetForestAccepted(total),
+                showChoicesAtEnd: false,
+                acceptLabel: "Accept Quest",
+                declineLabel: "Not now",
+                onAccept: () => {
+                    accepted = true;
+                    choiceMade = true;
+                },
+                onDecline: () => {
+                    accepted = false;
+                    choiceMade = true;
+                },
+                onComplete: () => {
+                    if (!choiceMade) { accepted = true; choiceMade = true; }
+                }
+            );
+
+            while (!choiceMade)
+            {
+                if (activeGuardianFlowToken != flowToken) yield break;
+                yield return null;
+            }
+
+            // Fade OUT Guardian dialogue fully (0.20s)
+            DialoguePresenter.Instance.CloseDialogue();
+            yield return new WaitForSecondsRealtime(0.20f);
+            while (DialoguePresenter.Instance != null && DialoguePresenter.Instance.CurrentAlpha > 0.01f)
+            {
+                yield return null;
+            }
+        }
+        finally
+        {
+            EndGuardianFlow(accepted, flowToken);
+        }
+    }
+
+    public void EndGuardianFlow(bool accepted, string flowToken)
+    {
+        if (flowEndExecuted) return;
+        flowEndExecuted = true;
+
+        if (flowWatchdogRoutine != null)
+        {
+            StopCoroutine(flowWatchdogRoutine);
+            flowWatchdogRoutine = null;
+        }
+
+        IsRunningGuardianFlow = false;
+        IsAnyGuardianFlowRunning = false;
+        CurrentFlowStep = "End";
+
+        // 1. Exit dialogue camera return to first-person view
+        DeactivateDialogueCamera();
+
+        // 2. Reset modal stack and blur service completely (weight 0, volume disabled)
+        ModalManager.Instance?.ForceCloseAllAndRestore();
+        ModalManager.Instance?.BlurFailsafeReset();
+
+        // 3. Restore controls and lock cursor
+        RestorePlayerControls();
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        // 4. Reset NPC state
+        Animator anim = GetComponent<Animator>();
+        if (anim == null) anim = GetComponentInChildren<Animator>();
+        if (anim != null) anim.SetBool("IsTalking", false);
+        isTalking = false;
+        Time.timeScale = 1f;
+        WorldInteractionPrompt.Instance?.SetBlocked(false);
+
+        // 5. Release EVERY hide reason registered with HudVisibilityService/Orchestrator
+        var released = new List<string>();
+        if (HudVisibilityService.Instance != null)
+        {
+            foreach (var r in new List<string>(HudVisibilityService.Instance.ActiveReasons))
+            {
+                HudVisibilityService.Instance.ShowHUD(r);
+                released.Add(r);
+            }
+            HudVisibilityService.Instance.ClearAllReasons();
+        }
+        UIOrchestrator.Instance?.SetModalsOpen(false);
+
+        // 6. Advance to Step 5 (TabTutorial) or Step 6 (FreePlay for returning player)
+        if (accepted)
+        {
+            hasAcceptedQuest = true;
+            IsAnyQuestActive = true;
+            QuestManager.ResetAllQuestCountsToZero();
+
+            var intro = IntroSequenceController.Instance != null ? IntroSequenceController.Instance : FindFirstObjectByType<IntroSequenceController>();
+            if (intro != null)
+            {
+                intro.HandleTutorialClosed();
+            }
+
+            bool tabTipAlreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
+            if (!tabTipAlreadyDone)
+            {
+                // Step 5: TabTutorial (Quest Tab appears; Trash remains hidden until TAB tip completes)
+                IntroSequenceController.Instance?.SetTrashVisible(false, false, "Step 5 (TabTutorial) - trash stays hidden until TAB tip finishes");
+                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.TabTutorial, $"Step 4 Guardian completed -> Step 5 TabTutorial (token: {flowToken})");
+
+                if (QuestPanelToggleController.Instance != null)
+                {
+                    QuestPanelToggleController.Instance.ResetTabCycle();
+                    QuestPanelToggleController.Instance.SlideInFromLeft(0.4f);
+                }
+
+                // Raise FlowCompleted to trigger GameplayControlTipsManager (Step 5 -> Step 6 on completion)
+                OnFlowCompleted?.Invoke(flowToken);
+            }
+            else
+            {
+                // Returning player: skip Step 5 (TabTutorial) and go straight to Step 6 (FreePlay) with quest tab & trash enabled
+                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, $"Returning player (EcoQuest_TabTipDone == 1) -> Step 6 FreePlay (token: {flowToken})");
+                if (QuestPanelToggleController.Instance != null)
+                {
+                    QuestPanelToggleController.Instance.ResetTabCycle();
+                    QuestPanelToggleController.Instance.SlideInFromLeft(0.4f);
+                }
+                IntroSequenceController.Instance?.HandleTabTipCompleted();
+            }
+        }
+        else
+        {
+            hasAcceptedQuest = false;
+            IsAnyQuestActive = false;
+            UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.FreePlay, "GuardianFlow Declined");
+            DeclineRepeatMission();
+        }
+
+#if UNITY_EDITOR
+        Debug.Log($"[FlowTrace] End: released reasons=[{string.Join(", ", released)}] step={UIOrchestrator.Instance?.CurrentFlowStep}");
+#endif
+
+        if (HudVisibilityService.Instance != null && HudVisibilityService.Instance.HideReasonCount > 0)
+        {
+            Debug.LogWarning($"[GuardianFlow] Stale hide reasons remaining after End: {string.Join(", ", HudVisibilityService.Instance.ActiveReasons)}");
+        }
+
+        CurrentFlowStep = "Completed";
+    }
+
+    private IEnumerator GuardianFlowWatchdogRoutine(string flowToken)
+    {
+        float invisibleTimer = 0f;
+        while (IsRunningGuardianFlow && activeGuardianFlowToken == flowToken)
+        {
+            yield return new WaitForSecondsRealtime(0.20f);
+
+            bool popupVisible = (ModalManager.Instance != null && ModalManager.Instance.IsAnyModalActuallyVisible())
+                || (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue && !DialoguePresenter.Instance.IsSuspended && DialoguePresenter.Instance.CurrentAlpha > 0.01f);
+
+            if (!popupVisible)
+            {
+                invisibleTimer += 0.20f;
+                if (invisibleTimer >= 2.0f)
+                {
+                    Debug.LogWarning($"[GuardianFlow Watchdog] Flow active at step '{CurrentFlowStep}' but no visible popup for {invisibleTimer:F2}s! Forcing End step.");
+                    EndGuardianFlow(accepted: true, flowToken: flowToken);
+                    yield break;
+                }
+            }
+            else
+            {
+                invisibleTimer = 0f;
+            }
+        }
+    }
+
+    private void ShowAcceptedFollowup(int total)
+    {
+        if (DialoguePresenter.Instance != null)
+        {
+            DialoguePresenter.Instance.ShowDialogue(
+                speakerName: "Guardian",
+                lines: DialogueData.GetForestAccepted(total),
+                showChoicesAtEnd: false,
+                onComplete: () => {
+                    EndDialogue();
+                }
+            );
+        }
+    }
+
+    private void ShowDeclinedFollowup()
+    {
+        if (DialoguePresenter.Instance != null)
+        {
+            DialoguePresenter.Instance.ShowDialogue(
+                speakerName: "Guardian",
+                lines: DialogueData.GetForestDeclined(),
+                showChoicesAtEnd: false,
+                onComplete: () => {
+                    DeclineRepeatMission();
+                }
+            );
+        }
+    }
+
+    private IEnumerator DialogueFailSafeRoutine()
+    {
+        yield return new WaitForSecondsRealtime(0.3f);
+        if (isTalking)
+        {
+            bool presenterShowing = DialoguePresenter.Instance != null && 
+                                   DialoguePresenter.Instance.IsInDialogue && 
+                                   DialoguePresenter.Instance.CurrentAlpha > 0.01f;
+            bool legacyShowing = dialogueBox != null && dialogueBox.activeInHierarchy;
+            if (!presenterShowing && !legacyShowing)
+            {
+                Debug.LogError($"[DialogueFailSafe] Dialogue failed to display within 0.3s for NPC '{gameObject.name}'! Aborting dialogue and restoring controls.");
+                EndDialogue();
+                RestorePlayerControls();
+                DeactivateDialogueCamera();
+                Time.timeScale = 1f;
+                WorldInteractionPrompt.Instance?.SetBlocked(false);
+                if (dialogueBox != null && DialoguePresenter.Instance == null) dialogueBox.SetActive(false);
+            }
+        }
     }
 
     public void DisplayNextLine()
@@ -509,27 +1050,17 @@ public class NPCInteraction : MonoBehaviour
 
         if (acceptMissionButton != null)
         {
-            RectTransform rt = acceptMissionButton.GetComponent<RectTransform>();
-            if (rt != null)
+            KeyCapPrompt kcp = acceptMissionButton.GetComponentInChildren<KeyCapPrompt>(true);
+            if (kcp != null)
             {
-                rt.anchorMin = new Vector2(0.66f, 0.08f);
-                rt.anchorMax = new Vector2(0.96f, 0.36f);
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
+                kcp.SetPrompt("E", repeatMode ? "Yes, let's go!" : "Accept Quest");
             }
-
-            Transform check = acceptMissionButton.transform.Find("CheckmarkIcon");
-            if (check != null) check.gameObject.SetActive(true);
-
-            TextMeshProUGUI txt = acceptMissionButton.GetComponentInChildren<TextMeshProUGUI>(true);
-            if (txt != null)
+            else
             {
-                txt.text = repeatMode ? "Yes, let's go!" : "[E] ACCEPT\nMISSION";
-                RectTransform trt = txt.GetComponent<RectTransform>();
-                if (trt != null)
+                TextMeshProUGUI txt = acceptMissionButton.GetComponentInChildren<TextMeshProUGUI>(true);
+                if (txt != null)
                 {
-                    trt.offsetMin = new Vector2(38f, 4f);
-                    trt.offsetMax = new Vector2(-8f, -4f);
+                    txt.text = repeatMode ? "Yes, let's go!" : "Accept Quest";
                 }
             }
 
@@ -540,34 +1071,26 @@ public class NPCInteraction : MonoBehaviour
 
         if (notNowButton != null)
         {
-            RectTransform nrt = notNowButton.GetComponent<RectTransform>();
-            if (nrt != null)
+            KeyCapPrompt kcp = notNowButton.GetComponentInChildren<KeyCapPrompt>(true);
+            if (kcp != null)
             {
-                nrt.anchorMin = new Vector2(0.36f, 0.08f);
-                nrt.anchorMax = new Vector2(0.64f, 0.36f);
-                nrt.offsetMin = Vector2.zero;
-                nrt.offsetMax = Vector2.zero;
+                kcp.SetPrompt("Q", "Not now");
             }
-
-            Transform nCheck = notNowButton.transform.Find("CheckmarkIcon");
-            if (nCheck != null) nCheck.gameObject.SetActive(false);
-
-            TextMeshProUGUI nTxt = notNowButton.GetComponentInChildren<TextMeshProUGUI>(true);
-            if (nTxt != null)
+            else
             {
-                nTxt.text = "Not now";
-                RectTransform ntrt = nTxt.GetComponent<RectTransform>();
-                if (ntrt != null)
+                TextMeshProUGUI nTxt = notNowButton.GetComponentInChildren<TextMeshProUGUI>(true);
+                if (nTxt != null)
                 {
-                    ntrt.offsetMin = new Vector2(8f, 4f);
-                    ntrt.offsetMax = new Vector2(-8f, -4f);
+                    nTxt.text = "Not now";
                 }
             }
 
             notNowButton.onClick.RemoveAllListeners();
             notNowButton.onClick.AddListener(DeclineRepeatMission);
-            notNowButton.gameObject.SetActive(repeatMode && showButtons);
+            notNowButton.gameObject.SetActive(showButtons);
         }
+
+        SetContinueHintActive(!showButtons);
     }
 
     private string GetCurrentDialogueLine()
@@ -590,7 +1113,7 @@ public class NPCInteraction : MonoBehaviour
         if (isRepeatOfferDialogue)
         {
             ConfigureDialogueButtons(repeatMode: true, showButtons: true);
-            if (continueHint != null) continueHint.gameObject.SetActive(false);
+            SetContinueHintActive(false);
 
             if (typingCoroutine != null) StopCoroutine(typingCoroutine);
             typingCoroutine = StartCoroutine(TypeLine());
@@ -607,11 +1130,7 @@ public class NPCInteraction : MonoBehaviour
             }
 
             ConfigureDialogueButtons(repeatMode: false, showButtons: isLastLine);
-
-            if (continueHint != null)
-            {
-                continueHint.gameObject.SetActive(!isLastLine);
-            }
+            SetContinueHintActive(!isLastLine);
 
             if (typingCoroutine != null) StopCoroutine(typingCoroutine);
             
@@ -630,13 +1149,18 @@ public class NPCInteraction : MonoBehaviour
         if (dialogueText != null) dialogueText.text = "";
 
         string line = GetCurrentDialogueLine();
+        float speed = 0.025f; // ~40 chars/sec
         foreach (char c in line.ToCharArray())
         {
             if (dialogueText != null) dialogueText.text += c;
-            yield return new WaitForSeconds(typingSpeed);
+            if (c == '.' || c == ',' || c == '!' || c == '?')
+                yield return new WaitForSecondsRealtime(0.12f);
+            else
+                yield return new WaitForSecondsRealtime(speed);
         }
 
         isTyping = false;
+        advanceLockTimer = 0.5f;
         StartCoroutine(WaitBeforeContinue());
     }
 
@@ -649,13 +1173,14 @@ public class NPCInteraction : MonoBehaviour
             dialogueText.text = GetCurrentDialogueLine();
         }
         isTyping = false;
+        advanceLockTimer = 0.5f;
         
         StartCoroutine(WaitBeforeContinue());
     }
 
     private IEnumerator WaitBeforeContinue()
     {
-        yield return new WaitForSeconds(nextLineDelay);
+        yield return new WaitForSecondsRealtime(nextLineDelay);
         canContinue = true;
     }
 
@@ -673,6 +1198,7 @@ public class NPCInteraction : MonoBehaviour
     public void DeclineRepeatMission()
     {
         if (!isTalking) return;
+        bool wasRepeat = isRepeatOfferDialogue;
         isTalking = false;
         isTyping = false;
         isRepeatOfferDialogue = false;
@@ -684,10 +1210,14 @@ public class NPCInteraction : MonoBehaviour
             typingCoroutine = null;
         }
 
-        if (dialogueBox != null) dialogueBox.SetActive(false);
+        if (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue)
+            DialoguePresenter.Instance.CloseDialogue();
+
+        if (dialogueBox != null && DialoguePresenter.Instance == null) dialogueBox.SetActive(false);
         if (acceptMissionButton != null) acceptMissionButton.gameObject.SetActive(false);
         if (notNowButton != null) notNowButton.gameObject.SetActive(false);
-        if (continueHint != null) continueHint.gameObject.SetActive(false);
+        SetContinueHintActive(false);
+        WorldInteractionPrompt.Instance?.SetBlocked(false);
 
         DeactivateDialogueCamera();
 
@@ -698,13 +1228,16 @@ public class NPCInteraction : MonoBehaviour
             anim.SetBool("IsTalking", false);
         }
 
-        IntroSequenceController intro = IntroSequenceController.Instance != null
-            ? IntroSequenceController.Instance
-            : FindFirstObjectByType<IntroSequenceController>();
-
-        if (intro != null)
+        if (wasRepeat)
         {
-            intro.EndRepeatDialogue(acceptedQuest: false);
+            IntroSequenceController intro = IntroSequenceController.Instance != null
+                ? IntroSequenceController.Instance
+                : FindFirstObjectByType<IntroSequenceController>();
+
+            if (intro != null)
+            {
+                intro.EndRepeatDialogue(acceptedQuest: false);
+            }
         }
 
         RestorePlayerControls();
@@ -726,10 +1259,14 @@ public class NPCInteraction : MonoBehaviour
         }
 
         // Step A: Close UI_Dialogue cleanly
-        if (dialogueBox != null) dialogueBox.SetActive(false);
+        if (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue)
+            DialoguePresenter.Instance.CloseDialogue();
+
+        if (dialogueBox != null && DialoguePresenter.Instance == null) dialogueBox.SetActive(false);
         if (acceptMissionButton != null) acceptMissionButton.gameObject.SetActive(false);
         if (notNowButton != null) notNowButton.gameObject.SetActive(false);
-        if (continueHint != null) continueHint.gameObject.SetActive(false);
+        SetContinueHintActive(false);
+        WorldInteractionPrompt.Instance?.SetBlocked(false);
 
         // 1. Return camera smoothly to first-person view (unscaled blend)
         DeactivateDialogueCamera();
@@ -791,49 +1328,11 @@ public class NPCInteraction : MonoBehaviour
             return;
         }
 
-        // First-time quest: keep player controls frozen and mouse cursor unlocked during handoff to Pre-Quiz
-        FreezePlayerControls();
+        // Step C & D: Info cards and quiz are owned exclusively by GuardianFlowRoutine (Single Owner)
+        RestorePlayerControls();
 
         OnDialogueEnded?.Invoke();
         OnDialogueEnd?.Invoke();
-
-        // Step C & D: Ensure IntroSequenceController runs the sequential Pre-Quiz -> 3 Bin Cards transition
-        if (intro != null)
-        {
-            intro.HandleDialogueEnded();
-        }
-        else
-        {
-            QuizManager qm = QuizManager.Instance != null ? QuizManager.Instance : FindFirstObjectByType<QuizManager>();
-            if (qm != null && !qm.IsPreQuizCompleted)
-            {
-                qm.StartPreQuiz(() =>
-                {
-                    if (tutorialManager != null)
-                    {
-                        tutorialManager.ShowTutorial(0);
-                    }
-                    else
-                    {
-                        RestorePlayerControls();
-                        if (trashContainer != null) trashContainer.SetActive(true);
-                        if (questCanvas != null) questCanvas.SetActive(true);
-                        MinimapIcon.SetTrashIconsActive(true);
-                    }
-                });
-            }
-            else if (tutorialManager != null)
-            {
-                tutorialManager.ShowTutorial(0);
-            }
-            else
-            {
-                RestorePlayerControls();
-                if (trashContainer != null) trashContainer.SetActive(true);
-                if (questCanvas != null) questCanvas.SetActive(true);
-                MinimapIcon.SetTrashIconsActive(true);
-            }
-        }
     }
 
     private void ActivateDialogueCamera()
@@ -877,7 +1376,7 @@ public class NPCInteraction : MonoBehaviour
         }
     }
 
-    private void DeactivateDialogueCamera()
+    public void DeactivateDialogueCamera()
     {
         if (dialogueCameraPoint != null)
         {
@@ -894,7 +1393,7 @@ public class NPCInteraction : MonoBehaviour
             int hfLayer = LayerMask.NameToLayer("HiddenFromFirstPerson");
             if (hfLayer != -1) mainCam.cullingMask &= ~(1 << hfLayer);
             Transform vmCam = mainCam.transform.Find("ViewmodelCamera");
-            if (vmCam != null) vmCam.gameObject.SetActive(false);
+            if (vmCam != null) vmCam.gameObject.SetActive(true);
         }
 
         if (mainCam != null && dialogueCameraPoint != null)
@@ -907,8 +1406,17 @@ public class NPCInteraction : MonoBehaviour
             else if (originalCamPos != Vector3.zero)
             {
                 if (cameraBlendCoroutine != null) StopCoroutine(cameraBlendCoroutine);
-                cameraBlendCoroutine = StartCoroutine(LerpCamera(mainCam, mainCam.transform.position, mainCam.transform.rotation, mainCam.fieldOfView,
-                    originalCamPos, originalCamRot, originalCamFOV, transitionTime));
+                if (isActiveAndEnabled && gameObject.scene.isLoaded)
+                {
+                    cameraBlendCoroutine = StartCoroutine(LerpCamera(mainCam, mainCam.transform.position, mainCam.transform.rotation, mainCam.fieldOfView,
+                        originalCamPos, originalCamRot, originalCamFOV, transitionTime));
+                }
+                else
+                {
+                    mainCam.transform.position = originalCamPos;
+                    mainCam.transform.rotation = originalCamRot;
+                    mainCam.fieldOfView = originalCamFOV;
+                }
             }
         }
     }
@@ -963,7 +1471,7 @@ public class NPCInteraction : MonoBehaviour
         }
     }
 
-    private void RestorePlayerControls()
+    public void RestorePlayerControls()
     {
         if (playerTransform == null)
         {
@@ -1008,11 +1516,50 @@ public class NPCInteraction : MonoBehaviour
 
         while (elapsed < duration)
         {
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
             transform.rotation = Quaternion.Slerp(startRot, targetRot, elapsed / duration);
             yield return null;
         }
         transform.rotation = targetRot;
+    }
+
+    /// <summary>
+    /// Smart Safeguard 2: Clears all saved tutorial/quiz flags so the full tutorial flow (Steps 1-6)
+    /// can be tested from a fresh start. Accessible via EcoQuest > Reset Tutorial or component context menu.
+    /// </summary>
+    [ContextMenu("Reset Tutorial")]
+    public void ResetTutorialContextMenu()
+    {
+        ResetAllTutorialFlags();
+    }
+
+    public static void ResetStaticFlowState()
+    {
+        IsAnyQuestActive = false;
+        IsAnyGuardianFlowRunning = false;
+        CurrentFlowStep = "Idle";
+        OnFlowCompleted = null;
+    }
+
+#if UNITY_EDITOR
+    [UnityEditor.MenuItem("EcoQuest/Reset Tutorial")]
+    [UnityEditor.MenuItem("Tools/EcoQuest/Reset Tutorial")]
+#endif
+    public static void ResetAllTutorialFlags()
+    {
+        EcoQuestSaveKeys.ClearAllTutorialProgress();
+        ResetStaticFlowState();
+
+        if (Application.isPlaying)
+        {
+            QuizManager.Instance?.ResetQuizzes();
+            GameplayControlTipsManager.Instance?.ResetTipsState();
+            QuestManager.ResetAllQuestCountsToZero();
+            IntroSequenceController.Instance?.SetTrashVisible(false, false, "Reset Tutorial");
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Tutorial, "Reset Tutorial command invoked");
+        }
+
+        Debug.Log("[FlowState] Tutorial flags reset (EcoQuest_TabTipDone=0, EcoQuest_SeenInfoCards='', EcoQuest_PreQuizScore cleared). Ready for fresh start!");
     }
 
     private void OnTriggerEnter(Collider other)
@@ -1030,31 +1577,51 @@ public class NPCInteraction : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             isPlayerNearby = false;
-            if (interactPrompt != null) interactPrompt.SetActive(false);
+            SetLegacyInteractPromptActive(false);
             if (isTalking)
             {
-                if (isRepeatOfferDialogue) DeclineRepeatMission();
-                else EndDialogue();
+                DeclineRepeatMission();
             }
             if (typingCoroutine != null) StopCoroutine(typingCoroutine);
         }
     }
 
+    private void CleanupCoroutinesAndState()
+    {
+        if (flowWatchdogRoutine != null)
+        {
+            StopCoroutine(flowWatchdogRoutine);
+            flowWatchdogRoutine = null;
+        }
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+            typingCoroutine = null;
+        }
+        if (cameraBlendCoroutine != null)
+        {
+            StopCoroutine(cameraBlendCoroutine);
+            cameraBlendCoroutine = null;
+        }
+        if (IsRunningGuardianFlow)
+        {
+            IsRunningGuardianFlow = false;
+            IsAnyGuardianFlowRunning = false;
+            activeGuardianFlowToken = null;
+        }
+        if (isTalking && gameObject.scene.isLoaded)
+        {
+            DeclineRepeatMission();
+        }
+    }
+
     private void OnDisable()
     {
-        if (isTalking)
-        {
-            if (isRepeatOfferDialogue) DeclineRepeatMission();
-            else EndDialogue();
-        }
+        CleanupCoroutinesAndState();
     }
 
     private void OnDestroy()
     {
-        if (isTalking)
-        {
-            if (isRepeatOfferDialogue) DeclineRepeatMission();
-            else EndDialogue();
-        }
+        CleanupCoroutinesAndState();
     }
 }

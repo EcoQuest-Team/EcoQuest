@@ -53,7 +53,7 @@ MonoBehaviour:
     title: Open the Map!
     instruction: Press M or click the minimap.
     doneMessage: Awesome! You can check the map anytime!
-    keyIcon: {fileID: 0}
+    keyIcon: {fileID: 21300000, guid: 267b8be08c1d8db4395cb4a254918a9d, type: 3}
     keyLabelOverride: M
     isWASDCluster: 0
     requiredDuration: 0

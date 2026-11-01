@@ -16,12 +16,8 @@ public class RangerAnimationDriver : MonoBehaviour
     public float coyoteTime = 0.10f;
 
     [Header("Hotkeys")]
-    public KeyCode crouchKey = KeyCode.C;
     public KeyCode waveKey = KeyCode.H;
-    public float crouchHeightMultiplier = 0.68f;
-    public float crouchSpeedMultiplier = 0.4f;
 
-    public bool IsCrouching => _fpc != null && _fpc.IsCrouching;
     public bool IsGroundedSafe => _fpc == null || _fpc.Grounded;
     public float CurrentHorizontalSpeed => _fpc != null ? _fpc.CurrentHorizontalSpeed : 0f;
     public bool IsCarrying => _fpc != null && _fpc.IsCarrying;
@@ -47,8 +43,6 @@ public class RangerAnimationDriver : MonoBehaviour
         if (_fpc != null)
         {
             _fpc.CoyoteTime = coyoteTime;
-            _fpc.CrouchHeightMultiplier = crouchHeightMultiplier;
-            _fpc.CrouchSpeedMultiplier = crouchSpeedMultiplier;
             if (visualAnimator != null) _fpc.CharacterAnimator = visualAnimator;
             if (_fpc.CinemachineCameraTarget != null)
             {
@@ -84,19 +78,13 @@ public class RangerAnimationDriver : MonoBehaviour
     {
         if (Time.deltaTime <= 0f || _fpc == null) return;
 
-        bool crouchPressed = Input.GetKeyDown(crouchKey);
         bool wavePressed = Input.GetKeyDown(waveKey);
 #if ENABLE_INPUT_SYSTEM
         if (Keyboard.current != null)
         {
-            if (!crouchPressed && Keyboard.current.cKey.wasPressedThisFrame) crouchPressed = true;
             if (!wavePressed && Keyboard.current.hKey.wasPressedThisFrame) wavePressed = true;
         }
 #endif
-        if (crouchPressed)
-        {
-            SetCrouch(!_fpc.IsCrouching);
-        }
         if (wavePressed)
         {
             PlayWave();
@@ -109,14 +97,8 @@ public class RangerAnimationDriver : MonoBehaviour
                              Input.GetKey(KeyCode.LeftShift);
             proceduralAnimator.HorizontalSpeed = _fpc.CurrentHorizontalSpeed;
             proceduralAnimator.IsGrounded = _fpc.Grounded;
-            proceduralAnimator.IsCrouching = _fpc.IsCrouching;
-            proceduralAnimator.IsSprinting = sprinting && !_fpc.IsCrouching;
+            proceduralAnimator.IsSprinting = sprinting;
         }
-    }
-
-    public void SetCrouch(bool crouch)
-    {
-        if (_fpc != null) _fpc.SetCrouch(crouch);
     }
 
     public void PlayJump()
