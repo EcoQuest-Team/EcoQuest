@@ -1,94 +1,271 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Manages the visual trash pile layer inside a trash bin.
-/// Shows staged piles (low, medium, full) based on items deposited into THIS specific bin.
+/// Controls the scattered low-poly visual trash pile inside a trash bin.
+/// Pre-spawns a pool of individual litter pieces tailored to the bin's category:
+/// - Biodegradable: greens, browns, yellows (banana peels, fish bones, sandwiches, cupcakes, fruits)
+/// - Recyclable: blues, whites, cardboard (plastic cups, papers, toilet rolls, clean tin cans)
+/// - Non-Biodegradable: grays, reds, darks (tin cans, plastic packaging, soiled wrappers)
+/// Fills the entire circular opening (~30% at 1st deposit, growing to nearly full just below the rim by quota).
 /// </summary>
 public class BinVisualTrashLayer : MonoBehaviour
 {
-    [Header("Visual Stages")]
-    [Tooltip("Staged visual piles inside the bin: Stage 1 (small), Stage 2 (medium), Stage 3 (full).")]
-    [SerializeField] private GameObject[] stageObjects;
+    public enum BinCategory
+    {
+        Biodegradable,
+        Recyclable,
+        NonBiodegradable
+    }
+
+    [Header("Bin Configuration")]
+    [SerializeField] private BinCategory category = BinCategory.Biodegradable;
+    [SerializeField] private int quota = 5;
+    [SerializeField] private int poolSize = 60;
+
+    [Header("Pool References")]
+    [SerializeField] private Transform pileRoot;
+    [SerializeField] private List<GameObject> pooledPieces = new List<GameObject>();
+    [SerializeField] private List<Vector3> baseScales = new List<Vector3>();
 
     private int currentDepositCount = 0;
-    public int CurrentDepositCount => currentDepositCount;
-    public GameObject[] StageObjects => stageObjects;
+    private float currentFillPercent = 0f;
+    private Coroutine popCoroutine;
 
-    public void SetStageObjects(GameObject[] stages)
+    public int CurrentDepositCount => currentDepositCount;
+    public float CurrentFillPercent => currentFillPercent;
+    public int Quota => quota;
+    public BinCategory Category => category;
+    public Transform PileRoot => pileRoot;
+    public IReadOnlyList<GameObject> PooledPieces => pooledPieces;
+
+    public int ActivePieceCount
     {
-        stageObjects = stages;
+        get
+        {
+            int c = 0;
+            for (int i = 0; i < pooledPieces.Count; i++)
+            {
+                if (pooledPieces[i] != null && pooledPieces[i].activeSelf) c++;
+            }
+            return c;
+        }
     }
 
     private void Awake()
     {
-        UpdateVisuals(false);
+        DetectCategoryAndQuota();
+        RestoreSavedState();
+    }
+
+    private void OnEnable()
+    {
+        DetectCategoryAndQuota();
+        RestoreSavedState();
+    }
+
+    public void DetectCategoryAndQuota()
+    {
+        string n = gameObject.name.ToLower();
+        var qm = GetComponent<QuestManager>();
+        string tag = qm != null ? qm.AcceptedTag : "";
+        if (string.IsNullOrEmpty(tag)) tag = n;
+        else tag = tag.ToLower();
+
+        if (tag.Contains("bio") && !tag.Contains("non")) category = BinCategory.Biodegradable;
+        else if (tag.Contains("recyc")) category = BinCategory.Recyclable;
+        else if (tag.Contains("non")) category = BinCategory.NonBiodegradable;
+
+        if (qm != null)
+        {
+            int qmQuota = QuestManager.GetCategoryTarget(qm.AcceptedTag);
+            if (qmQuota <= 0)
+            {
+                if (category == BinCategory.Biodegradable) qmQuota = 5;
+                else if (category == BinCategory.Recyclable) qmQuota = 3;
+                else qmQuota = 1;
+            }
+            quota = qmQuota;
+        }
+    }
+
+    public void RestoreSavedState()
+    {
+        if (!Application.isPlaying) return;
+
+        if (QuestManager.IsQuestComplete)
+        {
+            SetDepositCount(quota, false);
+            return;
+        }
+
+        string saveKey = $"EcoQuest_Bin_{gameObject.name}_Deposits";
+        int saved = PlayerPrefs.GetInt(saveKey, -1);
+        if (saved >= 0)
+        {
+            currentDepositCount = saved;
+            SetDepositCount(saved, false);
+        }
+        else
+        {
+            ResetVisuals();
+        }
     }
 
     /// <summary>
-    /// Updates the visual layer based on the number of items deposited in THIS specific bin.
+    /// Sets deposit count for this bin.
+    /// About 30% full on 1st deposit, growing to nearly full (just below the rim) by quota or 6 deposits.
     /// </summary>
     public void SetDepositCount(int count, bool animatePop = true)
     {
         currentDepositCount = Mathf.Max(0, count);
-        UpdateVisuals(animatePop);
+        if (Application.isPlaying)
+        {
+            PlayerPrefs.SetInt($"EcoQuest_Bin_{gameObject.name}_Deposits", currentDepositCount);
+        }
+
+        float fill = 0f;
+        if (currentDepositCount > 0)
+        {
+            int targetSteps = Mathf.Clamp(quota, 1, 6);
+            if (targetSteps <= 1)
+            {
+                fill = 1.0f;
+            }
+            else
+            {
+                float t = Mathf.Clamp01((float)(currentDepositCount - 1) / (targetSteps - 1));
+                fill = Mathf.Lerp(0.30f, 1.0f, t);
+            }
+            if (currentDepositCount >= targetSteps)
+            {
+                fill = 1.0f;
+            }
+        }
+
+        SetFillPercent(fill, animatePop);
     }
 
     /// <summary>
-    /// Resets all visual stages to hidden (stage 0).
+    /// Sets exact fill percentage (0.0f to 1.0f) across the pool.
+    /// Used by preview slider and deposit scaling.
     /// </summary>
+    public void SetFillPercent(float fill, bool animatePop = false)
+    {
+        currentFillPercent = Mathf.Clamp01(fill);
+        if (pooledPieces == null || pooledPieces.Count == 0) return;
+
+        int targetActiveCount = Mathf.RoundToInt(currentFillPercent * pooledPieces.Count);
+        int prevActiveCount = ActivePieceCount;
+
+        List<Transform> newlyActivated = new List<Transform>();
+
+        for (int i = 0; i < pooledPieces.Count; i++)
+        {
+            var piece = pooledPieces[i];
+            if (piece == null) continue;
+
+            bool shouldBeActive = i < targetActiveCount;
+            if (shouldBeActive && !piece.activeSelf)
+            {
+                piece.SetActive(true);
+                if (animatePop && i >= prevActiveCount)
+                {
+                    newlyActivated.Add(piece.transform);
+                }
+                else if (i < baseScales.Count)
+                {
+                    piece.transform.localScale = baseScales[i];
+                }
+            }
+            else if (!shouldBeActive && piece.activeSelf)
+            {
+                piece.SetActive(false);
+            }
+        }
+
+        if (animatePop && newlyActivated.Count > 0 && gameObject.activeInHierarchy)
+        {
+            if (popCoroutine != null) StopCoroutine(popCoroutine);
+            popCoroutine = StartCoroutine(AnimatePopRoutine(newlyActivated));
+        }
+    }
+
     public void ResetVisuals()
     {
         currentDepositCount = 0;
-        UpdateVisuals(false);
-    }
-
-    private void UpdateVisuals(bool animatePop)
-    {
-        if (stageObjects == null || stageObjects.Length == 0) return;
-
-        // Map deposit count to stage index:
-        // 0: none
-        // 1: Stage 0 (small)
-        // 2: Stage 1 (medium)
-        // >= 3: Stage 2 (full)
-        int activeStageIndex = -1;
-        if (currentDepositCount == 1) activeStageIndex = 0;
-        else if (currentDepositCount == 2) activeStageIndex = Mathf.Min(1, stageObjects.Length - 1);
-        else if (currentDepositCount >= 3) activeStageIndex = Mathf.Min(2, stageObjects.Length - 1);
-
-        for (int i = 0; i < stageObjects.Length; i++)
+        currentFillPercent = 0f;
+        if (Application.isPlaying)
         {
-            if (stageObjects[i] == null) continue;
-
-            bool shouldBeActive = (i == activeStageIndex);
-            if (stageObjects[i].activeSelf != shouldBeActive)
+            PlayerPrefs.DeleteKey($"EcoQuest_Bin_{gameObject.name}_Deposits");
+        }
+        if (pooledPieces != null)
+        {
+            for (int i = 0; i < pooledPieces.Count; i++)
             {
-                stageObjects[i].SetActive(shouldBeActive);
-                if (shouldBeActive && animatePop && gameObject.activeInHierarchy)
+                if (pooledPieces[i] != null)
                 {
-                    StartCoroutine(PopAnimation(stageObjects[i].transform));
+                    pooledPieces[i].SetActive(false);
+                    if (i < baseScales.Count)
+                    {
+                        pooledPieces[i].transform.localScale = baseScales[i];
+                    }
                 }
             }
         }
     }
 
-    private IEnumerator PopAnimation(Transform target)
+    private IEnumerator AnimatePopRoutine(List<Transform> pieces)
     {
-        if (target == null) yield break;
-        Vector3 baseScale = target.localScale;
+        float duration = 0.20f;
         float elapsed = 0f;
-        float duration = 0.25f;
+
+        // Initialize newly active pieces at scale 0
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            if (pieces[i] != null) pieces[i].localScale = Vector3.zero;
+        }
 
         while (elapsed < duration)
         {
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            float scaleMultiplier = Mathf.Sin(t * Mathf.PI * 0.5f);
-            target.localScale = baseScale * (0.85f + 0.15f * scaleMultiplier);
+            // Elastic pop: overshoot to 1.15 then settle to 1.0
+            float overshoot = Mathf.Sin(t * Mathf.PI * 0.95f) * 1.15f;
+            float s = (t >= 0.85f) ? Mathf.Lerp(overshoot, 1.0f, (t - 0.85f) / 0.15f) : overshoot;
+
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                var tr = pieces[i];
+                if (tr == null) continue;
+                int idx = pooledPieces.IndexOf(tr.gameObject);
+                Vector3 baseScale = (idx >= 0 && idx < baseScales.Count) ? baseScales[idx] : Vector3.one * 0.18f;
+                tr.localScale = baseScale * Mathf.Max(0f, s);
+            }
+
             yield return null;
         }
 
-        target.localScale = baseScale;
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            var tr = pieces[i];
+            if (tr == null) continue;
+            int idx = pooledPieces.IndexOf(tr.gameObject);
+            Vector3 baseScale = (idx >= 0 && idx < baseScales.Count) ? baseScales[idx] : Vector3.one * 0.18f;
+            tr.localScale = baseScale;
+        }
+
+        popCoroutine = null;
+    }
+
+    public void SetupPool(Transform root, List<GameObject> pieces, List<Vector3> scales, BinCategory cat, int binQuota)
+    {
+        pileRoot = root;
+        pooledPieces = pieces;
+        baseScales = scales;
+        category = cat;
+        quota = binQuota;
+        poolSize = pieces != null ? pieces.Count : 60;
     }
 }

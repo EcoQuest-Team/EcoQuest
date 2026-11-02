@@ -48,6 +48,19 @@ public static class EcoQuestSaveKeys
                 PlayerPrefs.DeleteKey(AllTutorialProgressKeys[i]);
             }
         }
+
+        string[] binPrefixes = new string[]
+        {
+            "Biodegradable", "Biodegradable 2", "Biodegradable 3",
+            "Recyclable", "Recyclable 2", "Recyclable 3",
+            "NonBiodegradable", "NonBiodegradable 2", "NonBiodegradable 3"
+        };
+        for (int i = 0; i < binPrefixes.Length; i++)
+        {
+            string key = $"EcoQuest_Bin_{binPrefixes[i]}_Deposits";
+            if (PlayerPrefs.HasKey(key)) PlayerPrefs.DeleteKey(key);
+        }
+
         PlayerPrefs.Save();
         ModalManager.ClearPersistedSeenCards();
     }
