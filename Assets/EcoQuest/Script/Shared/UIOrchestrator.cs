@@ -293,7 +293,8 @@ public class UIOrchestrator : MonoBehaviour
         if (crosshairGroup != null) elementGroups[UIElement.Crosshair] = crosshairGroup;
         if (questPanelGroup != null) elementGroups[UIElement.QuestPanel] = questPanelGroup;
         if (tutorialCardGroup != null) elementGroups[UIElement.TutorialCard] = tutorialCardGroup;
-        if (interactPromptGroup != null) elementGroups[UIElement.InteractPrompt] = interactPromptGroup;
+        // UI_InteractPrompt is a contextual world-anchored prompt managed by WorldInteractionPrompt,
+        // not a persistent HUD element. Do not register in elementGroups to prevent HUD snapping conflicts.
 
         // Register elements in HudVisibilityService so legacy watchdog won't fight
         if (HudVisibilityService.Instance != null)
@@ -444,11 +445,13 @@ public class UIOrchestrator : MonoBehaviour
     public void EnterCinematicProfile(string caller = "ExplorerGate")
     {
         PushOverlay(caller);
+        WorldInteractionPrompt.Instance?.SetBlocked(true);
     }
 
     public void ExitCinematicProfile(string caller = "ExplorerGate")
     {
         PopOverlay();
+        WorldInteractionPrompt.Instance?.SetBlocked(false);
     }
 
     /// <summary>

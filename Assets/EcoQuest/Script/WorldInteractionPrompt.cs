@@ -93,6 +93,15 @@ public class WorldInteractionPrompt : MonoBehaviour
             canvasGroup.interactable = false;
         }
 
+        if (promptPanelRect != null)
+        {
+            promptPanelRect.gameObject.SetActive(false);
+        }
+
+        currentAlpha = 0f;
+        targetAlpha = 0f;
+        activeTarget = null;
+
         EnsureCenteredLayout();
     }
 
@@ -250,6 +259,7 @@ public class WorldInteractionPrompt : MonoBehaviour
 
         if (promptPanelRect != null)
         {
+            if (!promptPanelRect.gameObject.activeSelf) promptPanelRect.gameObject.SetActive(true);
             var textCol = promptPanelRect.Find("TextCol") as RectTransform;
             if (textCol != null) LayoutRebuilder.ForceRebuildLayoutImmediate(textCol);
             LayoutRebuilder.ForceRebuildLayoutImmediate(promptPanelRect);
@@ -264,7 +274,17 @@ public class WorldInteractionPrompt : MonoBehaviour
     public void HidePrompt()
     {
         targetAlpha = 0f;
+        currentAlpha = 0f;
         activeTarget = null;
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.blocksRaycasts = false;
+        }
+        if (promptPanelRect != null)
+        {
+            promptPanelRect.gameObject.SetActive(false);
+        }
     }
 
     /// <summary>
@@ -338,8 +358,8 @@ public class WorldInteractionPrompt : MonoBehaviour
         if (!canShow)
         {
             targetAlpha = 0f;
-            // Immediate cut when player turns away, is blocked, or holds trash: never freeze at screen center
-            if (isBehindCamera || isHoldingTrash || isManuallyHidden)
+            // Immediate cut when player turns away, is blocked, holds trash, or activeTarget is null: never freeze at screen center
+            if (activeTarget == null || isBehindCamera || isHoldingTrash || isManuallyHidden)
             {
                 currentAlpha = 0f;
                 if (canvasGroup != null)
@@ -356,6 +376,20 @@ public class WorldInteractionPrompt : MonoBehaviour
             float rate = transitionDuration > 0f ? (1f / transitionDuration) : 100f;
             currentAlpha = Mathf.MoveTowards(currentAlpha, targetAlpha, Time.unscaledDeltaTime * rate);
             if (canvasGroup != null) canvasGroup.alpha = currentAlpha;
+        }
+        else if (canvasGroup != null && canvasGroup.alpha != currentAlpha)
+        {
+            canvasGroup.alpha = currentAlpha;
+            canvasGroup.blocksRaycasts = (currentAlpha > 0.5f);
+        }
+
+        if (promptPanelRect != null)
+        {
+            bool shouldPanelBeActive = canShow || currentAlpha > 0.01f;
+            if (promptPanelRect.gameObject.activeSelf != shouldPanelBeActive)
+            {
+                promptPanelRect.gameObject.SetActive(shouldPanelBeActive);
+            }
         }
 
         if (promptPanelRect != null)
