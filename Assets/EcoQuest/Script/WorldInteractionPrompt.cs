@@ -217,7 +217,7 @@ public class WorldInteractionPrompt : MonoBehaviour
     /// </summary>
     public void ShowPrompt(Transform target, string targetName, string actionName, string key = "E")
     {
-        if (target == null)
+        if (target == null || isManuallyHidden || DragAndDrop.CurrentlyGrabbedItem != null)
         {
             HidePrompt();
             return;
@@ -276,7 +276,13 @@ public class WorldInteractionPrompt : MonoBehaviour
         if (blocked)
         {
             targetAlpha = 0f;
+            currentAlpha = 0f;
             activeTarget = null;
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 0f;
+                canvasGroup.blocksRaycasts = false;
+            }
         }
     }
 
@@ -285,7 +291,8 @@ public class WorldInteractionPrompt : MonoBehaviour
         mainCam = GetActiveWorldCamera();
         if (mainCam == null) return;
 
-        bool canShow = !isManuallyHidden && activeTarget != null && activeTarget.gameObject.activeInHierarchy;
+        bool isHoldingTrash = DragAndDrop.CurrentlyGrabbedItem != null;
+        bool canShow = !isManuallyHidden && !isHoldingTrash && activeTarget != null && activeTarget.gameObject.activeInHierarchy;
         Vector3 screenPos = Vector3.zero;
         float targetDistance = 2f;
         isBehindCamera = false;
@@ -294,24 +301,53 @@ public class WorldInteractionPrompt : MonoBehaviour
         if (canShow)
         {
             targetDistance = Vector3.Distance(mainCam.transform.position, activeTarget.position);
-            Vector3 worldPos = activeTarget.position + Vector3.up * shoulderHeight + mainCam.transform.right * rightOffset;
-            screenPos = mainCam.WorldToScreenPoint(worldPos);
-            lastScreenPos = screenPos;
-
-            if (screenPos.z <= 0.05f)
+            // Defensive distance guard: interaction prompt should never show for distant targets
+            if (targetDistance > 4.5f)
             {
-                isBehindCamera = true;
                 canShow = false;
             }
-            else if (screenPos.x < 0f || screenPos.x > Screen.width || screenPos.y < 0f || screenPos.y > Screen.height)
+            else
             {
-                isOffScreen = true;
+                Vector3 toTarget = (activeTarget.position - mainCam.transform.position).normalized;
+                float dot = Vector3.Dot(mainCam.transform.forward, toTarget);
+                if (dot < 0.25f)
+                {
+                    // Target is behind or to the side of the camera (player looking away or down into bin)
+                    isBehindCamera = true;
+                    canShow = false;
+                }
+                else
+                {
+                    Vector3 worldPos = activeTarget.position + Vector3.up * shoulderHeight + mainCam.transform.right * rightOffset;
+                    screenPos = mainCam.WorldToScreenPoint(worldPos);
+                    lastScreenPos = screenPos;
+
+                    if (screenPos.z <= 0.05f)
+                    {
+                        isBehindCamera = true;
+                        canShow = false;
+                    }
+                    else if (screenPos.x < 0f || screenPos.x > Screen.width || screenPos.y < 0f || screenPos.y > Screen.height)
+                    {
+                        isOffScreen = true;
+                    }
+                }
             }
         }
 
         if (!canShow)
         {
             targetAlpha = 0f;
+            // Immediate cut when player turns away, is blocked, or holds trash: never freeze at screen center
+            if (isBehindCamera || isHoldingTrash || isManuallyHidden)
+            {
+                currentAlpha = 0f;
+                if (canvasGroup != null)
+                {
+                    canvasGroup.alpha = 0f;
+                    canvasGroup.blocksRaycasts = false;
+                }
+            }
         }
 
         // Animate alpha and subtle scale pop
@@ -331,7 +367,7 @@ public class WorldInteractionPrompt : MonoBehaviour
             promptPanelRect.localScale = new Vector3(finalScale, finalScale, 1f);
         }
 
-        // Position clamping
+        // Position clamping via Canvas local space (handles CanvasScaler / resolution differences)
         if (canShow && promptPanelRect != null && currentAlpha > 0.01f)
         {
             float minX = screenPadding;
@@ -342,7 +378,21 @@ public class WorldInteractionPrompt : MonoBehaviour
             screenPos.x = Mathf.Clamp(screenPos.x, minX, maxX);
             screenPos.y = Mathf.Clamp(screenPos.y, minY, maxY);
 
-            promptPanelRect.position = screenPos;
+            Canvas parentCanvas = GetComponentInParent<Canvas>();
+            RectTransform parentCanvasRect = parentCanvas != null ? parentCanvas.transform as RectTransform : promptPanelRect.parent as RectTransform;
+
+            if (parentCanvasRect != null)
+            {
+                Camera camForRect = (parentCanvas != null && parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay) ? null : mainCam;
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(parentCanvasRect, screenPos, camForRect, out Vector2 localPoint))
+                {
+                    promptPanelRect.anchoredPosition = localPoint;
+                }
+            }
+            else
+            {
+                promptPanelRect.position = screenPos;
+            }
         }
     }
 }

@@ -205,17 +205,18 @@ public class TrashItem : MonoBehaviour
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
             if (AreTrashItemsAllowed)
             {
                 rb.isKinematic = false;
                 rb.useGravity = true;
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
                 rb.WakeUp();
             }
             else
             {
                 rb.isKinematic = true;
+                rb.useGravity = false;
             }
         }
 

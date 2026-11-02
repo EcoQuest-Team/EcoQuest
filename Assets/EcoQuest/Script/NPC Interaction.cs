@@ -213,6 +213,17 @@ public class NPCInteraction : MonoBehaviour
             if (p != null) playerTransform = p.transform;
         }
 
+        float playerDist = playerTransform != null ? Vector3.Distance(transform.position, playerTransform.position) : 999f;
+        // Self-heal: ensure trigger enter/exit missed by CharacterController does not desync isPlayerNearby
+        if (isPlayerNearby && playerDist > interactDistance + 0.5f)
+        {
+            isPlayerNearby = false;
+        }
+        else if (!isPlayerNearby && playerDist <= interactDistance && !isTalking)
+        {
+            isPlayerNearby = true;
+        }
+
         // Smoothly rotate NPC to face player when nearby and not in active dialogue
         if (isPlayerNearby && !isTalking && playerTransform != null)
         {
@@ -231,10 +242,11 @@ public class NPCInteraction : MonoBehaviour
 
         bool isModalBlocking = QuizUIController.IsAnyQuizOpen || PauseMenuController.IsPaused || (MinimapController.Instance != null && MinimapController.Instance.IsFullMapOpen);
         bool isQuestActive = hasAcceptedQuest && !QuestManager.IsQuestComplete;
+        bool isHoldingTrash = DragAndDrop.CurrentlyGrabbedItem != null;
 
-        HandleInteractionPrompt(isQuestActive || isModalBlocking);
+        HandleInteractionPrompt(isQuestActive || isModalBlocking || isHoldingTrash || playerDist > interactDistance);
 
-        if (isPlayerNearby && !isTalking && !isQuestActive && !isModalBlocking && Input.GetKeyDown(KeyCode.E))
+        if (isPlayerNearby && !isTalking && !isQuestActive && !isModalBlocking && !isHoldingTrash && playerDist <= interactDistance && Input.GetKeyDown(KeyCode.E))
         {
             if (IsTutorialLocked())
             {
@@ -536,9 +548,11 @@ public class NPCInteraction : MonoBehaviour
         }
     }
 
-    private void HandleInteractionPrompt(bool isQuestActive)
+    private void HandleInteractionPrompt(bool isBlocked)
     {
-        bool shouldShowPrompt = isPlayerNearby && !isTalking && !isQuestActive;
+        float playerDist = playerTransform != null ? Vector3.Distance(transform.position, playerTransform.position) : 999f;
+        bool isHoldingTrash = DragAndDrop.CurrentlyGrabbedItem != null;
+        bool shouldShowPrompt = isPlayerNearby && !isTalking && !isBlocked && !isHoldingTrash && playerDist <= interactDistance;
         if (shouldShowPrompt)
         {
             string act = IsTutorialLocked() ? "Tips locked" : "Talk";

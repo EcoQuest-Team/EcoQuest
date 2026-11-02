@@ -13,16 +13,22 @@ public class QuestManager : MonoBehaviour
 
     [Header("Deposited Trash Appearance")]
     [Tooltip("Keep deposited items visible inside the bin in a neat pile")]
-    [SerializeField] private bool keepDepositedItemsVisible = true;
+    [SerializeField] private bool keepDepositedItemsVisible = false;
     [Tooltip("Vanish deposited items after animation finishes (legacy behavior)")]
-    [SerializeField] private bool vanishAfterAnimation = false;
+    [SerializeField] private bool vanishAfterAnimation = true;
     [Tooltip("Maximum deposited items visible per bin before oldest is hidden")]
     [SerializeField] private int maxDepositedItemsVisible = 8;
+    [Tooltip("Visual trash layer component on this bin that grows in stages as trash is deposited")]
+    [SerializeField] private BinVisualTrashLayer binVisualLayer;
 
     public Transform DepositPointTransform => depositPoint;
     public bool KeepDepositedItemsVisible => keepDepositedItemsVisible && !vanishAfterAnimation;
     public bool VanishAfterAnimation => vanishAfterAnimation;
     public int MaxDepositedItemsVisible => maxDepositedItemsVisible;
+    public BinVisualTrashLayer BinVisualLayer => binVisualLayer;
+
+    private int depositedInThisBinCount = 0;
+    public int DepositedInThisBinCount => depositedInThisBinCount;
 
     private readonly List<GameObject> depositedInBin = new List<GameObject>();
     public IReadOnlyList<GameObject> DepositedInBin => depositedInBin;
@@ -138,7 +144,12 @@ public class QuestManager : MonoBehaviour
         var allBins = FindObjectsByType<QuestManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var bin in allBins)
         {
-            if (bin != null) bin.ClearDepositedBinList();
+            if (bin != null)
+            {
+                bin.depositedInThisBinCount = 0;
+                bin.ClearDepositedBinList();
+                if (bin.binVisualLayer != null) bin.binVisualLayer.ResetVisuals();
+            }
         }
         QuestPanelToggleController.Instance?.RefreshProgressBars(true);
     }
@@ -154,6 +165,12 @@ public class QuestManager : MonoBehaviour
         lastMistakeTime = 0f;
         isQuestComplete = false;
         IsRepeatQuest = false;
+
+        var allVisualLayers = FindObjectsByType<BinVisualTrashLayer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var vl in allVisualLayers)
+        {
+            if (vl != null) vl.ResetVisuals();
+        }
     }
 
     public string AcceptedTag => acceptedTag;
@@ -201,6 +218,8 @@ public class QuestManager : MonoBehaviour
 
         isQuestComplete = false;
         IsRepeatQuest = false;
+        if (binVisualLayer == null) binVisualLayer = GetComponent<BinVisualTrashLayer>();
+        depositedInThisBinCount = 0;
     }
 
     public bool TryProcessTrashItem(TrashItem trash)
@@ -340,6 +359,12 @@ public class QuestManager : MonoBehaviour
         else
         {
             Debug.Log($"[QuestManager] '{gameObject.name}' HandleCorrectTrash (Over-quota): '{trashObject.name}' -> category already at max {targets[acceptedTag]}");
+        }
+
+        depositedInThisBinCount++;
+        if (binVisualLayer != null)
+        {
+            binVisualLayer.SetDepositCount(depositedInThisBinCount, animatePop: true);
         }
 
         int slotIndex = depositedInBin.Count;

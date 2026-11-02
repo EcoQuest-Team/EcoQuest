@@ -178,6 +178,7 @@ public class ExplorerGateController : MonoBehaviour
         if (WorldInteractionPrompt.Instance == null) return;
 
         bool shouldShow = isPlayerInRadius && !isInDialogue
+                          && DragAndDrop.CurrentlyGrabbedItem == null
                           && (ModalManager.Instance == null || !ModalManager.Instance.IsAnyModalActuallyVisible())
                           && (DialoguePresenter.Instance == null || !DialoguePresenter.Instance.IsInDialogue);
 
@@ -185,7 +186,7 @@ public class ExplorerGateController : MonoBehaviour
         {
             WorldInteractionPrompt.Instance.ShowPrompt(transform, "Explorer", "Talk", "E");
         }
-        else
+        else if (WorldInteractionPrompt.Instance.ActiveTarget == transform)
         {
             WorldInteractionPrompt.Instance.HidePrompt();
         }

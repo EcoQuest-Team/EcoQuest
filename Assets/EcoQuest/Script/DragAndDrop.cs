@@ -2128,8 +2128,11 @@ public class DragAndDrop : MonoBehaviour
 
                 if (rb != null)
                 {
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
+                    if (!rb.isKinematic)
+                    {
+                        rb.linearVelocity = Vector3.zero;
+                        rb.angularVelocity = Vector3.zero;
+                    }
                     rb.isKinematic = true;
                     rb.useGravity = false;
                 }
@@ -2226,8 +2229,11 @@ public class DragAndDrop : MonoBehaviour
 
             if (rb != null)
             {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
                 rb.isKinematic = true;
                 rb.useGravity = false;
             }
@@ -2258,6 +2264,8 @@ public class DragAndDrop : MonoBehaviour
         transform.position = binTransform.position + binTransform.forward * 0.75f + Vector3.up * 0.85f;
         if (rb != null)
         {
+            rb.isKinematic = false;
+            rb.useGravity = true;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.AddForce((binTransform.forward * 2.2f + Vector3.up * 2.6f), ForceMode.Impulse);
