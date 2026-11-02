@@ -6,6 +6,7 @@ using UnityEngine;
 /// Shows the full dense pile as soon as at least 1 item is deposited into THIS bin.
 /// Empty when count is 0, full when count >= 1.
 /// Purely visual: no colliders, no pickup, no effect on quest counting.
+/// Uses stable fitted transform parameters to ensure the pile never pokes outside bin walls.
 /// </summary>
 public class BinVisualTrashLayer : MonoBehaviour
 {
@@ -13,25 +14,44 @@ public class BinVisualTrashLayer : MonoBehaviour
     [Tooltip("The dense visual trash pile GameObject inside this bin.")]
     [SerializeField] private GameObject pileObject;
 
+    [Header("Fitted Transform")]
+    [Tooltip("Local position ensuring pile stays centered within inner cavity.")]
+    [SerializeField] private Vector3 fittedLocalPosition = new Vector3(0.005f, 0.670f, 0.029f);
+    [Tooltip("Local scale ensuring pile covers opening without poking through walls or rim.")]
+    [SerializeField] private Vector3 fittedLocalScale = new Vector3(0.280f, 0.950f, 0.380f);
+
     private int currentDepositCount = 0;
     private Coroutine popCoroutine;
-    private Vector3 baseScale = Vector3.one;
+    private Vector3 baseScale = new Vector3(0.280f, 0.950f, 0.380f);
 
     public int CurrentDepositCount => currentDepositCount;
     public GameObject PileObject => pileObject;
+    public Vector3 FittedLocalPosition => fittedLocalPosition;
+    public Vector3 FittedLocalScale => fittedLocalScale;
 
     private void Awake()
     {
-        if (pileObject != null)
-        {
-            baseScale = pileObject.transform.localScale;
-        }
+        ApplyFittedTransform();
         RestoreSavedState();
     }
 
     private void OnEnable()
     {
+        ApplyFittedTransform();
         RestoreSavedState();
+    }
+
+    public void ApplyFittedTransform()
+    {
+        baseScale = fittedLocalScale;
+        if (pileObject != null)
+        {
+            pileObject.transform.localPosition = fittedLocalPosition;
+            if (pileObject.activeSelf)
+            {
+                pileObject.transform.localScale = fittedLocalScale;
+            }
+        }
     }
 
     /// <summary>
@@ -56,6 +76,7 @@ public class BinVisualTrashLayer : MonoBehaviour
     /// </summary>
     public void SetDepositCount(int count, bool animatePop = true)
     {
+        ApplyFittedTransform();
         currentDepositCount = Mathf.Max(0, count);
 
         if (Application.isPlaying)
@@ -81,10 +102,10 @@ public class BinVisualTrashLayer : MonoBehaviour
                     else
                     {
                         pileObject.SetActive(true);
+                        pileObject.transform.localPosition = fittedLocalPosition;
                         pileObject.transform.localScale = baseScale;
                     }
                 }
-                // If already active, it stays full with no redundant animation
             }
             else
             {
@@ -94,6 +115,7 @@ public class BinVisualTrashLayer : MonoBehaviour
                     popCoroutine = null;
                 }
                 pileObject.SetActive(false);
+                pileObject.transform.localPosition = fittedLocalPosition;
                 pileObject.transform.localScale = baseScale;
             }
         }
@@ -114,6 +136,7 @@ public class BinVisualTrashLayer : MonoBehaviour
         if (pileObject != null)
         {
             pileObject.SetActive(false);
+            pileObject.transform.localPosition = fittedLocalPosition;
             pileObject.transform.localScale = baseScale;
         }
     }
@@ -122,8 +145,8 @@ public class BinVisualTrashLayer : MonoBehaviour
     {
         if (pileObject == null) yield break;
 
-        // Keep pile inactive while the thrown item is in flight
         pileObject.SetActive(false);
+        pileObject.transform.localPosition = fittedLocalPosition;
         pileObject.transform.localScale = Vector3.zero;
 
         if (delayBeforePop > 0f)
@@ -145,7 +168,6 @@ public class BinVisualTrashLayer : MonoBehaviour
         {
             elapsed += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            // Elastic pop: overshoot to 1.12 then settle to 1.0
             float overshoot = Mathf.Sin(t * Mathf.PI * 0.95f) * 1.12f;
             float s = (t >= 0.85f) ? Mathf.Lerp(overshoot, 1.0f, (t - 0.85f) / 0.15f) : overshoot;
             pileObject.transform.localScale = baseScale * Mathf.Max(0f, s);
@@ -156,9 +178,16 @@ public class BinVisualTrashLayer : MonoBehaviour
         popCoroutine = null;
     }
 
-    public void Setup(GameObject pile, Vector3 scale)
+    public void Setup(GameObject pile, Vector3 pos, Vector3 scale)
     {
         pileObject = pile;
+        fittedLocalPosition = pos;
+        fittedLocalScale = scale;
         baseScale = scale;
+        if (pileObject != null)
+        {
+            pileObject.transform.localPosition = fittedLocalPosition;
+            if (pileObject.activeSelf) pileObject.transform.localScale = baseScale;
+        }
     }
 }

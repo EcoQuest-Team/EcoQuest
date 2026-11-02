@@ -36,7 +36,47 @@ public class UIOrchestrator : MonoBehaviour
     {
         Tutorial = 0,
         FreePlay = 1,
-        QuestActive = 2
+        QuestActive = 2,
+        QuestComplete = 3
+    }
+
+    public static bool IsCityScene()
+    {
+        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        return scene.name == "City Scene" || scene.path.Contains("City Scene");
+    }
+
+    public GamePhase EvaluateLivePhase(string caller = "")
+    {
+        if (IsCityScene())
+        {
+            if (LitterbugQuestManager.Instance != null)
+            {
+                var qState = LitterbugQuestManager.Instance.QuestState;
+                if (qState == LitterbugQuestState.Active || qState == LitterbugQuestState.ReadyToTurnIn)
+                {
+                    return GamePhase.QuestActive;
+                }
+                if (qState == LitterbugQuestState.Completed)
+                {
+                    return GamePhase.QuestComplete;
+                }
+            }
+            return GamePhase.FreePlay;
+        }
+        else
+        {
+            bool tabTipDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
+            if (tabTipDone || (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning))
+            {
+                return GamePhase.QuestActive;
+            }
+            if (SequentialWASDTutorial.Instance != null && !SequentialWASDTutorial.IsTutorialCompleted)
+            {
+                return GamePhase.Tutorial;
+            }
+            return GamePhase.FreePlay;
+        }
     }
 
     /// <summary>
@@ -115,7 +155,15 @@ public class UIOrchestrator : MonoBehaviour
 
     public void ToggleQuestPanel(string caller = "User")
     {
-        bool allowedByStep = (currentFlowStep == FlowStep.TabTutorial || currentFlowStep == FlowStep.FreePlay) && currentPhase == GamePhase.QuestActive;
+        bool allowedByStep;
+        if (IsCityScene())
+        {
+            allowedByStep = (currentPhase == GamePhase.QuestActive || currentPhase == GamePhase.QuestComplete);
+        }
+        else
+        {
+            allowedByStep = (currentFlowStep == FlowStep.TabTutorial || currentFlowStep == FlowStep.FreePlay) && currentPhase == GamePhase.QuestActive;
+        }
         if (!allowedByStep) return;
         bool tabTipActive = IsElementOwned(UIElement.TabTipCard);
         if (AreModalsOpen && !tabTipActive) return;
@@ -136,6 +184,17 @@ public class UIOrchestrator : MonoBehaviour
         else
         {
             ApplyCurrentProfile(0.25f);
+        }
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Tab))
+        {
+            if (IsCityScene() || QuestPanelToggleController.Instance == null || !QuestPanelToggleController.Instance.gameObject.activeInHierarchy)
+            {
+                ToggleQuestPanel("TAB");
+            }
         }
     }
 
@@ -210,12 +269,14 @@ public class UIOrchestrator : MonoBehaviour
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
+        hasQuestPanelBasePos = false;
         ResolveReferences();
         if (scene.name == "City Scene" || scene.path.Contains("City Scene"))
         {
             ClearAllOverlays();
+            isQuestPanelUserHidden = false;
             SetFlowStep(FlowStep.FreePlay, "City Scene Loaded");
-            SetPhase(GamePhase.FreePlay, "City Scene Loaded");
+            SetPhase(EvaluateLivePhase("City Scene Loaded"), "City Scene Loaded");
         }
         ApplyCurrentProfile(0f);
     }
@@ -280,6 +341,15 @@ public class UIOrchestrator : MonoBehaviour
         {
             questPanelGroup = FindOrAddCG(uiRoot, "UI_LitterbugQuest/QuestPanel");
         }
+        if (questPanelGroup != null && !hasQuestPanelBasePos)
+        {
+            var rt = questPanelGroup.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                questPanelBasePos = rt.anchoredPosition;
+                hasQuestPanelBasePos = true;
+            }
+        }
         tutorialCardGroup = FindOrAddCG(uiRoot, "UI_Notification/Control Tip Banner");
         interactPromptGroup = FindOrAddCG(uiRoot, "UI_InteractionPrompt");
         if (interactPromptGroup == null)
@@ -317,6 +387,13 @@ public class UIOrchestrator : MonoBehaviour
 
     public void EvaluateInitialPhase()
     {
+        if (IsCityScene())
+        {
+            currentFlowStep = FlowStep.FreePlay;
+            currentPhase = EvaluateLivePhase("City EvaluateInitialPhase");
+            return;
+        }
+
         bool tabTipDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
         if (tabTipDone)
         {
@@ -425,17 +502,21 @@ public class UIOrchestrator : MonoBehaviour
             var snap = overlayStack.Pop();
             FlowStep overlayStep = currentFlowStep;
             currentFlowStep = snap.flowStep;
-            currentPhase = snap.phase;
+            
+            // Evaluate phase from live state instead of blindly restoring pre-overlay snapshot
+            GamePhase livePhase = EvaluateLivePhase("PopOverlay");
+            currentPhase = livePhase;
             isQuestPanelUserHidden = snap.isQuestPanelUserHidden;
             modalsOpen = snap.modalsOpen;
 
-            Debug.Log($"[FlowState] Pop overlay -> restored step {currentFlowStep}, phase {currentPhase} (from {overlayStep})");
+            Debug.Log($"[FlowState] Pop overlay -> restored step {currentFlowStep}, live phase {currentPhase} (from {overlayStep})");
             ApplyCurrentProfile(0.20f);
             ValidateStepState(currentFlowStep);
             OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
         }
         else
         {
+            currentPhase = EvaluateLivePhase("PopOverlayEmptyStack");
             Debug.LogWarning("[FlowState] PopOverlay called but overlay stack is empty! Applying current profile.");
             ApplyCurrentProfile(0.20f);
             OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
@@ -581,11 +662,27 @@ public class UIOrchestrator : MonoBehaviour
                 return true;
 
             case UIElement.QuestPanel:
-                // Quest tab stays hidden during Steps 0-4 and appears ONLY in Step 5 (TabTutorial) and Step 6 (FreePlay)
-                bool stepAllowsQuest = (currentFlowStep == FlowStep.TabTutorial || currentFlowStep == FlowStep.FreePlay) &&
-                                       (currentPhase == GamePhase.QuestActive);
-                bool profileAllows = stepAllowsQuest && (!AreModalsOpen || tabTipActive);
-                return profileAllows && !isQuestPanelUserHidden;
+                if (IsCityScene())
+                {
+                    bool cityQuestActive = (currentPhase == GamePhase.QuestActive || currentPhase == GamePhase.QuestComplete);
+                    if (!cityQuestActive && LitterbugQuestManager.Instance != null)
+                    {
+                        var qState = LitterbugQuestManager.Instance.QuestState;
+                        if (qState == LitterbugQuestState.Active || qState == LitterbugQuestState.ReadyToTurnIn || qState == LitterbugQuestState.Completed)
+                        {
+                            cityQuestActive = true;
+                        }
+                    }
+                    return cityQuestActive && !AreModalsOpen && !isQuestPanelUserHidden;
+                }
+                else
+                {
+                    // Quest tab stays hidden during Steps 0-4 and appears ONLY in Step 5 (TabTutorial) and Step 6 (FreePlay)
+                    bool stepAllowsQuest = (currentFlowStep == FlowStep.TabTutorial || currentFlowStep == FlowStep.FreePlay) &&
+                                           (currentPhase == GamePhase.QuestActive);
+                    bool profileAllows = stepAllowsQuest && (!AreModalsOpen || tabTipActive);
+                    return profileAllows && !isQuestPanelUserHidden;
+                }
 
             case UIElement.TutorialCard:
                 if (tabTipActive) return true;
@@ -773,12 +870,34 @@ public class UIOrchestrator : MonoBehaviour
 
             if (!watchdogEnabled) continue;
 
-            // Poll REAL quest state fallback ONLY when not in Steps 1-4
-            if (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning)
+            if (IsCityScene())
             {
-                if (currentPhase != GamePhase.QuestActive && (currentFlowStep == FlowStep.TabTutorial || currentFlowStep == FlowStep.FreePlay))
+                if (LitterbugQuestManager.Instance != null)
                 {
-                    SetPhase(GamePhase.QuestActive, "Polling: NPCInteraction.IsAnyQuestActiveSignal == true");
+                    var qState = LitterbugQuestManager.Instance.QuestState;
+                    if ((qState == LitterbugQuestState.Active || qState == LitterbugQuestState.ReadyToTurnIn) && currentPhase != GamePhase.QuestActive)
+                    {
+                        SetPhase(GamePhase.QuestActive, "Polling: City LitterbugQuestState is Active");
+                    }
+                    else if (qState == LitterbugQuestState.Completed && currentPhase != GamePhase.QuestComplete)
+                    {
+                        SetPhase(GamePhase.QuestComplete, "Polling: City LitterbugQuestState is Completed");
+                    }
+                    else if (qState == LitterbugQuestState.Available && currentPhase != GamePhase.FreePlay && overlayStack.Count == 0)
+                    {
+                        SetPhase(GamePhase.FreePlay, "Polling: City LitterbugQuestState is Available");
+                    }
+                }
+            }
+            else
+            {
+                // Poll REAL quest state fallback ONLY when not in Steps 1-4
+                if (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning)
+                {
+                    if (currentPhase != GamePhase.QuestActive && (currentFlowStep == FlowStep.TabTutorial || currentFlowStep == FlowStep.FreePlay))
+                    {
+                        SetPhase(GamePhase.QuestActive, "Polling: NPCInteraction.IsAnyQuestActiveSignal == true");
+                    }
                 }
             }
 
@@ -804,10 +923,18 @@ public class UIOrchestrator : MonoBehaviour
                     continue; // Never fight active animation
                 }
 
-                if (element == UIElement.QuestPanel && questPanelSlideRoutine != null)
+                if (element == UIElement.QuestPanel)
                 {
-                    mismatchStartTimes.Remove(element);
-                    continue; // Never fight active slide
+                    if (questPanelSlideRoutine != null)
+                    {
+                        mismatchStartTimes.Remove(element);
+                        continue; // Never fight active slide
+                    }
+                    if (LitterbugQuestManager.Instance != null && LitterbugQuestManager.Instance.IsPanelAnimating)
+                    {
+                        mismatchStartTimes.Remove(element);
+                        continue; // Never fight active City panel animation
+                    }
                 }
 
                 bool expected = GetExpectedVisibility(element);

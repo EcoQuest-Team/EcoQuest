@@ -125,6 +125,15 @@ public class TravelGate : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F8))
+        {
+            RunPostTravelHealthCheck(out string report);
+            Debug.Log($"[Post-Travel Health Check (F8)] {report}");
+        }
+    }
+
     public static void ResetStaticState()
     {
         isTraveling = false;
@@ -362,6 +371,7 @@ public class TravelGate : MonoBehaviour
 
         // 4. Clear all overlays and stale HUD state
         UIOrchestrator.Instance?.ClearAllOverlays();
+        UIOrchestrator.Instance?.SetQuestPanelUserHidden(false, "PostCityLoadSetupRoutine");
         HudVisibilityService.Instance?.ClearAllReasons();
         ModalManager.Instance?.CloseModal(null);
         ObjectiveMarkerService.Instance?.ClearTarget();
@@ -384,7 +394,7 @@ public class TravelGate : MonoBehaviour
 
         // 6. Apply the correct gameplay HUD profile once
         UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "City SceneReady");
-        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.FreePlay, "City SceneReady");
+        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.Instance.EvaluateLivePhase("City SceneReady"), "City SceneReady");
         UIOrchestrator.Instance?.ApplyCurrentProfile(0f);
 
         // 7. Restore input, cursor, timeScale
@@ -434,6 +444,7 @@ public class TravelGate : MonoBehaviour
     {
         var issues = new System.Collections.Generic.List<string>();
 
+        // 1. Minimap
         var map = GameObject.Find("UI_Minimap");
         var mapCg = map != null ? map.GetComponent<CanvasGroup>() : null;
         if (map == null || !map.activeInHierarchy || (mapCg != null && mapCg.alpha < 0.5f))
@@ -441,6 +452,7 @@ public class TravelGate : MonoBehaviour
             issues.Add($"Minimap missing or hidden (map={map != null}, alpha={(mapCg != null ? mapCg.alpha : 0f):F2})");
         }
 
+        // 2. Settings button
         var gear = GameObject.Find("UI_HUD_SettingsButton");
         var gearCg = gear != null ? gear.GetComponent<CanvasGroup>() : null;
         if (gear == null || !gear.activeInHierarchy || (gearCg != null && gearCg.alpha < 0.5f))
@@ -448,6 +460,15 @@ public class TravelGate : MonoBehaviour
             issues.Add($"Settings button missing or hidden (gear={gear != null}, alpha={(gearCg != null ? gearCg.alpha : 0f):F2})");
         }
 
+        // 3. Coins
+        var coins = GameObject.Find("UI_Coins");
+        var coinsCg = coins != null ? coins.GetComponent<CanvasGroup>() : null;
+        if (coins == null || !coins.activeInHierarchy || (coinsCg != null && coinsCg.alpha < 0.5f))
+        {
+            issues.Add($"Coins missing or hidden (coins={coins != null}, alpha={(coinsCg != null ? coinsCg.alpha : 0f):F2})");
+        }
+
+        // 4. Overlays & HUD hidden reasons
         if (UIOrchestrator.Instance != null && UIOrchestrator.Instance.IsOverlayActive)
         {
             issues.Add("UIOrchestrator overlay stack is not empty!");
@@ -458,11 +479,27 @@ public class TravelGate : MonoBehaviour
             issues.Add($"HudVisibilityService has active hide reasons: {string.Join(",", HudVisibilityService.Instance.ActiveReasons)}");
         }
 
+        // 5. Time scale
         if (Time.timeScale != 1f)
         {
             issues.Add($"Time.timeScale is {Time.timeScale} (expected 1.0)");
         }
 
+        // 6. Cursor & Player Input
+        if (!LitterbugQuestManager.IsDialogueOpen)
+        {
+            if (Cursor.lockState != CursorLockMode.Locked)
+            {
+                issues.Add($"Cursor lockState is {Cursor.lockState} (expected Locked outside dialogue)");
+            }
+            var fpc = UnityEngine.Object.FindFirstObjectByType<StarterAssets.FirstPersonController>();
+            if (fpc != null && !fpc.enabled)
+            {
+                issues.Add("FirstPersonController is disabled outside dialogue");
+            }
+        }
+
+        // 7. Duplicate managers
         var evCount = UnityEngine.Object.FindObjectsByType<UnityEngine.EventSystems.EventSystem>(FindObjectsSortMode.None).Length;
         if (evCount > 1)
         {
@@ -475,9 +512,50 @@ public class TravelGate : MonoBehaviour
             issues.Add($"Duplicate active AudioListeners ({alCount})");
         }
 
-        if (LitterbugQuestManager.Instance == null)
+        var qmCount = UnityEngine.Object.FindObjectsByType<LitterbugQuestManager>(FindObjectsSortMode.None).Length;
+        if (qmCount > 1)
         {
-            issues.Add("LitterbugQuestManager missing in City Scene!");
+            issues.Add($"Duplicate LitterbugQuestManagers ({qmCount})");
+        }
+
+        // 8. Quest Manager present in City
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        bool isCity = activeScene.name == "City Scene" || activeScene.path.Contains("City Scene");
+        if (isCity)
+        {
+            if (LitterbugQuestManager.Instance == null)
+            {
+                issues.Add("LitterbugQuestManager missing in City Scene!");
+            }
+            else
+            {
+                // 9. Quest Panel visibility matching phase
+                var uiRoot = GameObject.Find("--- UI ---");
+                var questPanelTr = uiRoot != null ? (uiRoot.transform.Find("UI_LitterbugQuest/QuestPanel") ?? uiRoot.transform.Find("UI_Quest/QuestPanel")) : null;
+                var questPanel = questPanelTr != null ? questPanelTr.gameObject : GameObject.Find("QuestPanel");
+                if (questPanel == null)
+                {
+                    issues.Add("Quest panel GameObject not found in City Scene!");
+                }
+                else
+                {
+                    var qpCg = questPanel.GetComponent<CanvasGroup>();
+                    var qState = LitterbugQuestManager.Instance.QuestState;
+                    bool isQuestActive = (qState == LitterbugQuestState.Active || qState == LitterbugQuestState.ReadyToTurnIn);
+                    bool userHidden = UIOrchestrator.Instance != null && UIOrchestrator.Instance.IsQuestPanelUserHidden;
+                    bool shouldBeVisible = isQuestActive && !userHidden && !LitterbugQuestManager.IsDialogueOpen;
+                    bool isVisible = questPanel.activeInHierarchy && (qpCg == null || qpCg.alpha > 0.5f);
+
+                    if (shouldBeVisible && !isVisible && !LitterbugQuestManager.Instance.IsPanelAnimating)
+                    {
+                        issues.Add($"Quest panel should be VISIBLE for phase {qState} but is hidden (alpha={(qpCg != null ? qpCg.alpha : 0f):F2})");
+                    }
+                    else if (!shouldBeVisible && isVisible && !isQuestActive && !LitterbugQuestManager.Instance.IsPanelAnimating)
+                    {
+                        issues.Add($"Quest panel should be HIDDEN before quest start (phase {qState}) but is visible (alpha={(qpCg != null ? qpCg.alpha : 0f):F2})");
+                    }
+                }
+            }
         }
 
         bool passed = issues.Count == 0;

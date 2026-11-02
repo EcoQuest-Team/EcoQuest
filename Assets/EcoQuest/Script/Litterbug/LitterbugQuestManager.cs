@@ -211,6 +211,7 @@ public class LitterbugQuestManager : MonoBehaviour
     private GameObject hiddenCarriedItem;
 
     public LitterbugQuestState QuestState => questState;
+    public bool IsPanelAnimating => panelAnimCoroutine != null;
     public int CurrentRound => currentRound;
     public Transform PlayerTransform => playerTransform;
     public Transform QuestGiverTransform => questGiverTransform;
@@ -830,8 +831,15 @@ public class LitterbugQuestManager : MonoBehaviour
         }
 
         // Reset alpha & state on re-enter, then slide/fade Quest Panel in
+        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.QuestActive, "City quest started");
+        UIOrchestrator.Instance?.SetQuestPanelUserHidden(false, "LitterbugQuestManager");
+        UIOrchestrator.Instance?.ApplyCurrentProfile(0.35f);
+
         if (panelAnimCoroutine != null) StopCoroutine(panelAnimCoroutine);
         panelAnimCoroutine = StartCoroutine(SlideInQuestPanelRoutine());
+
+        TravelGate.RunPostTravelHealthCheck(out string reportQuestStart);
+        Debug.Log($"[Post-Travel Health Check - QuestStart] {reportQuestStart}");
     }
 
     private LitterTypeEntry[] DrawFiveCategoryEntries()
@@ -840,9 +848,14 @@ public class LitterbugQuestManager : MonoBehaviour
         if (litterCatalog == null || litterCatalog.entries == null || litterCatalog.entries.Count == 0)
             return result;
 
+        if (sessionRng == null)
+            sessionRng = new System.Random(Environment.TickCount ^ Guid.NewGuid().GetHashCode());
+
         for (int catInt = 0; catInt < CategoryCount; catInt++)
         {
             LitterCategory cat = (LitterCategory)catInt;
+            if (categoryShuffleBags[catInt] == null)
+                categoryShuffleBags[catInt] = new Queue<int>(3);
             Queue<int> bag = categoryShuffleBags[catInt];
 
             if (bag.Count == 0)
@@ -1741,6 +1754,9 @@ public class LitterbugQuestManager : MonoBehaviour
         if (dialogueFadeCoroutine != null) StopCoroutine(dialogueFadeCoroutine);
         if (isActiveAndEnabled && dialoguePanelGroup != null)
             dialogueFadeCoroutine = StartCoroutine(FadeDialoguePanelRoutine(0f, 0.25f));
+
+        TravelGate.RunPostTravelHealthCheck(out string reportDialogueEnd);
+        Debug.Log($"[Post-Travel Health Check - DialogueEnd] {reportDialogueEnd}");
     }
 
     // =====================================================================
@@ -2046,6 +2062,8 @@ public class LitterbugQuestManager : MonoBehaviour
         }
 
         questPanelGroup.alpha = 1f;
+        questPanelGroup.interactable = true;
+        questPanelGroup.blocksRaycasts = true;
         questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
         panelAnimCoroutine = null;
     }
@@ -2074,6 +2092,7 @@ public class LitterbugQuestManager : MonoBehaviour
         questPanelGroup.alpha = 0f;
         questPanelGroup.gameObject.SetActive(false);
         panelAnimCoroutine = null;
+        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.FreePlay, "City quest completed and rewarded");
     }
 
     private IEnumerator PunchScaleRoutine(RectTransform targetRect)

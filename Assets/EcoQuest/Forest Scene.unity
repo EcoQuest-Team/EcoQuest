@@ -1844,6 +1844,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 782195839}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!1 &61914810
 GameObject:
   m_ObjectHideFlags: 0
@@ -3208,8 +3210,8 @@ Transform:
   m_GameObject: {fileID: 103747450}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1909817678}
@@ -3977,8 +3979,8 @@ Transform:
   m_GameObject: {fileID: 147436159}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 526277865}
@@ -9183,8 +9185,8 @@ Transform:
   m_GameObject: {fileID: 343925820}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1931513744}
@@ -10710,6 +10712,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 975503789}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!4 &420045804 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4000012367273212, guid: 2ef4f9ff99d6a7445bc7d99e2501ef05, type: 3}
@@ -12959,6 +12963,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 147436159}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!1 &527700453
 GameObject:
   m_ObjectHideFlags: 0
@@ -17641,8 +17647,8 @@ Transform:
   m_GameObject: {fileID: 782195839}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 58342284}
@@ -19149,6 +19155,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 1368411345}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!1 &863551691 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4047302340131935940, guid: aaac7fd7ab36d6443aface507d88668e, type: 3}
@@ -21229,8 +21237,8 @@ Transform:
   m_GameObject: {fileID: 975503789}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 410141732}
@@ -22881,6 +22889,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 1127227274}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!1001 &1064464737
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -25266,6 +25276,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 1558274360}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!4 &1125588887 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 452852, guid: affb969969cb7cd4da53e4688fce4bc2, type: 3}
@@ -25298,8 +25310,8 @@ Transform:
   m_GameObject: {fileID: 1127227274}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1062726040}
@@ -28983,8 +28995,8 @@ Transform:
   m_GameObject: {fileID: 1291834407}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1667108287}
@@ -30576,8 +30588,8 @@ Transform:
   m_GameObject: {fileID: 1368411345}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 862812120}
@@ -35319,8 +35331,8 @@ Transform:
   m_GameObject: {fileID: 1558274360}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.006, y: 0.66, z: 0.034}
-  m_LocalScale: {x: 0.31, y: 1, z: 0.42}
+  m_LocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  m_LocalScale: {x: 0.28, y: 0.95, z: 0.38}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1123673160}
@@ -37332,6 +37344,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 1291834407}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!1001 &1667139611
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -43298,6 +43312,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 103747450}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!1 &1909925868 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3386179445659010504, guid: befea99e6a7676c47bfc66e6fe82aa26, type: 3}
@@ -44056,6 +44072,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BinVisualTrashLayer
   pileObject: {fileID: 343925820}
+  fittedLocalPosition: {x: 0.005, y: 0.67, z: 0.029}
+  fittedLocalScale: {x: 0.28, y: 0.95, z: 0.38}
 --- !u!1 &1931609252 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5361428799875542787, guid: c31bf8ec8e29cd74f9fb9a970fde7a53, type: 3}
