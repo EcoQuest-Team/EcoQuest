@@ -1,0 +1,159 @@
+{
+  "fps": 30,
+  "actions": [
+    {
+      "name": "Explorer_Idle",
+      "frame_start": 0,
+      "frame_end": 90,
+      "loop": true,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Walk",
+      "frame_start": 0,
+      "frame_end": 30,
+      "loop": true,
+      "markers": [
+        {
+          "name": "FootL",
+          "frame": 2,
+          "normalized_time": 0.06667
+        },
+        {
+          "name": "FootR",
+          "frame": 17,
+          "normalized_time": 0.56667
+        }
+      ]
+    },
+    {
+      "name": "Explorer_Run",
+      "frame_start": 0,
+      "frame_end": 20,
+      "loop": true,
+      "markers": [
+        {
+          "name": "FootL",
+          "frame": 2,
+          "normalized_time": 0.1
+        },
+        {
+          "name": "FootR",
+          "frame": 12,
+          "normalized_time": 0.6
+        }
+      ]
+    },
+    {
+      "name": "Explorer_JumpStart",
+      "frame_start": 0,
+      "frame_end": 12,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_JumpAir",
+      "frame_start": 0,
+      "frame_end": 20,
+      "loop": true,
+      "markers": []
+    },
+    {
+      "name": "Explorer_JumpLand",
+      "frame_start": 0,
+      "frame_end": 15,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_IdleLookAround",
+      "frame_start": 0,
+      "frame_end": 90,
+      "loop": true,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Talk_A",
+      "frame_start": 0,
+      "frame_end": 90,
+      "loop": true,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Talk_B",
+      "frame_start": 0,
+      "frame_end": 90,
+      "loop": true,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Wave",
+      "frame_start": 0,
+      "frame_end": 45,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Nod",
+      "frame_start": 0,
+      "frame_end": 36,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_ShakeHead",
+      "frame_start": 0,
+      "frame_end": 40,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Shrug",
+      "frame_start": 0,
+      "frame_end": 42,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Surprised",
+      "frame_start": 0,
+      "frame_end": 38,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Cheer",
+      "frame_start": 0,
+      "frame_end": 54,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Throw",
+      "frame_start": 0,
+      "frame_end": 40,
+      "loop": false,
+      "markers": [
+        {
+          "name": "Release",
+          "frame": 18,
+          "normalized_time": 0.45
+        }
+      ]
+    },
+    {
+      "name": "Explorer_PickUp",
+      "frame_start": 0,
+      "frame_end": 48,
+      "loop": false,
+      "markers": []
+    },
+    {
+      "name": "Explorer_Listen",
+      "frame_start": 0,
+      "frame_end": 90,
+      "loop": true,
+      "markers": []
+    }
+  ]
+}

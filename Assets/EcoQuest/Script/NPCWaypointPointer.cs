@@ -25,6 +25,7 @@ public class NPCWaypointPointer : MonoBehaviour
 
     private void Start()
     {
+        if (ObjectiveMarkerService.Instance != null) return;
         if (targetNPC == null) targetNPC = transform;
         mainCam = Camera.main;
 
@@ -33,6 +34,16 @@ public class NPCWaypointPointer : MonoBehaviour
 
     private void Update()
     {
+        // Defer to unified ObjectiveMarkerService if present
+        if (ObjectiveMarkerService.Instance != null)
+        {
+            if (overheadArrowObj != null && overheadArrowObj.activeSelf)
+            {
+                overheadArrowObj.SetActive(false);
+            }
+            return;
+        }
+
         if (targetNPC == null) return;
         if (mainCam == null) mainCam = Camera.main;
 

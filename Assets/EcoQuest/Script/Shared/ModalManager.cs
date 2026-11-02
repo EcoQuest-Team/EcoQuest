@@ -634,9 +634,18 @@ public class ModalManager : MonoBehaviour
         }
         finally
         {
-            // Keep isClosingModal = true until CloseAndProcessNextRoutine completes so modal open/close is always balanced
-            if (transitionRoutine != null) StopCoroutine(transitionRoutine);
-            transitionRoutine = StartCoroutine(CloseAndProcessNextRoutine(closing));
+            if (!Application.isPlaying)
+            {
+                HudVisibilityService.Instance?.ShowHUD("Modal", 0f);
+                isClosingModal = false;
+                UIOrchestrator.Instance?.SetModalsOpen(false);
+            }
+            else
+            {
+                // Keep isClosingModal = true until CloseAndProcessNextRoutine completes so modal open/close is always balanced
+                if (transitionRoutine != null) StopCoroutine(transitionRoutine);
+                transitionRoutine = StartCoroutine(CloseAndProcessNextRoutine(closing));
+            }
         }
     }
 

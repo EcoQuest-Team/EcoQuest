@@ -1252,6 +1252,9 @@ public class LitterbugQuestManager : MonoBehaviour
         if (interactPromptRoot != null) interactPromptRoot.SetActive(false);
         WorldInteractionPrompt.Instance?.SetBlocked(true);
 
+        HudVisibilityService.Instance?.HideHUD("CityDialogue", 0.25f);
+        UIOrchestrator.Instance?.EnterCinematicProfile("CityDialogue");
+
         if (speaker != null)
         {
             activeSpeakerAnimator = speaker.GetComponent<NpcDialogueSpeakerAnimator>();
@@ -1713,6 +1716,9 @@ public class LitterbugQuestManager : MonoBehaviour
 
         WorldInteractionPrompt.Instance?.SetBlocked(false);
 
+        HudVisibilityService.Instance?.ShowHUD("CityDialogue", 0.25f);
+        UIOrchestrator.Instance?.ExitCinematicProfile("CityDialogue");
+
         ReleaseCameraEase();
         UnlockPlayerMovement();
 
@@ -1771,7 +1777,7 @@ public class LitterbugQuestManager : MonoBehaviour
             int mask = ~((1 << 8) | (1 << 2)); // Ignore Player (layer 8) and Ignore Raycast (layer 2)
             if (Physics.SphereCast(playerEye, 0.20f, rayDir, out RaycastHit hit, rayDist, mask, QueryTriggerInteraction.Ignore))
             {
-                desiredShotPos = playerEye + rayDir * Mathf.Max(0.2f, hit.distance - 0.1f);
+                desiredShotPos = playerEye + rayDir * Mathf.Max(0.35f, hit.distance - 0.1f);
             }
         }
 
@@ -1787,6 +1793,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
         dialogueVirtualCam.transform.SetPositionAndRotation(desiredShotPos, shotRot);
         dialogueVirtualCam.Lens.FieldOfView = 42f; // Slight push (-8 deg FOV from 50)
+        dialogueVirtualCam.Lens.NearClipPlane = 0.03f;
         dialogueVirtualCam.gameObject.SetActive(true);
         dialogueVirtualCam.Priority.Value = 35;
     }
@@ -1924,77 +1931,22 @@ public class LitterbugQuestManager : MonoBehaviour
 
     private void SetHudVisibility(bool visible, float duration = 0.25f)
     {
-        if (hudFadeRoutine != null) StopCoroutine(hudFadeRoutine);
-        if (isActiveAndEnabled)
-            hudFadeRoutine = StartCoroutine(HudFadeRoutine(visible, duration));
+        if (visible)
+        {
+            HudVisibilityService.Instance?.ShowHUD("CityDialogue", duration);
+            UIOrchestrator.Instance?.ApplyCurrentProfile(duration);
+        }
+        else
+        {
+            HudVisibilityService.Instance?.HideHUD("CityDialogue", duration);
+            UIOrchestrator.Instance?.ApplyCurrentProfile(duration);
+        }
     }
 
     private IEnumerator HudFadeRoutine(bool visible, float duration)
     {
-        float targetAlpha = visible ? 1f : 0f;
-        var cgs = new System.Collections.Generic.List<CanvasGroup>();
-
-        var coinsGo = GameObject.Find("UI_Coins");
-        if (coinsGo != null)
-        {
-            var cg = coinsGo.GetComponent<CanvasGroup>();
-            if (cg != null) cgs.Add(cg);
-        }
-        var mapGo = GameObject.Find("UI_Minimap");
-        if (mapGo != null)
-        {
-            var cg = mapGo.GetComponent<CanvasGroup>();
-            if (cg != null) cgs.Add(cg);
-        }
-        var setGo = GameObject.Find("UI_HUD_SettingsButton");
-        if (setGo != null)
-        {
-            var cg = setGo.GetComponent<CanvasGroup>();
-            if (cg != null) cgs.Add(cg);
-        }
-        var qpGo = GameObject.Find("QuestPanel");
-        if (qpGo != null)
-        {
-            var cg = qpGo.GetComponent<CanvasGroup>();
-            if (cg != null) cgs.Add(cg);
-        }
-
-        if (cgs.Count == 0) yield break;
-
-        float[] startAlphas = new float[cgs.Count];
-        for (int i = 0; i < cgs.Count; i++)
-        {
-            startAlphas[i] = cgs[i].alpha;
-            if (!visible)
-            {
-                cgs[i].blocksRaycasts = false;
-                cgs[i].interactable = false;
-            }
-        }
-
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-            for (int i = 0; i < cgs.Count; i++)
-            {
-                if (cgs[i] != null)
-                    cgs[i].alpha = Mathf.Lerp(startAlphas[i], targetAlpha, t);
-            }
-            yield return null;
-        }
-
-        for (int i = 0; i < cgs.Count; i++)
-        {
-            if (cgs[i] != null)
-            {
-                cgs[i].alpha = targetAlpha;
-                cgs[i].blocksRaycasts = visible;
-                cgs[i].interactable = visible;
-            }
-        }
-        hudFadeRoutine = null;
+        SetHudVisibility(visible, duration);
+        yield break;
     }
 
     private IEnumerator TransitionDialogueEnterRoutine()

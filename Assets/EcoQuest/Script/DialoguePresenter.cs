@@ -55,6 +55,10 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
     [SerializeField] private KeyCapPrompt acceptKeyCap;
     [SerializeField] private KeyCapPrompt notNowKeyCap;
 
+    [Header("Next Page Indicator")]
+    [SerializeField] private GameObject dialogueNextTriangle;
+    private Vector3 triangleBaseLocalPos;
+
     [Header("Sprites")]
     [SerializeField] private Sprite panelBackgroundSprite;
     [SerializeField] private Sprite speakerPillGreenSprite;
@@ -82,6 +86,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
     public event Action OnDialogueStarted;
     public event Action OnDialogueEnded;
     public event Action OnLastDialogueLineReached;
+    public event Action<bool> OnTypingStateChanged;
 
     // State
     public bool IsInDialogue { get; private set; } = false;
@@ -259,6 +264,19 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         EnsurePartsReparented();
         EnsureBodyAreaSettings();
         EnsureFooterLayout();
+
+        if (dialogueNextTriangle == null && dialoguePanelRect != null)
+        {
+            Transform dnt = dialoguePanelRect.Find("DialogueNextTriangle");
+            if (dnt == null && dialoguePanelRect.Find("Box") != null) dnt = dialoguePanelRect.Find("Box/DialogueNextTriangle");
+            if (dnt != null) dialogueNextTriangle = dnt.gameObject;
+        }
+        if (dialogueNextTriangle != null)
+        {
+            triangleBaseLocalPos = dialogueNextTriangle.transform.localPosition;
+            dialogueNextTriangle.SetActive(false);
+        }
+
         SetImmediateHidden();
     }
 
@@ -528,6 +546,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         punchRoutine = RunCoroutine(PunchSpeakerTabRoutine());
 
         // Typewriter
+        if (dialogueNextTriangle != null) dialogueNextTriangle.SetActive(false);
         if (typewriterRoutine != null) StopRunningCoroutine(typewriterRoutine);
         typewriterRoutine = RunCoroutine(TypewriterRoutine(pageText, isLastPage));
     }
@@ -535,6 +554,9 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
     private IEnumerator TypewriterRoutine(string fullText, bool isLastPage)
     {
         isTypewriterComplete = false;
+        OnTypingStateChanged?.Invoke(true);
+        if (dialogueNextTriangle != null) dialogueNextTriangle.SetActive(false);
+
         if (dialogueBodyText != null)
         {
             dialogueBodyText.text = fullText;
@@ -551,6 +573,12 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         }
 
         isTypewriterComplete = true;
+        OnTypingStateChanged?.Invoke(false);
+
+        if (dialogueNextTriangle != null && (!isLastPage || !hasChoicesAtEnd))
+        {
+            dialogueNextTriangle.SetActive(true);
+        }
 
         if (isLastPage && hasChoicesAtEnd)
         {
@@ -563,8 +591,14 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         if (typewriterRoutine != null) StopRunningCoroutine(typewriterRoutine);
         if (dialogueBodyText != null) dialogueBodyText.maxVisibleCharacters = 99999;
         isTypewriterComplete = true;
+        OnTypingStateChanged?.Invoke(false);
 
         bool isLastPage = (currentPageIndex == activePages.Count - 1);
+        if (dialogueNextTriangle != null && (!isLastPage || !hasChoicesAtEnd))
+        {
+            dialogueNextTriangle.SetActive(true);
+        }
+
         if (isLastPage && hasChoicesAtEnd)
         {
             ShowChoiceButtons();
@@ -663,6 +697,12 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
             }
         }
 
+        if (dialogueNextTriangle != null && dialogueNextTriangle.activeSelf)
+        {
+            float bob = Mathf.Sin(Time.unscaledTime * 6f) * 3f;
+            dialogueNextTriangle.transform.localPosition = new Vector3(triangleBaseLocalPos.x, triangleBaseLocalPos.y + bob, 0f);
+        }
+
         HandleInput();
     }
 
@@ -744,6 +784,9 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         if (!IsInDialogue) return;
         IsInDialogue = false;
         isSuspended = false;
+
+        if (dialogueNextTriangle != null) dialogueNextTriangle.SetActive(false);
+        OnTypingStateChanged?.Invoke(false);
 
         CompleteTypewriterInstantly();
         if (punchRoutine != null) StopRunningCoroutine(punchRoutine);

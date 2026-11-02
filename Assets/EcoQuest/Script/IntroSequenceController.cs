@@ -9,7 +9,19 @@ using UnityEngine;
 /// </summary>
 public class IntroSequenceController : MonoBehaviour
 {
-    public static IntroSequenceController Instance { get; private set; }
+    private static IntroSequenceController instance;
+    public static IntroSequenceController Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = FindFirstObjectByType<IntroSequenceController>(FindObjectsInactive.Include);
+            }
+            return instance;
+        }
+        private set => instance = value;
+    }
 
     public enum IntroState
     {
@@ -173,6 +185,12 @@ public class IntroSequenceController : MonoBehaviour
                 }
             }
 
+            if (visible && item.IsDeposited)
+            {
+                // Never re-enable deposited trash!
+                continue;
+            }
+
             if (item.gameObject.activeSelf != visible)
             {
                 item.gameObject.SetActive(visible);
@@ -182,11 +200,11 @@ public class IntroSequenceController : MonoBehaviour
         TrashItem.AreTrashItemsAllowed = visible;
         MinimapIcon.SetTrashIconsActive(visible);
 
-        if (!visible)
+        if (!visible && (reason == "Reset Tutorial" || reason.Contains("Fresh start")))
         {
             QuestManager.ResetAllQuestCountsToZero();
         }
-        else
+        else if (visible)
         {
             DragAndDrop.SelfHealAllUnheldItems("trash unlocked and enabled");
         }
@@ -195,6 +213,20 @@ public class IntroSequenceController : MonoBehaviour
         {
             StartCoroutine(StaggeredTrashRevealRoutine());
         }
+    }
+
+    /// <summary>
+    /// Idempotently applies trash visibility state based on pure persistent requirements.
+    /// </summary>
+    public void ApplyTrashVisibilityState(bool visible, string reason = "")
+    {
+        CacheTrashItemsOnce();
+        bool containerMatches = (trashContainer == null || trashContainer == gameObject || trashContainer.activeSelf == visible);
+        bool stateMatches = (IsTrashVisible == visible) && (TrashItem.AreTrashItemsAllowed == visible) && containerMatches;
+
+        if (stateMatches) return;
+
+        SetTrashVisible(visible, false, reason);
     }
 
     public void SubscribeEvents()

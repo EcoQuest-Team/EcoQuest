@@ -162,14 +162,24 @@ public class PauseMenuController : MonoBehaviour
             return;
         }
 
-        // If HUD is hidden by HudVisibilityService or UIOrchestrator (e.g. modals, dialogues), let service control fade
-        if ((HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden) ||
-            (UIOrchestrator.Instance != null && UIOrchestrator.Instance.AreModalsOpen))
+        // If HUD is hidden by HudVisibilityService, UIOrchestrator, or active dialogue/cinematic, let authority control fade
+        bool isCinematicOrDialogue = (HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden) ||
+                                     (UIOrchestrator.Instance != null && (UIOrchestrator.Instance.AreModalsOpen || UIOrchestrator.Instance.IsOverlayActive)) ||
+                                     (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue) ||
+                                     LitterbugQuestManager.IsDialogueOpen;
+
+        if (isCinematicOrDialogue)
         {
             return;
         }
 
-        // In gameplay & paused: gear button is visible and active
+        // UIOrchestrator is the single HUD authority: do not stomp over profile transitions every frame
+        if (UIOrchestrator.Instance != null)
+        {
+            return;
+        }
+
+        // In gameplay & paused (fallback if UIOrchestrator absent): gear button is visible and active
         hudSettingsButtonCanvasGroup.alpha = 1f;
         hudSettingsButtonCanvasGroup.interactable = true;
         hudSettingsButtonCanvasGroup.blocksRaycasts = true;

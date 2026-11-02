@@ -21,11 +21,12 @@ public class HudVisibilityService : MonoBehaviour
             if (instance == null)
             {
                 instance = FindFirstObjectByType<HudVisibilityService>(FindObjectsInactive.Include);
-                if (instance == null && Application.isPlaying)
+                if (instance == null)
                 {
-                    var go = new GameObject("[HudVisibilityService]");
-                    DontDestroyOnLoad(go);
-                    instance = go.AddComponent<HudVisibilityService>();
+                    var go = GameObject.Find("[HudVisibilityService]");
+                    if (go == null) go = new GameObject("[HudVisibilityService]");
+                    if (Application.isPlaying && go.transform.parent == null) DontDestroyOnLoad(go);
+                    instance = go.GetComponent<HudVisibilityService>() ?? go.AddComponent<HudVisibilityService>();
                 }
             }
             return instance;

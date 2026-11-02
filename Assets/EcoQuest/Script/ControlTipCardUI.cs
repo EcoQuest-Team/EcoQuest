@@ -170,6 +170,29 @@ public class ControlTipCardUI : MonoBehaviour
         ResetVisualState();
     }
 
+    /// <summary>
+    /// Restores the card's active visual state with the existing text and key bindings
+    /// after an overlay, modal, or dialogue closes.
+    /// </summary>
+    public void RestoreVisible()
+    {
+        EnsureBannerActive();
+        if (cardCanvasGroup != null)
+        {
+            cardCanvasGroup.alpha = 1f;
+            cardCanvasGroup.interactable = true;
+            cardCanvasGroup.blocksRaycasts = true;
+        }
+        if (textCanvasGroup != null) textCanvasGroup.alpha = 1f;
+        if (cardRect != null)
+        {
+            cardRect.localScale = Vector3.one;
+            if (hasBasePosition) cardRect.anchoredPosition = baseAnchoredPosition;
+        }
+        CurrentState = BannerState.Visible;
+        isIdlePulsing = true;
+    }
+
     public void EnsureBannerActive()
     {
         Transform p = transform.parent;

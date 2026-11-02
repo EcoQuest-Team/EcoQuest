@@ -39,9 +39,19 @@ public class NPCInteraction : MonoBehaviour
     [SerializeField] private float lookAtHeight = 1.25f;
     [Tooltip("Field of View for the dialogue shot (50 - 60)")]
     [Range(40f, 75f)]
-    [SerializeField] private float dialogueFOV = 55f;
+    [SerializeField] private float dialogueFOV = 42f;
     [Tooltip("Camera transition blend duration in seconds")]
-    [SerializeField] private float transitionTime = 0.7f;
+    [SerializeField] private float transitionTime = 0.35f;
+
+    [Header("Cinematic Dialogue & Letterbox")]
+    [SerializeField] private RectTransform topLetterboxBar;
+    [SerializeField] private RectTransform bottomLetterboxBar;
+    [SerializeField] private NpcDialogueSpeakerAnimator speakerAnimator;
+
+    private Coroutine letterboxRoutine;
+    private int savedCameraCullingMask;
+    private bool cameraCullingMaskModified = false;
+    private GameObject hiddenCarriedItem = null;
 
     [Header("Trash Management")]
     [SerializeField] private GameObject trashContainer; 
@@ -87,6 +97,8 @@ public class NPCInteraction : MonoBehaviour
     public bool IsQuestActive => hasAcceptedQuest && !QuestManager.IsQuestComplete;
     public bool HasCompletedFirstQuest => hasCompletedFirstQuest;
 
+    public static event System.Action OnQuestAccepted;
+
     public static void NotifyAllQuestCompleted()
     {
         NPCInteraction[] npcs = FindObjectsByType<NPCInteraction>(FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -98,6 +110,9 @@ public class NPCInteraction : MonoBehaviour
                 npc.hasAcceptedQuest = false;
             }
         }
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0);
+        PlayerPrefs.Save();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
     }
 
     private void Awake()
@@ -134,9 +149,14 @@ public class NPCInteraction : MonoBehaviour
         
         if (questCanvas != null && IntroSequenceController.Instance == null) questCanvas.SetActive(false);
         bool tabTipAlreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
-        if (tabTipAlreadyDone)
+        bool questAlreadyAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
+        if (tabTipAlreadyDone || questAlreadyAccepted)
         {
             hasAcceptedQuest = true;
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
+        PlayerPrefs.Save();
+        OnQuestAccepted?.Invoke();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
             IsAnyQuestActive = true;
         }
         if (IntroSequenceController.Instance != null)
@@ -366,6 +386,7 @@ public class NPCInteraction : MonoBehaviour
                 cmCam = dialogueCameraPoint.gameObject.AddComponent<CinemachineCamera>();
             }
             cmCam.Lens.FieldOfView = dialogueFOV;
+            cmCam.Lens.NearClipPlane = 0.03f;
             cmCam.Priority.Value = 0;
         }
     }
@@ -456,9 +477,11 @@ public class NPCInteraction : MonoBehaviour
             ? Vector3.Distance(transform.position, playerTransform.position)
             : 999f;
 
-        // Hide marker during dialogue, when quest is actively running, or within interactDistance + 1.0m
+        // Hide marker during dialogue, when quest is actively running, when travel is unlocked, or within interactDistance + 1.0m
         bool isQuestActive = hasAcceptedQuest && !QuestManager.IsQuestComplete;
-        bool shouldHide = isTalking || isQuestActive || (distToPlayer <= (interactDistance + 1.0f));
+        bool isCityTravelUnlocked = TravelGate.CanTravelToCity;
+        bool isSuppressedByService = ObjectiveMarkerService.Instance != null && ObjectiveMarkerService.Instance.CurrentTarget != transform;
+        bool shouldHide = isTalking || isQuestActive || isCityTravelUnlocked || isSuppressedByService || (distToPlayer <= (interactDistance + 1.0f));
 
         if (shouldHide)
         {
@@ -890,8 +913,16 @@ public class NPCInteraction : MonoBehaviour
         if (accepted)
         {
             hasAcceptedQuest = true;
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
+        PlayerPrefs.Save();
+        OnQuestAccepted?.Invoke();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
             IsAnyQuestActive = true;
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
+            PlayerPrefs.Save();
             QuestManager.ResetAllQuestCountsToZero();
+            OnQuestAccepted?.Invoke();
+            ObjectiveMarkerService.Instance?.RefreshTargetFromState();
 
             var intro = IntroSequenceController.Instance != null ? IntroSequenceController.Instance : FindFirstObjectByType<IntroSequenceController>();
             if (intro != null)
@@ -1250,7 +1281,12 @@ public class NPCInteraction : MonoBehaviour
         isTalking = false;
         isTyping = false;
         isRepeatOfferDialogue = false;
+        IsAnyGuardianFlowRunning = false;
         hasAcceptedQuest = true;
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
+        PlayerPrefs.Save();
+        OnQuestAccepted?.Invoke();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
 
         if (typingCoroutine != null)
         {
@@ -1344,10 +1380,62 @@ public class NPCInteraction : MonoBehaviour
 
         if (mainCam != null)
         {
-            int hfLayer = LayerMask.NameToLayer("HiddenFromFirstPerson");
-            if (hfLayer != -1) mainCam.cullingMask |= (1 << hfLayer);
+            if (!cameraCullingMaskModified)
+            {
+                savedCameraCullingMask = mainCam.cullingMask;
+                int hfLayer = LayerMask.NameToLayer("HiddenFromFirstPerson");
+                if (hfLayer != -1) mainCam.cullingMask |= (1 << hfLayer);
+                else mainCam.cullingMask |= (1 << 7);
+                cameraCullingMaskModified = true;
+            }
+
             Transform vmCam = mainCam.transform.Find("ViewmodelCamera");
             if (vmCam != null) vmCam.gameObject.SetActive(false);
+
+            if (DragAndDrop.CurrentlyGrabbedItem != null)
+            {
+                hiddenCarriedItem = DragAndDrop.CurrentlyGrabbedItem.gameObject;
+                hiddenCarriedItem.SetActive(false);
+            }
+
+            if (playerTransform == null)
+            {
+                GameObject p = GameObject.FindGameObjectWithTag("Player");
+                if (p != null) playerTransform = p.transform;
+            }
+            Transform playerTrans = playerTransform != null ? playerTransform : (mainCam != null ? mainCam.transform : null);
+            Vector3 playerPos = playerTrans != null ? playerTrans.position : (mainCam.transform.position - Vector3.up * 1.5f);
+            Vector3 speakerPos = transform.position;
+
+            Vector3 toSpeaker = speakerPos - playerPos;
+            toSpeaker.y = 0f;
+            if (toSpeaker.sqrMagnitude < 0.01f)
+                toSpeaker = playerTrans != null ? playerTrans.forward : Vector3.forward;
+            toSpeaker.Normalize();
+
+            Vector3 rightOffset = Vector3.Cross(Vector3.up, toSpeaker) * 0.42f;
+            Vector3 playerEye = playerPos + Vector3.up * 1.52f;
+            Vector3 desiredShotPos = playerPos - toSpeaker * 0.85f + rightOffset + Vector3.up * 1.58f;
+
+            Vector3 rayDir = desiredShotPos - playerEye;
+            float rayDist = rayDir.magnitude;
+            if (rayDist > 0.05f)
+            {
+                rayDir /= rayDist;
+                int mask = ~((1 << 8) | (1 << 2)); // Ignore Player (8) and IgnoreRaycast (2)
+                if (Physics.SphereCast(playerEye, 0.20f, rayDir, out RaycastHit hit, rayDist, mask, QueryTriggerInteraction.Ignore))
+                {
+                    desiredShotPos = playerEye + rayDir * Mathf.Max(0.35f, hit.distance - 0.1f);
+                }
+            }
+
+            Vector3 speakerChest = speakerPos + Vector3.up * 1.35f;
+            Quaternion shotRot = Quaternion.LookRotation((speakerChest - desiredShotPos).normalized, Vector3.up);
+
+            if (dialogueCameraPoint != null)
+            {
+                dialogueCameraPoint.SetPositionAndRotation(desiredShotPos, shotRot);
+            }
 
             CinemachineBrain brain = mainCam.GetComponent<CinemachineBrain>();
             if (brain != null && dialogueCameraPoint != null)
@@ -1358,10 +1446,45 @@ public class NPCInteraction : MonoBehaviour
                 if (cmCam != null)
                 {
                     cmCam.Lens.FieldOfView = dialogueFOV;
-                    cmCam.Priority.Value = 30; // Blend into dialogue shot
+                    cmCam.Lens.NearClipPlane = 0.03f;
+                    cmCam.Priority.Value = 35; // Blend into dialogue shot
                     usedCinemachine = true;
                 }
             }
+        }
+
+        // Slide in letterbox bars (0.6s)
+        if (topLetterboxBar == null)
+        {
+            var tlb = GameObject.Find("TopLetterboxBar");
+            if (tlb != null) topLetterboxBar = tlb.GetComponent<RectTransform>();
+        }
+        if (bottomLetterboxBar == null)
+        {
+            var blb = GameObject.Find("BottomLetterboxBar");
+            if (blb != null) bottomLetterboxBar = blb.GetComponent<RectTransform>();
+        }
+
+        if (letterboxRoutine != null) StopCoroutine(letterboxRoutine);
+        if (isActiveAndEnabled && gameObject.scene.isLoaded)
+            letterboxRoutine = StartCoroutine(TransitionDialogueEnterRoutine());
+
+        // Fade HUD
+        HudVisibilityService.Instance?.HideHUD("DialogueCam", 0.25f);
+
+        // Engage speaker animator
+        if (speakerAnimator == null) speakerAnimator = GetComponent<NpcDialogueSpeakerAnimator>();
+        if (speakerAnimator != null)
+        {
+            Transform pTarget = playerTransform != null ? playerTransform : (mainCam != null ? mainCam.transform : null);
+            speakerAnimator.BeginDialogue(pTarget, guideNpc: true);
+        }
+
+        // Subscribe to typing state changed
+        if (DialoguePresenter.Instance != null)
+        {
+            DialoguePresenter.Instance.OnTypingStateChanged -= OnDialogueTypingStateChanged;
+            DialoguePresenter.Instance.OnTypingStateChanged += OnDialogueTypingStateChanged;
         }
 
         // Fallback smooth Lerp if CinemachineBrain is not present
@@ -1390,10 +1513,42 @@ public class NPCInteraction : MonoBehaviour
         Camera mainCam = Camera.main;
         if (mainCam != null)
         {
-            int hfLayer = LayerMask.NameToLayer("HiddenFromFirstPerson");
-            if (hfLayer != -1) mainCam.cullingMask &= ~(1 << hfLayer);
+            if (cameraCullingMaskModified)
+            {
+                mainCam.cullingMask = savedCameraCullingMask;
+                cameraCullingMaskModified = false;
+            }
             Transform vmCam = mainCam.transform.Find("ViewmodelCamera");
             if (vmCam != null) vmCam.gameObject.SetActive(true);
+        }
+
+        if (hiddenCarriedItem != null)
+        {
+            hiddenCarriedItem.SetActive(true);
+            hiddenCarriedItem = null;
+        }
+
+        // Slide out letterbox bars (0.6s)
+        if (letterboxRoutine != null) StopCoroutine(letterboxRoutine);
+        if (isActiveAndEnabled && gameObject.scene.isLoaded)
+            letterboxRoutine = StartCoroutine(TransitionDialogueExitRoutine());
+        else
+            ResetLetterboxBarsImmediate();
+
+        // Restore HUD
+        HudVisibilityService.Instance?.ShowHUD("DialogueCam", 0.25f);
+
+        // Unsubscribe typing state
+        if (DialoguePresenter.Instance != null)
+        {
+            DialoguePresenter.Instance.OnTypingStateChanged -= OnDialogueTypingStateChanged;
+        }
+
+        // Release speaker animator
+        if (speakerAnimator != null)
+        {
+            bool accepted = hasAcceptedQuest || QuestManager.IsQuestComplete;
+            speakerAnimator.EndDialogue(accepted);
         }
 
         if (mainCam != null && dialogueCameraPoint != null)
@@ -1419,6 +1574,70 @@ public class NPCInteraction : MonoBehaviour
                 }
             }
         }
+    }
+
+    private void OnDialogueTypingStateChanged(bool isTyping)
+    {
+        if (speakerAnimator != null)
+        {
+            speakerAnimator.SetTyping(isTyping);
+        }
+    }
+
+    private IEnumerator TransitionDialogueEnterRoutine()
+    {
+        float elapsed = 0f;
+        float dur = 0.6f;
+        Vector2 topStart = new Vector2(0f, 86f);
+        Vector2 topEnd = Vector2.zero;
+        Vector2 botStart = new Vector2(0f, -86f);
+        Vector2 botEnd = Vector2.zero;
+
+        while (elapsed < dur)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / dur);
+            float smooth = Mathf.SmoothStep(0f, 1f, t);
+
+            if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = Vector2.Lerp(topStart, topEnd, smooth);
+            if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = Vector2.Lerp(botStart, botEnd, smooth);
+            yield return null;
+        }
+
+        if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = topEnd;
+        if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = botEnd;
+        letterboxRoutine = null;
+    }
+
+    private IEnumerator TransitionDialogueExitRoutine()
+    {
+        float elapsed = 0f;
+        float dur = 0.6f;
+        Vector2 topStart = topLetterboxBar != null ? topLetterboxBar.anchoredPosition : Vector2.zero;
+        Vector2 topEnd = new Vector2(0f, 86f);
+        Vector2 botStart = bottomLetterboxBar != null ? bottomLetterboxBar.anchoredPosition : Vector2.zero;
+        Vector2 botEnd = new Vector2(0f, -86f);
+
+        while (elapsed < dur)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / dur);
+            float smooth = Mathf.SmoothStep(0f, 1f, t);
+
+            if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = Vector2.Lerp(topStart, topEnd, smooth);
+            if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = Vector2.Lerp(botStart, botEnd, smooth);
+            yield return null;
+        }
+
+        if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = topEnd;
+        if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = botEnd;
+        letterboxRoutine = null;
+    }
+
+    private void ResetLetterboxBarsImmediate()
+    {
+        if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = new Vector2(0f, 86f);
+        if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = new Vector2(0f, -86f);
     }
 
     private IEnumerator LerpCamera(Camera cam, Vector3 startPos, Quaternion startRot, float startFOV, Vector3 endPos, Quaternion endRot, float endFOV, float duration)
@@ -1588,6 +1807,27 @@ public class NPCInteraction : MonoBehaviour
 
     private void CleanupCoroutinesAndState()
     {
+        if (DialoguePresenter.Instance != null)
+        {
+            DialoguePresenter.Instance.OnTypingStateChanged -= OnDialogueTypingStateChanged;
+        }
+        if (letterboxRoutine != null)
+        {
+            StopCoroutine(letterboxRoutine);
+            letterboxRoutine = null;
+        }
+        if (cameraCullingMaskModified && Camera.main != null)
+        {
+            Camera.main.cullingMask = savedCameraCullingMask;
+            cameraCullingMaskModified = false;
+        }
+        if (hiddenCarriedItem != null)
+        {
+            hiddenCarriedItem.SetActive(true);
+            hiddenCarriedItem = null;
+        }
+        ResetLetterboxBarsImmediate();
+
         if (flowWatchdogRoutine != null)
         {
             StopCoroutine(flowWatchdogRoutine);

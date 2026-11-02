@@ -13,6 +13,12 @@ public static class EcoQuestSaveKeys
     public const string PostQuizScore = "EcoQuest_PostQuizScore";
     public const string SequentialWASD = "SequentialWASD_TutorialCompleted";
 
+    // Gate & Completion Keys
+    public const string ForestQuestAccepted = "EcoQuest_ForestQuestAccepted";
+    public const string ForestTrashQuestDone = "EcoQuest_ForestTrashQuestDone";
+    public const string ForestRewardClaimed = "EcoQuest_ForestRewardClaimed";
+    public const string ForestExplorerGateNotified = "EcoQuest_ForestExplorerGateNotified";
+
     /// <summary>
     /// Complete array of all persistent keys related to tutorial and quest progress.
     /// Settings (volume, resolution, graphics) are excluded so player preferences remain intact.
@@ -23,7 +29,11 @@ public static class EcoQuestSaveKeys
         SeenInfoCards,
         PreQuizScore,
         PostQuizScore,
-        SequentialWASD
+        SequentialWASD,
+        ForestQuestAccepted,
+        ForestTrashQuestDone,
+        ForestRewardClaimed,
+        ForestExplorerGateNotified
     };
 
     /// <summary>

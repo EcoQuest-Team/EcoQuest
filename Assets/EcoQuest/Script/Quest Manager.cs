@@ -383,6 +383,7 @@ public class QuestManager : MonoBehaviour
         if (bank != null) bank.AddGold(goldReward);
 
         NPCInteraction.NotifyAllQuestCompleted();
+        TravelGate.NotifyTrashQuestCompleted();
 
         if (QuizManager.Instance != null)
         {

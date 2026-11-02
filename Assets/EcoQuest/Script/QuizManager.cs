@@ -128,6 +128,7 @@ public class QuizManager : MonoBehaviour
 
         SetControlsActive(true);
         onCompleted?.Invoke();
+        TravelGate.NotifyRewardClaimed();
     }
 
     /// <summary>
@@ -376,6 +377,7 @@ public class QuizManager : MonoBehaviour
 
         SetControlsActive(true);
         onCompleted?.Invoke();
+        TravelGate.NotifyRewardClaimed();
     }
 
     private List<ShuffledQuestion> PrepareShuffledQuestions()

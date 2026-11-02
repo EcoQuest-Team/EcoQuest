@@ -157,7 +157,10 @@ public class SequentialWASDTutorial : MonoBehaviour
     {
         bool wasModalOpen = false;
         while ((ModalManager.Instance != null && ModalManager.Instance.IsAnyModalOpen) ||
-               PauseMenuController.IsPaused)
+               PauseMenuController.IsPaused ||
+               (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue) ||
+               (UIOrchestrator.Instance != null && UIOrchestrator.Instance.IsOverlayActive) ||
+               (ExplorerGateController.Instance != null && ExplorerGateController.Instance.IsInDialogue))
         {
             wasModalOpen = true;
             if (tipCardUI != null && tipCardUI.gameObject.activeSelf)
@@ -169,7 +172,7 @@ public class SequentialWASDTutorial : MonoBehaviour
 
         if (wasModalOpen && tipCardUI != null && !isCompleted)
         {
-            tipCardUI.EnsureBannerActive();
+            tipCardUI.RestoreVisible();
         }
     }
 

@@ -6,17 +6,17 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/EcoQuest/Main Menu.unity
-    guid: 91e6d8b4446853d4ba21b73138e6e04c
-  - enabled: 1
     path: Assets/EcoQuest/Forest Scene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 0
-    path: Assets/EcoQuest/Beach.unity
-    guid: 5e79fd9f17209e14a858bd6edee2dc4b
   - enabled: 1
     path: Assets/EcoQuest/City Scene.unity
     guid: 902750ac3d9288c40bb419706fe5c6b7
+  - enabled: 1
+    path: Assets/EcoQuest/Main Menu.unity
+    guid: 91e6d8b4446853d4ba21b73138e6e04c
+  - enabled: 0
+    path: Assets/EcoQuest/Beach.unity
+    guid: 5e79fd9f17209e14a858bd6edee2dc4b
   m_configObjects:
     com.unity.input.settings: {fileID: 11400000, guid: 9e7be553448fa2546aea5752021cbcf7, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

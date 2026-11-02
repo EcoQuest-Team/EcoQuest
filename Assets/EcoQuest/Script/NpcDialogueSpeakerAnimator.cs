@@ -19,14 +19,13 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
     private Transform headBone;
     private Transform neckBone;
     private Transform chestBone;
-    private Transform leftUpperArm;
-    private Transform rightUpperArm;
 
     private Quaternion baseHeadLocalRot;
     private Quaternion baseChestLocalRot;
-    private Quaternion baseLeftArmLocalRot;
-    private Quaternion baseRightArmLocalRot;
     private bool hasCachedBasePose = false;
+
+    private System.Collections.Generic.HashSet<string> validParameters = new System.Collections.Generic.HashSet<string>();
+    private bool parametersCached = false;
 
     private bool isSpeaking = false;
     private bool isTyping = false;
@@ -51,27 +50,85 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
 
     private void Awake()
     {
-        if (animator == null) animator = GetComponent<Animator>();
+        if (animator == null) animator = GetComponentInChildren<Animator>();
         CacheBones();
+    }
+
+    private void CacheParameters()
+    {
+        if (parametersCached || animator == null || animator.runtimeAnimatorController == null) return;
+        validParameters.Clear();
+        foreach (var p in animator.parameters)
+        {
+            validParameters.Add(p.name);
+        }
+        parametersCached = true;
+    }
+
+    private void SetSafeBool(string paramName, bool val)
+    {
+        CacheParameters();
+        if (animator != null && validParameters.Contains(paramName))
+        {
+            animator.SetBool(paramName, val);
+        }
+    }
+
+    private void SetSafeFloat(string paramName, float val)
+    {
+        CacheParameters();
+        if (animator != null && validParameters.Contains(paramName))
+        {
+            animator.SetFloat(paramName, val);
+        }
+    }
+
+    private void SetSafeInt(string paramName, int val)
+    {
+        CacheParameters();
+        if (animator != null && validParameters.Contains(paramName))
+        {
+            animator.SetInteger(paramName, val);
+        }
+    }
+
+    private void SetSafeTrigger(string paramName)
+    {
+        CacheParameters();
+        if (animator != null && validParameters.Contains(paramName))
+        {
+            animator.SetTrigger(paramName);
+        }
+    }
+
+    private void ResetSafeTrigger(string paramName)
+    {
+        CacheParameters();
+        if (animator != null && validParameters.Contains(paramName))
+        {
+            animator.ResetTrigger(paramName);
+        }
     }
 
     private void CacheBones()
     {
-        if (animator != null && animator.isHuman)
+        if (animator == null) animator = GetComponentInChildren<Animator>();
+        if (animator != null)
         {
-            headBone = animator.GetBoneTransform(HumanBodyBones.Head);
-            neckBone = animator.GetBoneTransform(HumanBodyBones.Neck);
-            chestBone = animator.GetBoneTransform(HumanBodyBones.Chest);
-            leftUpperArm = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
-            rightUpperArm = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
-
-            if (headBone != null && !hasCachedBasePose)
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            CacheParameters();
+            if (animator.isHuman)
             {
-                baseHeadLocalRot = headBone.localRotation;
-                if (chestBone != null) baseChestLocalRot = chestBone.localRotation;
-                if (leftUpperArm != null) baseLeftArmLocalRot = leftUpperArm.localRotation;
-                if (rightUpperArm != null) baseRightArmLocalRot = rightUpperArm.localRotation;
-                hasCachedBasePose = true;
+                headBone = animator.GetBoneTransform(HumanBodyBones.Head);
+                neckBone = animator.GetBoneTransform(HumanBodyBones.Neck);
+                chestBone = animator.GetBoneTransform(HumanBodyBones.Chest);
+
+                if (headBone != null && !hasCachedBasePose)
+                {
+                    baseHeadLocalRot = headBone.localRotation;
+                    if (chestBone != null) baseChestLocalRot = chestBone.localRotation;
+                    hasCachedBasePose = true;
+                }
             }
         }
     }
@@ -93,7 +150,10 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
 
         if (animator != null)
         {
-            animator.SetFloat("Speed", 0f);
+            SetSafeFloat("Speed", 0f);
+            SetSafeBool("IsTalking", true);
+            SetSafeBool("Talk", true);
+            SetSafeBool("Listen", false);
         }
 
         if (playerTarget != null)
@@ -117,8 +177,9 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
         if (isGuide && animator != null)
         {
             // Guide welcoming wave on line 1
-            animator.SetInteger("ActionType", 1);
-            animator.SetTrigger("ActionTrigger");
+            SetSafeInt("ActionType", 1);
+            SetSafeTrigger("ActionTrigger");
+            SetSafeTrigger("Wave");
         }
     }
 
@@ -127,7 +188,9 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
         isTyping = typing;
         if (animator != null)
         {
-            animator.SetBool("IsTalking", typing);
+            SetSafeBool("IsTalking", typing);
+            SetSafeBool("Talk", typing);
+            SetSafeBool("Listen", !typing);
         }
     }
 
@@ -142,8 +205,9 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
         {
             if (lineIndex == 0 && animator != null)
             {
-                animator.SetInteger("ActionType", 1);
-                animator.SetTrigger("ActionTrigger");
+                SetSafeInt("ActionType", 1);
+                SetSafeTrigger("ActionTrigger");
+                SetSafeTrigger("Wave");
             }
             return;
         }
@@ -164,8 +228,9 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
             reactionTimer = 1.8f;
             if (animator != null)
             {
-                animator.SetInteger("ActionType", 2);
-                animator.SetTrigger("ActionTrigger");
+                SetSafeInt("ActionType", 2);
+                SetSafeTrigger("ActionTrigger");
+                SetSafeTrigger("Nod");
             }
         }
     }
@@ -176,9 +241,12 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
 
         if (animator != null)
         {
-            animator.SetBool("IsTalking", false);
-            animator.SetInteger("ActionType", 2);
-            animator.SetTrigger("ActionTrigger");
+            SetSafeBool("IsTalking", false);
+            SetSafeBool("Talk", false);
+            SetSafeBool("Listen", false);
+            SetSafeInt("ActionType", 2);
+            SetSafeTrigger("ActionTrigger");
+            SetSafeTrigger("Nod");
         }
     }
 
@@ -199,18 +267,14 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
         targetLookWeight = 0f;
         currentLookWeight = 0f;
 
-        if (hasCachedBasePose)
-        {
-            if (headBone != null) headBone.localRotation = baseHeadLocalRot;
-            if (chestBone != null) chestBone.localRotation = baseChestLocalRot;
-            if (leftUpperArm != null) leftUpperArm.localRotation = baseLeftArmLocalRot;
-            if (rightUpperArm != null) rightUpperArm.localRotation = baseRightArmLocalRot;
-        }
+        // Never force arm bones to bind pose! Let Animator evaluate natural locomotion/idle clips.
 
         if (animator != null)
         {
-            animator.SetBool("IsTalking", false);
-            animator.ResetTrigger("ActionTrigger");
+            SetSafeBool("IsTalking", false);
+            SetSafeBool("Talk", false);
+            SetSafeBool("Listen", false);
+            ResetSafeTrigger("ActionTrigger");
         }
     }
 
@@ -298,9 +362,9 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
 
     private void LateUpdate()
     {
-        // Safe procedural fallback gestures:
-        // Always computed relative to cached base pose so they NEVER accumulate across frames.
-        if (!isSpeaking || headBone == null || !hasCachedBasePose) return;
+        // Procedural subtle head nod gestures:
+        // Applied additively relative to the animator's sampled pose. Never touch upper arms!
+        if (!isSpeaking || headBone == null) return;
 
         float nodDeg = 0f;
         if (isTyping)
@@ -315,31 +379,28 @@ public class NpcDialogueSpeakerAnimator : MonoBehaviour
         // Clamp total procedural nod to +-8 degrees
         nodDeg = Mathf.Clamp(nodDeg, -8f, 8f);
 
-        // Apply only relative to cached base pose: no accumulation!
         if (Mathf.Abs(nodDeg) > 0.01f)
         {
-            headBone.localRotation = baseHeadLocalRot * Quaternion.Euler(nodDeg, 0f, 0f);
+            headBone.localRotation = headBone.localRotation * Quaternion.Euler(nodDeg, 0f, 0f);
         }
 
-        // Reaction Beats (Procedural)
+        // Reaction Beats: subtle additive head/chest gestures (arms are 100% controlled by the Animator clips)
         if (activeReaction == 1)
         {
-            // Defensive
-            if (headBone != null) headBone.localRotation = baseHeadLocalRot * Quaternion.Euler(-2f, 0f, 6.0f);
-            if (leftUpperArm != null) leftUpperArm.localRotation = baseLeftArmLocalRot * Quaternion.Euler(0f, 0f, 7f);
-            if (rightUpperArm != null) rightUpperArm.localRotation = baseRightArmLocalRot * Quaternion.Euler(0f, 0f, -7f);
+            // Defensive head tilt
+            headBone.localRotation = headBone.localRotation * Quaternion.Euler(-1.5f, 0f, 3.0f);
         }
         else if (activeReaction == 2)
         {
-            // Surprised
-            if (headBone != null) headBone.localRotation = baseHeadLocalRot * Quaternion.Euler(-6f, 4f, 0f);
-            if (chestBone != null) chestBone.localRotation = baseChestLocalRot * Quaternion.Euler(-3f, 0f, 0f);
+            // Surprised head/chest tilt
+            headBone.localRotation = headBone.localRotation * Quaternion.Euler(-2.5f, 2f, 0f);
+            if (chestBone != null) chestBone.localRotation = chestBone.localRotation * Quaternion.Euler(-1.5f, 0f, 0f);
         }
         else if (activeReaction == 3)
         {
             // Grateful nod
-            float bow = Mathf.Sin(Mathf.Clamp01(reactionTimer / 1.8f) * Mathf.PI) * 5f;
-            if (chestBone != null) chestBone.localRotation = baseChestLocalRot * Quaternion.Euler(bow, 0f, 0f);
+            float bow = Mathf.Sin(Mathf.Clamp01(reactionTimer / 1.8f) * Mathf.PI) * 3f;
+            if (chestBone != null) chestBone.localRotation = chestBone.localRotation * Quaternion.Euler(bow, 0f, 0f);
         }
     }
 

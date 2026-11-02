@@ -81,6 +81,7 @@ public static class EcoQuestEditorAutoReset
         ModalManager.ClearPersistedSeenCards();
         LitterbugQuestManager.ResetStaticState();
         SequentialWASDTutorial.AllowedState = SequentialWASDTutorial.TutorialState.All;
+        TravelGate.ResetStaticState();
     }
 }
 #endif

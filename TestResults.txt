@@ -1,0 +1,5 @@
+TEST: 1. City FountainQuestGiver: Gear Stability & Natural Pose | Passed=True | Details=DialogueOpen=True, GearDuringAlpha=0.00 (HiddenOk=True), GearExitAlpha=1.00 (VisibleOk=True), FqTalking=True
+TEST: 2. City 5 NPCs: Natural Gesture & Zero T-Pose | Passed=True | Details=Verified 5/5 NPCs: NPC_Poly_WomanWinter (Talk:58deg, Listen:55deg, End:52deg) | NPC_Poly_ManPolice (Talk:51deg, Listen:50deg, End:50deg) | NPC_Poly_ManSwat (Talk:51deg, Listen:50deg, End:50deg) | NPC_Poly_WomanPirate (Talk:58deg, Listen:55deg, End:52deg) | NPC_Everyday_Male (Talk:70deg, Listen:69deg, End:69deg)
+TEST: 3. Forest Guardian: Gear Stability & Natural Pose | Passed=True | Details=GearDuring=0.00 (HiddenOk=True), GearExit=1.00 (VisibleOk=True), TalkingState=True
+TEST: 4. Forest Explorer: Cinematic Gear Stability & AlwaysAnimate | Passed=True | Details=CullingMode=AlwaysAnimate, GearDuring=0.00, GearExit=1.00, Arms=(65.1deg, 64.9deg)
+TEST: 5. Rapid Dialogue Interrupt: Zero Overlay Leak & Restored Gear | Passed=True | Details=OverlayActive=False, FinalGearAlpha=1.00

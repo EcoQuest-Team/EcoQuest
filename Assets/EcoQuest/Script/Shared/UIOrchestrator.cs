@@ -20,11 +20,12 @@ public class UIOrchestrator : MonoBehaviour
             if (instance == null)
             {
                 instance = FindFirstObjectByType<UIOrchestrator>(FindObjectsInactive.Include);
-                if (instance == null && Application.isPlaying)
+                if (instance == null)
                 {
-                    var go = new GameObject("[UIOrchestrator]");
-                    if (go.transform.parent == null) DontDestroyOnLoad(go);
-                    instance = go.AddComponent<UIOrchestrator>();
+                    var go = GameObject.Find("[UIOrchestrator]");
+                    if (go == null) go = new GameObject("[UIOrchestrator]");
+                    if (Application.isPlaying && go.transform.parent == null) DontDestroyOnLoad(go);
+                    instance = go.GetComponent<UIOrchestrator>() ?? go.AddComponent<UIOrchestrator>();
                 }
             }
             return instance;
@@ -56,7 +57,8 @@ public class UIOrchestrator : MonoBehaviour
         Quiz = 3,
         Guardian = 4,
         TabTutorial = 5,
-        FreePlay = 6
+        FreePlay = 6,
+        ExplorerTravel = 7
     }
 
     public enum UIElement
@@ -71,6 +73,8 @@ public class UIOrchestrator : MonoBehaviour
         TipCards,
         InteractPrompt
     }
+
+    public static event System.Action<FlowStep, GamePhase> OnFlowStateChanged;
 
     [Header("Phase & Flow Step Configuration")]
     [SerializeField] private GamePhase currentPhase = GamePhase.Tutorial;
@@ -192,6 +196,7 @@ public class UIOrchestrator : MonoBehaviour
         }
 
         ResolveReferences();
+        overlayStack.Clear();
     }
 
     private void Start()
@@ -333,11 +338,78 @@ public class UIOrchestrator : MonoBehaviour
                     modalsOpen = false;
                 }
                 break;
+
+            case FlowStep.ExplorerTravel:
+                currentPhase = GamePhase.QuestActive;
+                modalsOpen = false;
+                break;
         }
 
         LastWriter = $"SetFlowStep({newStep})";
         ApplyCurrentProfile(0.20f);
         ValidateStepState(newStep);
+        OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
+    }
+
+    public struct OverlaySnapshot
+    {
+        public FlowStep flowStep;
+        public GamePhase phase;
+        public bool isQuestPanelUserHidden;
+        public bool modalsOpen;
+    }
+
+    private readonly Stack<OverlaySnapshot> overlayStack = new Stack<OverlaySnapshot>();
+    public bool IsOverlayActive => overlayStack.Count > 0;
+
+    public void PushOverlay(string overlayName)
+    {
+        overlayStack.Push(new OverlaySnapshot
+        {
+            flowStep = currentFlowStep,
+            phase = currentPhase,
+            isQuestPanelUserHidden = isQuestPanelUserHidden,
+            modalsOpen = modalsOpen
+        });
+
+        FlowStep prevStep = currentFlowStep;
+        currentFlowStep = FlowStep.ExplorerTravel;
+        Debug.Log($"[FlowState] Push overlay '{overlayName}' (base step: {prevStep})");
+        ApplyCurrentProfile(0.20f);
+    }
+
+    public void PopOverlay()
+    {
+        if (overlayStack.Count > 0)
+        {
+            var snap = overlayStack.Pop();
+            FlowStep overlayStep = currentFlowStep;
+            currentFlowStep = snap.flowStep;
+            currentPhase = snap.phase;
+            isQuestPanelUserHidden = snap.isQuestPanelUserHidden;
+            modalsOpen = snap.modalsOpen;
+
+            Debug.Log($"[FlowState] Pop overlay -> restored step {currentFlowStep}, phase {currentPhase} (from {overlayStep})");
+            ApplyCurrentProfile(0.20f);
+            ValidateStepState(currentFlowStep);
+            OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
+        }
+        else
+        {
+            Debug.LogWarning("[FlowState] PopOverlay called but overlay stack is empty! Applying current profile.");
+            ApplyCurrentProfile(0.20f);
+            OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
+        }
+    }
+
+    public void EnterCinematicProfile(string caller = "ExplorerGate")
+    {
+        PushOverlay(caller);
+    }
+
+    public void ExitCinematicProfile(string caller = "ExplorerGate")
+    {
+        PopOverlay();
     }
 
     /// <summary>
@@ -354,23 +426,25 @@ public class UIOrchestrator : MonoBehaviour
             SnapElement(questPanelGroup, false);
         }
 
+        bool minimapExpected = (step != FlowStep.ExplorerTravel);
         bool minimapActual = minimapGroup == null || (minimapGroup.gameObject.activeInHierarchy && minimapGroup.alpha > 0.5f);
-        if (!minimapActual && minimapGroup != null)
+        if (minimapExpected && !minimapActual && minimapGroup != null)
         {
             Debug.LogWarning($"[FlowState Validator] WARNING at Step '{step}': Minimap was hidden (alpha={minimapGroup.alpha:F2})! Restoring Minimap immediately.");
             SnapElement(minimapGroup, true);
         }
 
-        bool trashExpected = (step == FlowStep.FreePlay);
+        // Trash visibility is a pure function of persistent quest state (independent of temporary cinematic/dialogue profiles)
+        bool trashExpected = TrashVisibilityController.ShouldTrashBeVisible();
         bool trashActual = TrashItem.AreTrashItemsAllowed || MinimapController.AreTrashIconsActive;
-        if (!trashExpected && trashActual)
+        if (!trashExpected && trashActual && step < FlowStep.TabTutorial)
         {
-            Debug.LogWarning($"[FlowState Validator] WARNING at Step '{step}': Trash visibility is enabled (AreTrashItemsAllowed={TrashItem.AreTrashItemsAllowed}, AreTrashIconsActive={MinimapController.AreTrashIconsActive}) before Step 6 (FreePlay)! Hiding trash.");
-            IntroSequenceController.Instance?.SetTrashVisible(false, false, $"Validator correction at {step}");
+            Debug.LogWarning($"[FlowState Validator] WARNING at Step '{step}': Trash visibility is enabled before quest start! Hiding trash.");
+            TrashVisibilityController.Refresh($"Validator correction at {step}");
         }
         else if (trashExpected && !trashActual && Application.isPlaying)
         {
-            Debug.LogWarning($"[FlowState Validator] WARNING at Step '{step}': Trash visibility is still disabled at Step 6 (FreePlay)!");
+            TrashVisibilityController.Refresh($"Validator restore at {step}");
         }
     }
 
@@ -388,6 +462,7 @@ public class UIOrchestrator : MonoBehaviour
             modalsOpen = false;
         }
         ApplyCurrentProfile(0.20f);
+        OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
     }
 
     public void SetModalsOpen(bool open)
@@ -402,6 +477,12 @@ public class UIOrchestrator : MonoBehaviour
     /// </summary>
     public bool GetExpectedVisibility(UIElement element)
     {
+        // Step 7: ExplorerTravel (Cinematic HUD profile hides all gameplay elements during dialogue and travel)
+        if (currentFlowStep == FlowStep.ExplorerTravel)
+        {
+            return false;
+        }
+
         // Rule: The minimap stays visible through the whole flow and is NEVER hidden by any modal or the TAB toggle.
         if (element == UIElement.Minimap)
         {
@@ -433,6 +514,20 @@ public class UIOrchestrator : MonoBehaviour
         if (AreModalsOpen && !tabTipActive)
         {
             return false;
+        }
+
+        // Cinematic / Dialogue overlay check: Gear, Coins, Crosshair, and InteractPrompt stay consistently hidden
+        bool isCinematicOrDialogue = (HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden) ||
+                                     (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue) ||
+                                     LitterbugQuestManager.IsDialogueOpen ||
+                                     overlayStack.Count > 0;
+
+        if (isCinematicOrDialogue)
+        {
+            if (element == UIElement.Gear || element == UIElement.Coins || element == UIElement.Crosshair || element == UIElement.InteractPrompt)
+            {
+                return false;
+            }
         }
 
         switch (element)
