@@ -336,17 +336,20 @@ public class TravelGate : MonoBehaviour
 
     private IEnumerator PostCityLoadSetupRoutine()
     {
-        // Wait one frame for City scene objects to run Awake/Start
+        // 1. Wait two frames for City scene objects (managers, UI, player) to complete Awake and Start
+        yield return null;
         yield return null;
 
-        // Position Player at CityPlayerSpawnPoint if present
+        // 2. Remove duplicate managers safely
+        CleanDuplicateManagers();
+
+        // 3. Position Player at CityPlayerSpawnPoint if present
         GameObject spawnPoint = GameObject.Find(CitySpawnPointName);
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player == null) player = GameObject.Find("Player");
 
         if (spawnPoint != null && player != null)
         {
-            // Disable CharacterController temporarily if present to avoid snapping collision overrides
             var cc = player.GetComponent<CharacterController>();
             if (cc != null) cc.enabled = false;
 
@@ -357,7 +360,12 @@ public class TravelGate : MonoBehaviour
             Debug.Log($"[TravelGate] Player positioned at City spawn point {spawnPoint.transform.position}.");
         }
 
-        // Reset static state across scene change
+        // 4. Clear all overlays and stale HUD state
+        UIOrchestrator.Instance?.ClearAllOverlays();
+        HudVisibilityService.Instance?.ClearAllReasons();
+        ModalManager.Instance?.CloseModal(null);
+        ObjectiveMarkerService.Instance?.ClearTarget();
+        FindFirstObjectByType<ExplorerCinematicController>()?.ResetLetterboxImmediate();
         NPCInteraction.ResetStaticFlowState();
         TrashItem.ResetStaticState();
         TrashItem.AreTrashItemsAllowed = false;
@@ -370,12 +378,111 @@ public class TravelGate : MonoBehaviour
         ResetStaticState();
         isTraveling = false;
 
-        // Restore gameplay HUD profile
-        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.QuestActive, "Arrived in City");
+        // 5. Rebind UIOrchestrator and HudVisibilityService to the City HUD canvases, minimap, and settings button
+        UIOrchestrator.Instance?.ResolveReferences();
+        HudVisibilityService.Instance?.ResolveHudElements();
+
+        // 6. Apply the correct gameplay HUD profile once
+        UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "City SceneReady");
+        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.FreePlay, "City SceneReady");
+        UIOrchestrator.Instance?.ApplyCurrentProfile(0f);
+
+        // 7. Restore input, cursor, timeScale
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
         SetPlayerMovementFrozen(false);
 
-        // Show welcome notification
+        // 8. Run Post-Travel Health Check
+        RunPostTravelHealthCheck(out string healthReport);
+        Debug.Log($"[Post-Travel Health Check] {healthReport}");
+
+        // 9. Show welcome notification
         ExplorerGateNotification.ShowImmediateNotification("Welcome to Eco-City! Explore and talk to the citizens.");
+    }
+
+    public static void CleanDuplicateManagers()
+    {
+        var eventSystems = UnityEngine.Object.FindObjectsByType<UnityEngine.EventSystems.EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (eventSystems.Length > 1)
+        {
+            for (int i = 1; i < eventSystems.Length; i++)
+            {
+                if (eventSystems[i] != null)
+                {
+                    Debug.Log($"[TravelGate] Destroying duplicate EventSystem '{eventSystems[i].name}'");
+                    UnityEngine.Object.Destroy(eventSystems[i].gameObject);
+                }
+            }
+        }
+
+        var audioListeners = UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (audioListeners.Length > 1)
+        {
+            for (int i = 1; i < audioListeners.Length; i++)
+            {
+                if (audioListeners[i] != null)
+                {
+                    Debug.Log($"[TravelGate] Disabling duplicate AudioListener on '{audioListeners[i].name}'");
+                    audioListeners[i].enabled = false;
+                }
+            }
+        }
+    }
+
+    public static bool RunPostTravelHealthCheck(out string details)
+    {
+        var issues = new System.Collections.Generic.List<string>();
+
+        var map = GameObject.Find("UI_Minimap");
+        var mapCg = map != null ? map.GetComponent<CanvasGroup>() : null;
+        if (map == null || !map.activeInHierarchy || (mapCg != null && mapCg.alpha < 0.5f))
+        {
+            issues.Add($"Minimap missing or hidden (map={map != null}, alpha={(mapCg != null ? mapCg.alpha : 0f):F2})");
+        }
+
+        var gear = GameObject.Find("UI_HUD_SettingsButton");
+        var gearCg = gear != null ? gear.GetComponent<CanvasGroup>() : null;
+        if (gear == null || !gear.activeInHierarchy || (gearCg != null && gearCg.alpha < 0.5f))
+        {
+            issues.Add($"Settings button missing or hidden (gear={gear != null}, alpha={(gearCg != null ? gearCg.alpha : 0f):F2})");
+        }
+
+        if (UIOrchestrator.Instance != null && UIOrchestrator.Instance.IsOverlayActive)
+        {
+            issues.Add("UIOrchestrator overlay stack is not empty!");
+        }
+
+        if (HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden)
+        {
+            issues.Add($"HudVisibilityService has active hide reasons: {string.Join(",", HudVisibilityService.Instance.ActiveReasons)}");
+        }
+
+        if (Time.timeScale != 1f)
+        {
+            issues.Add($"Time.timeScale is {Time.timeScale} (expected 1.0)");
+        }
+
+        var evCount = UnityEngine.Object.FindObjectsByType<UnityEngine.EventSystems.EventSystem>(FindObjectsSortMode.None).Length;
+        if (evCount > 1)
+        {
+            issues.Add($"Duplicate EventSystems ({evCount})");
+        }
+
+        var alCount = UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None).Length;
+        if (alCount > 1)
+        {
+            issues.Add($"Duplicate active AudioListeners ({alCount})");
+        }
+
+        if (LitterbugQuestManager.Instance == null)
+        {
+            issues.Add("LitterbugQuestManager missing in City Scene!");
+        }
+
+        bool passed = issues.Count == 0;
+        details = passed ? "PASS: All post-travel checks passed cleanly." : ("FAIL: " + string.Join(" | ", issues));
+        return passed;
     }
 
     private static void SetPlayerMovementFrozen(bool frozen)

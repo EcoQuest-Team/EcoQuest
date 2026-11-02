@@ -2083,7 +2083,7 @@ public class DragAndDrop : MonoBehaviour
         OnDepositedCorrectly(transform.position + Vector3.down * 0.25f);
     }
 
-    public void OnDepositedCorrectly(Vector3 targetDepositWorldPos)
+    public void OnDepositedCorrectly(Vector3 targetDepositWorldPos, Quaternion? targetDepositWorldRot = null, QuestManager binManager = null)
     {
         if (CurrentlyGrabbedItem == this) CurrentlyGrabbedItem = null;
         isGrabbed = false;
@@ -2095,8 +2095,13 @@ public class DragAndDrop : MonoBehaviour
         }
 
         SetState(ItemState.InBin, "correct deposit");
-        RestoreOriginalState(restoreCollidersOnly: true);
-        SetPlayerCollisionIgnored(false);
+        SetPlayerCollisionIgnored(true);
+
+        var trash = GetComponent<TrashItem>();
+        if (trash != null) trash.IsDeposited = true;
+
+        var allCols = GetComponentsInChildren<Collider>(true);
+        foreach (var c in allCols) c.enabled = false;
 
         if (_depositCoroutine != null)
         {
@@ -2104,24 +2109,64 @@ public class DragAndDrop : MonoBehaviour
             _depositCoroutine = null;
         }
 
+        if (!Application.isPlaying)
+        {
+            transform.position = targetDepositWorldPos;
+            transform.rotation = targetDepositWorldRot ?? Quaternion.Euler(0f, transform.rotation.eulerAngles.y, 0f);
+            transform.localScale = transform.localScale * depositShrinkScale;
+
+            bool keepVis = binManager == null || binManager.KeepDepositedItemsVisible;
+            if (keepVis)
+            {
+                Transform parentTarget = (binManager != null && binManager.DepositPointTransform != null) 
+                    ? binManager.DepositPointTransform 
+                    : (binManager != null ? binManager.transform : null);
+                if (parentTarget != null)
+                {
+                    transform.SetParent(parentTarget, true);
+                }
+
+                if (rb != null)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                    rb.isKinematic = true;
+                    rb.useGravity = false;
+                }
+
+                foreach (var c in allCols) c.enabled = false;
+                gameObject.SetActive(true);
+            }
+            else
+            {
+                EnsurePickable();
+                gameObject.SetActive(false);
+            }
+            return;
+        }
+
         if (gameObject.activeInHierarchy)
         {
-            _depositCoroutine = StartCoroutine(DepositAnimationRoutine(targetDepositWorldPos));
+            _depositCoroutine = StartCoroutine(DepositAnimationRoutine(targetDepositWorldPos, targetDepositWorldRot, binManager));
         }
         else
         {
-            EnsurePickable();
-            gameObject.SetActive(false);
+            bool keepVis = binManager == null || binManager.KeepDepositedItemsVisible;
+            if (!keepVis)
+            {
+                EnsurePickable();
+                gameObject.SetActive(false);
+            }
         }
     }
 
-    private IEnumerator DepositAnimationRoutine(Vector3 targetDepositWorldPos)
+    private IEnumerator DepositAnimationRoutine(Vector3 targetDepositWorldPos, Quaternion? targetDepositWorldRot = null, QuestManager binManager = null)
     {
         Vector3 startPos = transform.position;
         Quaternion startRot = transform.rotation;
         Vector3 startScale = transform.localScale;
 
-        Quaternion targetRot = Quaternion.Euler(0f, startRot.eulerAngles.y, 0f);
+        Quaternion targetRot = targetDepositWorldRot ?? Quaternion.Euler(0f, startRot.eulerAngles.y, 0f);
         Vector3 targetScale = startScale * depositShrinkScale;
 
         // Entry waypoint above the opening so the trajectory enters naturally from above and does not clip through bin walls
@@ -2168,8 +2213,36 @@ public class DragAndDrop : MonoBehaviour
 
         yield return new WaitForSeconds(0.08f);
 
-        EnsurePickable();
-        gameObject.SetActive(false);
+        bool keepVisible = binManager == null || binManager.KeepDepositedItemsVisible;
+        if (keepVisible)
+        {
+            Transform parentTarget = (binManager != null && binManager.DepositPointTransform != null) 
+                ? binManager.DepositPointTransform 
+                : (binManager != null ? binManager.transform : null);
+            if (parentTarget != null)
+            {
+                transform.SetParent(parentTarget, true);
+            }
+
+            if (rb != null)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                rb.isKinematic = true;
+                rb.useGravity = false;
+            }
+
+            var allCols = GetComponentsInChildren<Collider>(true);
+            foreach (var c in allCols) c.enabled = false;
+
+            gameObject.SetActive(true);
+        }
+        else
+        {
+            EnsurePickable();
+            gameObject.SetActive(false);
+        }
+
         _depositCoroutine = null;
     }
 
@@ -2318,7 +2391,7 @@ public class DragAndDrop : MonoBehaviour
         }
     }
 
-    private void RestoreOriginalState(bool restoreCollidersOnly = false)
+    public void RestoreOriginalState(bool restoreCollidersOnly = false)
     {
         if (!_hasOriginalState) return;
 

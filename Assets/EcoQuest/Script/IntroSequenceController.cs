@@ -185,9 +185,9 @@ public class IntroSequenceController : MonoBehaviour
                 }
             }
 
-            if (visible && item.IsDeposited)
+            if (item.IsDeposited)
             {
-                // Never re-enable deposited trash!
+                // Deposited items are managed inside bins and stay visible in the bin
                 continue;
             }
 

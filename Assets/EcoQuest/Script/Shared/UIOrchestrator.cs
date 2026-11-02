@@ -195,8 +195,39 @@ public class UIOrchestrator : MonoBehaviour
             return;
         }
 
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+
         ResolveReferences();
         overlayStack.Clear();
+    }
+
+    private void OnDestroy()
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        if (instance == this) instance = null;
+    }
+
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        ResolveReferences();
+        if (scene.name == "City Scene" || scene.path.Contains("City Scene"))
+        {
+            ClearAllOverlays();
+            SetFlowStep(FlowStep.FreePlay, "City Scene Loaded");
+            SetPhase(GamePhase.FreePlay, "City Scene Loaded");
+        }
+        ApplyCurrentProfile(0f);
+    }
+
+    public void ClearAllOverlays()
+    {
+        overlayStack.Clear();
+        if (currentFlowStep == FlowStep.ExplorerTravel)
+        {
+            currentFlowStep = FlowStep.FreePlay;
+        }
+        ApplyCurrentProfile(0f);
     }
 
     private void Start()
@@ -245,8 +276,16 @@ public class UIOrchestrator : MonoBehaviour
             }
         }
         questPanelGroup = FindOrAddCG(uiRoot, "UI_Quest/QuestPanel");
+        if (questPanelGroup == null)
+        {
+            questPanelGroup = FindOrAddCG(uiRoot, "UI_LitterbugQuest/QuestPanel");
+        }
         tutorialCardGroup = FindOrAddCG(uiRoot, "UI_Notification/Control Tip Banner");
         interactPromptGroup = FindOrAddCG(uiRoot, "UI_InteractionPrompt");
+        if (interactPromptGroup == null)
+        {
+            interactPromptGroup = FindOrAddCG(uiRoot, "UI_InteractPrompt");
+        }
 
         if (gearGroup != null) elementGroups[UIElement.Gear] = gearGroup;
         if (minimapGroup != null) elementGroups[UIElement.Minimap] = minimapGroup;

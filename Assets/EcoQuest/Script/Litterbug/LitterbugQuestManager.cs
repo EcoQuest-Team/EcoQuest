@@ -29,7 +29,19 @@ public class LitterbugQuestManager : MonoBehaviour
     public const int MaxCharsPerPage = 95;
 
     public static bool IsDialogueOpen { get; private set; }
-    public static LitterbugQuestManager Instance { get; private set; }
+    private static LitterbugQuestManager instance;
+    public static LitterbugQuestManager Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = FindFirstObjectByType<LitterbugQuestManager>(FindObjectsInactive.Include);
+            }
+            return instance;
+        }
+        private set => instance = value;
+    }
 
     public static void ResetStaticState()
     {

@@ -11,6 +11,55 @@ public class QuestManager : MonoBehaviour
     [Tooltip("Target point inside the bin where deposited trash items animate to.")]
     [SerializeField] private Transform depositPoint;
 
+    [Header("Deposited Trash Appearance")]
+    [Tooltip("Keep deposited items visible inside the bin in a neat pile")]
+    [SerializeField] private bool keepDepositedItemsVisible = true;
+    [Tooltip("Vanish deposited items after animation finishes (legacy behavior)")]
+    [SerializeField] private bool vanishAfterAnimation = false;
+    [Tooltip("Maximum deposited items visible per bin before oldest is hidden")]
+    [SerializeField] private int maxDepositedItemsVisible = 8;
+
+    public Transform DepositPointTransform => depositPoint;
+    public bool KeepDepositedItemsVisible => keepDepositedItemsVisible && !vanishAfterAnimation;
+    public bool VanishAfterAnimation => vanishAfterAnimation;
+    public int MaxDepositedItemsVisible => maxDepositedItemsVisible;
+
+    private readonly List<GameObject> depositedInBin = new List<GameObject>();
+    public IReadOnlyList<GameObject> DepositedInBin => depositedInBin;
+
+    private static readonly Vector3[] PileSlotOffsets = new Vector3[]
+    {
+        new Vector3( 0.00f, 0.00f,  0.00f),
+        new Vector3( 0.08f, 0.03f,  0.06f),
+        new Vector3(-0.07f, 0.05f, -0.06f),
+        new Vector3( 0.06f, 0.08f, -0.07f),
+        new Vector3(-0.07f, 0.10f,  0.05f),
+        new Vector3( 0.07f, 0.12f, -0.03f),
+        new Vector3(-0.04f, 0.14f,  0.07f),
+        new Vector3( 0.01f, 0.16f, -0.02f)
+    };
+
+    public Vector3 GetDepositSlotPosition(int slotIndex)
+    {
+        Vector3 basePos = GetDepositTargetPosition();
+        if (PileSlotOffsets == null || PileSlotOffsets.Length == 0) return basePos;
+        Vector3 offset = PileSlotOffsets[slotIndex % PileSlotOffsets.Length];
+        return basePos + offset;
+    }
+
+    public Quaternion GetDepositSlotRotation(int slotIndex)
+    {
+        float yRot = (slotIndex * 53f) % 360f;
+        float tiltX = ((slotIndex * 17) % 25) - 12f;
+        float tiltZ = ((slotIndex * 29) % 25) - 12f;
+        return Quaternion.Euler(tiltX, yRot, tiltZ);
+    }
+
+    public void ClearDepositedBinList()
+    {
+        depositedInBin.Clear();
+    }
+
     public Vector3 GetDepositTargetPosition()
     {
         if (depositPoint != null) return depositPoint.position;
@@ -86,6 +135,11 @@ public class QuestManager : MonoBehaviour
             }
         }
         collectedTrash.Clear();
+        var allBins = FindObjectsByType<QuestManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var bin in allBins)
+        {
+            if (bin != null) bin.ClearDepositedBinList();
+        }
         QuestPanelToggleController.Instance?.RefreshProgressBars(true);
     }
 
@@ -288,14 +342,26 @@ public class QuestManager : MonoBehaviour
             Debug.Log($"[QuestManager] '{gameObject.name}' HandleCorrectTrash (Over-quota): '{trashObject.name}' -> category already at max {targets[acceptedTag]}");
         }
 
+        int slotIndex = depositedInBin.Count;
+        Vector3 slotPos = GetDepositSlotPosition(slotIndex);
+        Quaternion slotRot = GetDepositSlotRotation(slotIndex);
+
         DragAndDrop drag = trashObject.GetComponent<DragAndDrop>();
         if (drag != null)
         {
-            drag.OnDepositedCorrectly(GetDepositTargetPosition());
+            drag.OnDepositedCorrectly(slotPos, slotRot, this);
         }
         else
         {
             trashObject.SetActive(false);
+        }
+
+        depositedInBin.Add(trashObject);
+        while (depositedInBin.Count > maxDepositedItemsVisible)
+        {
+            var oldest = depositedInBin[0];
+            depositedInBin.RemoveAt(0);
+            if (oldest != null) oldest.SetActive(false);
         }
 
         if (!collectedTrash.Contains(trashObject))

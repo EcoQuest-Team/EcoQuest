@@ -62,6 +62,8 @@ public class TrashItem : MonoBehaviour
     private DragAndDrop dragAndDrop;
     private Vector3 startPosition;
     private Quaternion startRotation;
+    private Transform startParent;
+    private Vector3 startScale = Vector3.one;
     private bool hasRecordedStart = false;
     private static Transform playerTransform;
 
@@ -145,6 +147,8 @@ public class TrashItem : MonoBehaviour
             {
                 startPosition = transform.position;
                 startRotation = transform.rotation;
+                startParent = transform.parent;
+                startScale = transform.localScale;
                 hasRecordedStart = true;
             }
         }
@@ -177,8 +181,24 @@ public class TrashItem : MonoBehaviour
         IsDeposited = false;
         ClearDepositCooldown();
 
+        if (startParent != null && transform.parent != startParent)
+        {
+            transform.SetParent(startParent, true);
+        }
+        if (startScale != Vector3.zero)
+        {
+            transform.localScale = startScale;
+        }
+
         DragAndDrop drag = GetComponent<DragAndDrop>();
-        if (drag != null) drag.ForceRelease();
+        if (drag != null)
+        {
+            drag.ForceRelease();
+            drag.RestoreOriginalState();
+        }
+
+        var allCols = GetComponentsInChildren<Collider>(true);
+        foreach (var c in allCols) c.enabled = true;
 
         transform.SetPositionAndRotation(startPosition, startRotation);
 
