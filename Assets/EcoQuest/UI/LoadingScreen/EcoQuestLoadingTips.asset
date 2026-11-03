@@ -1,0 +1,192 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74794af962b772c4583dabb1e0d0abe0, type: 3}
+  m_Name: EcoQuestLoadingTips
+  m_EditorClassIdentifier: Assembly-CSharp::LoadingTips
+  tips:
+  - text: Use W, A, S, and D to explore the forest, and tap Spacebar to jump over
+      obstacles!
+    category: 0
+    scene: 0
+  - text: Hold Left Shift while walking to sprint and reach distant trash piles much
+      faster!
+    category: 0
+    scene: 0
+  - text: Press the Tab key at any time to smoothly show or hide your active quest
+      objectives!
+    category: 0
+    scene: 0
+  - text: Hold the Left Ctrl key to unlock your mouse cursor and click on buttons
+      or cards!
+    category: 0
+    scene: 0
+  - text: Walk up to the Forest Guardian or friendly explorers and press E to talk
+      with them!
+    category: 0
+    scene: 0
+  - text: Click and hold the left mouse button to pick up trash, then drag it toward
+      a bin!
+    category: 0
+    scene: 0
+  - text: Colored trash bins have clear labels and icons showing exactly which items
+      go inside!
+    category: 0
+    scene: 0
+  - text: Keep an eye on the top-right minimap to easily spot bins and quest objective
+      markers!
+    category: 0
+    scene: 0
+  - text: Return to the Guardian after sorting all trash to claim your well-earned
+      gold reward!
+    category: 0
+    scene: 1
+  - text: If you drop trash by mistake, just aim at it and click again to pick it
+      back up!
+    category: 0
+    scene: 1
+  - text: Check your quest tracker at the top-left to see how many items are left
+      to collect!
+    category: 0
+    scene: 0
+  - text: Look around carefully near large roots and behind old trees to find hidden
+      litter!
+    category: 0
+    scene: 1
+  - text: Press the Escape key to open the pause menu, adjust your audio, or view
+      controls!
+    category: 0
+    scene: 0
+  - text: Friendly green waypoint markers guide you toward your next important destination!
+    category: 0
+    scene: 0
+  - text: Sorting waste into the correct bins restores nature and keeps the forest
+      animals safe!
+    category: 0
+    scene: 1
+  - text: Banana peels, apple cores, and vegetable scraps belong in the Biodegradable
+      bin!
+    category: 1
+    scene: 0
+  - text: Clean plastic bottles and empty aluminum soda cans go straight into the
+      Recyclable bin!
+    category: 1
+    scene: 0
+  - text: Old paper bags, cardboard boxes, and used notebook sheets can all be recycled
+      easily!
+    category: 1
+    scene: 0
+  - text: Greasy snack wrappers and dirty plastic candy packaging go in Non-Biodegradable!
+    category: 1
+    scene: 0
+  - text: Always rinse out juice boxes and soda cans with water before dropping them
+      in recycling!
+    category: 1
+    scene: 0
+  - text: Fallen leaves, small twigs, and garden grass clippings turn into rich natural
+      compost!
+    category: 1
+    scene: 1
+  - text: Broken plastic utensils and foam food takeout containers are Non-Biodegradable
+      items.
+    category: 1
+    scene: 0
+  - text: Glass jars and clear bottles can be melted down and recycled over and over
+      again!
+    category: 1
+    scene: 0
+  - text: Food leftovers should never go into recycling bins because they ruin clean
+      paper!
+    category: 1
+    scene: 0
+  - text: Crush empty plastic bottles before recycling them to save lots of space
+      in the bin!
+    category: 1
+    scene: 0
+  - text: Eggshells and stale bread decompose quickly into healthy food for garden
+      soil microbes!
+    category: 1
+    scene: 0
+  - text: Styrofoam cups take hundreds of years to break down, so toss them in Non-Biodegradable!
+    category: 1
+    scene: 0
+  - text: Metal cans are 100 percent recyclable and can return to store shelves in
+      just 60 days!
+    category: 1
+    scene: 0
+  - text: Dry leaves and wood shavings make wonderful natural bedding for forest
+      soil animals!
+    category: 1
+    scene: 1
+  - text: Keeping recyclables dry and clean makes sure waste sorters can recycle
+      every piece!
+    category: 1
+    scene: 0
+  - text: Reduce means buying and using only what you truly need to prevent unnecessary
+      trash!
+    category: 2
+    scene: 0
+  - text: Reuse means finding creative new purposes for glass jars, shoeboxes, and
+      plastic tubs!
+    category: 2
+    scene: 0
+  - text: Recycle means processing used materials so factories can build brand-new
+      products!
+    category: 2
+    scene: 0
+  - text: Repair means fixing a torn backpack or broken toy instead of throwing it
+      in the trash!
+    category: 2
+    scene: 0
+  - text: Recover means turning leftover garbage into renewable electrical energy
+      or compost!
+    category: 2
+    scene: 0
+  - text: Recycling just one aluminum can saves enough energy to run a classroom
+      TV for 3 hours!
+    category: 2
+    scene: 0
+  - text: Recycling a single plastic bottle saves enough power to light a bright
+      LED for 6 hours!
+    category: 2
+    scene: 0
+  - text: A tall leafy tree absorbs carbon dioxide and produces fresh clean oxygen
+      for 4 people!
+    category: 2
+    scene: 1
+  - text: Carrying your own reusable water bottle saves over a hundred plastic bottles
+      every year!
+    category: 2
+    scene: 0
+  - text: Plastic bags can take over 500 years to decompose in nature, so always
+      choose cloth bags!
+    category: 2
+    scene: 0
+  - text: Composting kitchen scraps reduces harmful landfill gas while nourishing
+      young plants!
+    category: 2
+    scene: 0
+  - text: Turning off the water faucet while brushing your teeth saves up to 8 gallons
+      of water!
+    category: 2
+    scene: 0
+  - text: Switching off bedroom lights when you walk outside saves energy and protects
+      our planet!
+    category: 2
+    scene: 0
+  - text: Healthy forests protect river water quality and provide shelter for amazing
+      wildlife!
+    category: 2
+    scene: 1
+  - text: Small green choices you make every single day create a massive difference
+      for the Earth!
+    category: 2
+    scene: 0

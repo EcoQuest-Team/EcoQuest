@@ -69,7 +69,7 @@ public class SceneTransition : MonoBehaviour
     public TMP_Text progressPercentText;
 
     private bool isTransitioning;
-    public bool IsTransitioning => isTransitioning;
+    public bool IsTransitioning => isTransitioning || LoadingScreen.IsLoading;
 
     private void Awake()
     {
@@ -97,13 +97,8 @@ public class SceneTransition : MonoBehaviour
 
     public void LoadScene(string sceneName)
     {
-        if (Instance != null && Instance != this)
-        {
-            Instance.LoadScene(sceneName);
-            return;
-        }
-        if (isTransitioning || string.IsNullOrEmpty(sceneName)) return;
-        StartCoroutine(TransitionRoutine(sceneName));
+        if (transitionCanvas != null) transitionCanvas.enabled = false;
+        LoadingScreen.Load(sceneName);
     }
 
     private IEnumerator TransitionRoutine(string sceneName)

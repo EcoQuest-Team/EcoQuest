@@ -41,6 +41,15 @@ public class TravelGate : MonoBehaviour
     private string citySceneAssetPath = "Assets/EcoQuest/City Scene.unity";
     public string CitySceneAssetPath => citySceneAssetPath;
 
+    [Header("Loading Screen Settings")]
+    [Tooltip("Whether to use the unified EcoQuest Loading Screen during travel to City.")]
+    [SerializeField] private bool useLoadingScreen = true;
+    public bool UseLoadingScreen { get => useLoadingScreen; set => useLoadingScreen = value; }
+
+    [Tooltip("Optional City loading artwork override. If unassigned, defaults to Forest art.")]
+    [SerializeField] private Sprite cityLoadingArt = null;
+    public Sprite CityLoadingArt { get => cityLoadingArt; set => cityLoadingArt = value; }
+
     public static readonly string[] RequiredCityRootObjects = new string[]
     {
         "--- GAMEPLAY ---",
@@ -222,7 +231,11 @@ public class TravelGate : MonoBehaviour
         }
 
         // 3. Trigger SceneTransition leaf wipe / loading screen
-        if (SceneTransition.Instance != null)
+        if (useLoadingScreen)
+        {
+            LoadingScreen.Load(CitySceneName, cityLoadingArt);
+        }
+        else if (SceneTransition.Instance != null)
         {
             SceneTransition.Instance.LoadScene(CitySceneName);
         }

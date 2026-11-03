@@ -1,3 +1,4 @@
+#if false // Disabled legacy third-party asset documentation to prevent namespace collision with EcoQuest unified LoadingScreen
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -161,3 +162,4 @@ public class LoadingScreenDocumentation : TutorialWizard
         GetWindow<LoadingScreenDocumentation>();
     }
 }
+#endif

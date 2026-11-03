@@ -1,3 +1,4 @@
+#if false // Disabled legacy third-party startup popup
 ﻿using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
@@ -106,3 +107,4 @@ namespace Lovatto.SceneLoader.Editor
         }
     }
 }
+#endif

@@ -626,14 +626,7 @@ public class PauseMenuController : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        if (SceneTransition.Instance != null)
-        {
-            SceneTransition.Instance.LoadScene(mainMenuSceneName);
-        }
-        else
-        {
-            SceneManager.LoadScene(mainMenuSceneName);
-        }
+        LoadingScreen.Load(mainMenuSceneName);
     }
 
     public void OnConfirmMainMenuNo()

@@ -22,13 +22,7 @@ public class MainMenuManager : MonoBehaviour
 
     public void PlayGame()
     {
-        if (SceneTransition.Instance != null)
-        {
-            SceneTransition.Instance.LoadScene(gameSceneName);
-            return;
-        }
-        // This tells Unity to load your actual game level
-        SceneManager.LoadScene(gameSceneName);
+        LoadingScreen.Load(gameSceneName);
     }
 
     public void OpenSettings()

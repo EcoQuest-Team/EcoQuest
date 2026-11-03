@@ -1,3 +1,4 @@
+#if false // Disabled legacy third-party asset welcome window
 ﻿using UnityEngine;
 using UnityEditor;
 
@@ -31,3 +32,4 @@ namespace Lovatto.SceneLoader.Editor
         }
     }
 }
+#endif
