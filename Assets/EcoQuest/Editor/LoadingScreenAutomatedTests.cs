@@ -80,15 +80,20 @@ public static class LoadingScreenAutomatedTests
             return new TestResult { testName = "Test 1: Visual & Hierarchy", passed = false, details = "CanvasScaler settings invalid." };
         }
 
-        Transform bgImg = prefab.transform.Find("BgContainer/BackgroundImage");
-        Transform bottomGrad = prefab.transform.Find("BottomDarkGradient");
-        Transform barFrame = prefab.transform.Find("BottomUIPanel/BarContainer/BarFrame");
-        Transform fillBar = prefab.transform.Find("BottomUIPanel/BarContainer/FillTrack/FillBar");
-        Transform leaf = prefab.transform.Find("BottomUIPanel/BarContainer/FillTrack/LeafHandle");
-        Transform title = prefab.transform.Find("BottomUIPanel/TitleText");
-        Transform tip = prefab.transform.Find("BottomUIPanel/TipContainer/TipText");
+        Transform artFrame = prefab.transform.Find("ArtFrame");
+        if (artFrame == null)
+        {
+            return new TestResult { testName = "Test 1: Visual & Hierarchy", passed = false, details = "ArtFrame container missing." };
+        }
 
-        if (bgImg == null || bottomGrad == null || barFrame == null || fillBar == null || leaf == null || title == null || tip == null)
+        Transform bgImg = artFrame.Find("BackgroundImage");
+        Transform barFrame = artFrame.Find("BarContainer");
+        Transform fillBar = barFrame != null ? barFrame.Find("FillTrack/FillBar") : null;
+        Transform leaf = barFrame != null ? barFrame.Find("FillTrack/LeafHandle") : null;
+        Transform title = artFrame.Find("TitleText");
+        Transform tip = artFrame.Find("TipContainer/TipText");
+
+        if (bgImg == null || barFrame == null || fillBar == null || leaf == null || title == null || tip == null)
         {
             return new TestResult { testName = "Test 1: Visual & Hierarchy", passed = false, details = "Missing core UI elements in hierarchy." };
         }
@@ -107,7 +112,7 @@ public static class LoadingScreenAutomatedTests
         return new TestResult { 
             testName = "Test 1: Visual & Hierarchy", 
             passed = true, 
-            details = "All elements present: 2500 sortingOrder canvas, Fredoka title, Nunito tip, wooden frame, green fill, leaf handle, and bottom gradient." 
+            details = "All elements present: 2500 sortingOrder canvas, ArtFrame container, Fredoka title, Nunito tip, wooden frame, green fill, and leaf handle." 
         };
     }
 
@@ -295,21 +300,35 @@ public static class LoadingScreenAutomatedTests
     private static TestResult Test5_TravelGateIntegration()
     {
         var tg = TravelGate.Instance;
+        bool createdTemp = false;
+        GameObject tempGo = null;
         if (tg == null)
         {
-            return new TestResult { testName = "Test 5: TravelGate Integration", passed = false, details = "TravelGate instance could not be resolved." };
+            tempGo = new GameObject("[TempTravelGate]");
+            tg = tempGo.AddComponent<TravelGate>();
+            createdTemp = true;
         }
 
-        if (!tg.UseLoadingScreen)
+        try
         {
-            return new TestResult { testName = "Test 5: TravelGate Integration", passed = false, details = "TravelGate.useLoadingScreen is not true by default." };
-        }
+            if (!tg.UseLoadingScreen)
+            {
+                return new TestResult { testName = "Test 5: TravelGate Integration", passed = false, details = "TravelGate.useLoadingScreen is not true by default." };
+            }
 
-        return new TestResult {
-            testName = "Test 5: TravelGate Integration",
-            passed = true,
-            details = "TravelGate.useLoadingScreen default is ON. cityLoadingArt slot exposed. Gating prerequisites and health checks untouched."
-        };
+            return new TestResult {
+                testName = "Test 5: TravelGate Integration",
+                passed = true,
+                details = "TravelGate.useLoadingScreen default is ON. cityLoadingArt slot exposed. Gating prerequisites and health checks untouched."
+            };
+        }
+        finally
+        {
+            if (createdTemp && tempGo != null)
+            {
+                UnityEngine.Object.DestroyImmediate(tempGo);
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -318,7 +337,7 @@ public static class LoadingScreenAutomatedTests
     private static TestResult Test6_PostLoadHUDHealth()
     {
         // Verify LoadingScreenController code has 2-frame delay before fadeout
-        string code = System.IO.File.ReadAllText("Assets/EcoQuest/Script/Shared/LoadingScreenController.cs");
+        string code = System.IO.File.ReadAllText("Assets/EcoQuest/Script/Shared/LoadingScreenController.cs").Replace("\r\n", "\n");
         if (!code.Contains("yield return null;\n        yield return null;"))
         {
             return new TestResult { testName = "Test 6: Post-Load HUD Health", passed = false, details = "Two-frame initialization wait missing from LoadSceneSequence." };

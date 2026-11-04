@@ -1461,8 +1461,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 215, y: -40}
-  m_SizeDelta: {x: 380, y: 185}
+  m_AnchoredPosition: {x: 32, y: -154}
+  m_SizeDelta: {x: 400, y: 200}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &57079880
 MonoBehaviour:
@@ -5376,6 +5376,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TravelGate
   citySceneAssetPath: Assets/EcoQuest/City Scene.unity
+  useLoadingScreen: 1
+  cityLoadingArt: {fileID: 0}
 --- !u!1 &202940424 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7308278678452899083, guid: 80e01561d56a7a845b3f0b41cd7a372b, type: 3}

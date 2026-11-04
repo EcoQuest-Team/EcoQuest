@@ -63,7 +63,8 @@ public class LoadingScreenTools : EditorWindow
         int totalChecks = 6;
 
         // Check 1: Background Image Import Settings
-        string bgPath = "Assets/EcoQuest/UI/LoadingScreen/ForestLoadingBg.jpg";
+        string bgPath = "Assets/EcoQuest/UI/LoadingScreen/LoadingBG_Clean.png";
+        if (!System.IO.File.Exists(bgPath)) bgPath = "Assets/EcoQuest/UI/LoadingScreen/ForestLoadingBg.jpg";
         TextureImporter bgImp = AssetImporter.GetAtPath(bgPath) as TextureImporter;
         if (bgImp != null && bgImp.textureType == TextureImporterType.Sprite && bgImp.wrapMode == TextureWrapMode.Clamp && !bgImp.mipmapEnabled)
         {

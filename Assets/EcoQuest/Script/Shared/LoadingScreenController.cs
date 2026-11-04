@@ -119,9 +119,11 @@ public class LoadingScreenController : MonoBehaviour
     [SerializeField] private Sprite mushroomGlowSprite;
     [SerializeField] private Sprite lightRaySprite;
 
-    [Header("Fonts")]
+    [Header("Fonts & Materials")]
     [SerializeField] private TMP_FontAsset titleFont;
     [SerializeField] private TMP_FontAsset tipFont;
+    [SerializeField] private Material titleMaterial;
+    [SerializeField] private Material tipMaterial;
 
     [Header("Tips Database")]
     [SerializeField] private LoadingTips tipsDatabase;
@@ -136,6 +138,7 @@ public class LoadingScreenController : MonoBehaviour
     [SerializeField] private Canvas rootCanvas;
     [SerializeField] private CanvasGroup rootCanvasGroup;
     [SerializeField] private CanvasScaler canvasScaler;
+    [SerializeField] private RectTransform artFrame;
     [SerializeField] private RectTransform bgContainer;
     [SerializeField] private Image backgroundImage;
     [SerializeField] private Image bottomGradientImage;
@@ -235,33 +238,77 @@ public class LoadingScreenController : MonoBehaviour
         InitParticlePool();
     }
 
+    public void UpdateArtFrameLayout()
+    {
+        if (artFrame == null || rootCanvas == null) return;
+        RectTransform canvasRect = rootCanvas.transform as RectTransform;
+        if (canvasRect == null) return;
+
+        float cw = canvasRect.rect.width;
+        float ch = canvasRect.rect.height;
+        if (cw <= 0 || ch <= 0)
+        {
+            if (canvasScaler != null)
+            {
+                cw = canvasScaler.referenceResolution.x;
+                ch = canvasScaler.referenceResolution.y;
+            }
+            else
+            {
+                cw = 1920f;
+                ch = 1080f;
+            }
+        }
+
+        float targetAspect = 2752f / 1536f;
+        float parentAspect = cw / ch;
+        float w, h;
+        if (parentAspect >= targetAspect)
+        {
+            w = cw;
+            h = cw / targetAspect;
+        }
+        else
+        {
+            h = ch;
+            w = ch * targetAspect;
+        }
+
+        artFrame.pivot = new Vector2(0.5f, 0f);
+        artFrame.anchorMin = new Vector2(0.5f, 0f);
+        artFrame.anchorMax = new Vector2(0.5f, 0f);
+        artFrame.sizeDelta = new Vector2(w, h);
+        artFrame.anchoredPosition = Vector2.zero;
+    }
+
     private void Update()
     {
         if (!_isLoading && (rootCanvasGroup == null || rootCanvasGroup.alpha <= 0.001f))
             return;
 
+        UpdateArtFrameLayout();
+
         float dt = Time.unscaledDeltaTime;
         float time = Time.unscaledTime;
 
-        // 1. Camera drift on background
-        if (enableCameraDrift && bgContainer != null)
+        // 1. Subtle camera drift on background (< 3%)
+        if (enableCameraDrift && backgroundImage != null)
         {
-            float zoom = 1.018f + Mathf.Sin(time * 0.35f) * 0.016f; // ~1.002 to 1.034
-            float panX = Mathf.Sin(time * 0.28f) * 14f;
-            float panY = Mathf.Cos(time * 0.32f) * 8f;
-            bgContainer.localScale = new Vector3(zoom, zoom, 1f);
-            bgContainer.anchoredPosition = new Vector2(panX, panY);
+            float zoom = 1.01f + Mathf.Sin(time * 0.25f) * 0.008f;
+            float panX = Mathf.Sin(time * 0.2f) * 8f;
+            float panY = Mathf.Cos(time * 0.22f) * 4f;
+            backgroundImage.rectTransform.localScale = new Vector3(zoom, zoom, 1f);
+            backgroundImage.rectTransform.anchoredPosition = new Vector2(panX, panY);
         }
 
-        // 2. Title animation (dots and float)
+        // 2. Title animation (fixed reserved dot width: word NEVER shifts)
         if (titleText != null)
         {
-            if (!isReady)
-            {
-                int dots = ((int)(time * 3.2f) % 3) + 1;
-                titleText.text = "LOADING" + new string('.', dots);
-            }
-            float bounceY = Mathf.Sin(time * 3.5f) * 3f;
+            int dots = ((int)(time * 3.0f) % 3) + 1;
+            string dotsVisible = new string('.', dots);
+            string dotsHidden = new string('.', 3 - dots);
+            titleText.text = $"LOADING{dotsVisible}<color=#00000000>{dotsHidden}</color>";
+            float bounceY = Mathf.Sin(time * 3.5f) * 2f;
             titleText.rectTransform.anchoredPosition = baseTitlePos + new Vector2(0f, bounceY);
         }
 
@@ -269,12 +316,11 @@ public class LoadingScreenController : MonoBehaviour
         if (leafHandleRect != null && fillTrackRect != null)
         {
             float trackW = fillTrackRect.rect.width;
-            float targetX = (trackW * currentDisplayProgress) - (trackW * 0.5f);
-            leafHandleRect.anchoredPosition = new Vector2(targetX, Mathf.Sin(time * 5f) * 2.5f);
+            float targetX = currentDisplayProgress * trackW;
+            leafHandleRect.anchoredPosition = new Vector2(targetX, Mathf.Sin(time * 3.5f) * 1.5f);
 
-            float sway = Mathf.Sin(time * 4f) * 7f;
-            float speedAngle = Mathf.Clamp(progressSmoothVelocity * 45f, 0f, 25f);
-            leafHandleRect.localRotation = Quaternion.Euler(0f, 0f, sway - speedAngle);
+            float sway = Mathf.Sin(time * 3.0f) * 2.5f;
+            leafHandleRect.localRotation = Quaternion.Euler(0f, 0f, sway);
         }
 
         // 4. Update particles (unscaled time, zero allocations)
@@ -526,7 +572,7 @@ public class LoadingScreenController : MonoBehaviour
         isReady = true;
         if (titleText != null)
         {
-            titleText.text = "READY!";
+            // Keep titleText "LOADING..." - no "READY!" change
             StartCoroutine(PunchTransform(titleText.rectTransform, 1.25f, 0.25f));
         }
 
@@ -694,6 +740,12 @@ public class LoadingScreenController : MonoBehaviour
         if (fillBarImage != null)
         {
             fillBarImage.fillAmount = clamped;
+        }
+
+        if (leafHandleRect != null && fillTrackRect != null)
+        {
+            float trackW = fillTrackRect.rect.width;
+            leafHandleRect.anchoredPosition = new Vector2(clamped * trackW, 0f);
         }
 
         if (percentText != null)
@@ -924,18 +976,19 @@ public class LoadingScreenController : MonoBehaviour
         if (rootCanvasGroup == null) rootCanvasGroup = GetComponent<CanvasGroup>();
         if (rootCanvasGroup == null) rootCanvasGroup = gameObject.AddComponent<CanvasGroup>();
 
-        // Load fonts if not assigned
 #if UNITY_EDITOR
+        string dir = "Assets/EcoQuest/UI/LoadingScreen";
         if (titleFont == null) titleFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/Fredoka SDF.asset");
         if (tipFont == null) tipFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/Nunito SDF.asset");
-        if (tipsDatabase == null) tipsDatabase = UnityEditor.AssetDatabase.LoadAssetAtPath<LoadingTips>("Assets/EcoQuest/UI/LoadingScreen/EcoQuestLoadingTips.asset");
+        if (titleMaterial == null) titleMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>($"{dir}/LoadingTitle_Fredoka.mat");
+        if (tipMaterial == null) tipMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>($"{dir}/LoadingTip_Nunito.mat");
+        if (tipsDatabase == null) tipsDatabase = UnityEditor.AssetDatabase.LoadAssetAtPath<LoadingTips>($"{dir}/EcoQuestLoadingTips.asset");
 
-        string dir = "Assets/EcoQuest/UI/LoadingScreen";
+        if (forestBackgroundSprite == null) forestBackgroundSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/LoadingBG_Clean.png");
         if (forestBackgroundSprite == null) forestBackgroundSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/ForestLoadingBg.jpg");
         if (barFrameSprite == null) barFrameSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/LoadingBarFrame.png");
         if (barFillSprite == null) barFillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/LoadingBarFill.png");
         if (leafHandleSprite == null) leafHandleSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/LeafHandle.png");
-        if (bottomGradientSprite == null) bottomGradientSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/BottomDarkGradient.png");
         if (fireflySprite == null) fireflySprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/FireflyGlow.png");
         if (leafParticleSprite == null) leafParticleSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/LeafParticle.png");
         if (fogWispSprite == null) fogWispSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/FogWisp.png");
@@ -950,187 +1003,144 @@ public class LoadingScreenController : MonoBehaviour
             ambientAudioSource.playOnAwake = false;
         }
 
-        // 1. Background Container
-        if (bgContainer == null)
+        // Clean up deprecated / unwanted objects
+        Transform oldBottomGrad = transform.Find("BottomDarkGradient");
+        if (oldBottomGrad != null) DestroyImmediate(oldBottomGrad.gameObject);
+
+        Transform oldPanel = transform.Find("BottomUIPanel");
+        if (oldPanel != null) DestroyImmediate(oldPanel.gameObject);
+
+        Transform oldBg = transform.Find("BgContainer");
+        if (oldBg != null && oldBg != (artFrame != null ? artFrame.transform : null)) DestroyImmediate(oldBg.gameObject);
+
+        // 1. Art Frame: Parent container that maintains 2752:1536 aspect ratio bottom-aligned
+        if (artFrame == null)
         {
-            Transform t = transform.Find("BgContainer");
-            if (t != null) bgContainer = t as RectTransform;
+            Transform t = transform.Find("ArtFrame");
+            if (t != null) artFrame = t as RectTransform;
             else
             {
-                GameObject go = new GameObject("BgContainer", typeof(RectTransform));
+                GameObject go = new GameObject("ArtFrame", typeof(RectTransform));
                 go.transform.SetParent(transform, false);
-                bgContainer = go.GetComponent<RectTransform>();
-                bgContainer.anchorMin = Vector2.zero;
-                bgContainer.anchorMax = Vector2.one;
-                bgContainer.sizeDelta = Vector2.zero;
+                artFrame = go.GetComponent<RectTransform>();
             }
         }
+        artFrame.pivot = new Vector2(0.5f, 0f);
+        artFrame.anchorMin = new Vector2(0.5f, 0f);
+        artFrame.anchorMax = new Vector2(0.5f, 0f);
+        UpdateArtFrameLayout();
 
-        // 2. Background Image with Aspect-Fill
-        if (backgroundImage == null && bgContainer != null)
+        // 2. Background Image inside ArtFrame
+        if (backgroundImage == null && artFrame != null)
         {
-            Transform t = bgContainer.Find("BackgroundImage");
+            Transform t = artFrame.Find("BackgroundImage");
             if (t != null) backgroundImage = t.GetComponent<Image>();
             else
             {
-                GameObject go = new GameObject("BackgroundImage", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
-                go.transform.SetParent(bgContainer, false);
-                RectTransform rt = go.GetComponent<RectTransform>();
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
-                rt.sizeDelta = Vector2.zero;
-
-                AspectRatioFitter arf = go.GetComponent<AspectRatioFitter>();
-                arf.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-                arf.aspectRatio = 2752f / 1536f; // Native reference image aspect ratio
-
+                GameObject go = new GameObject("BackgroundImage", typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(artFrame, false);
                 backgroundImage = go.GetComponent<Image>();
-                backgroundImage.sprite = forestBackgroundSprite;
-                backgroundImage.color = Color.white;
-                backgroundImage.raycastTarget = false;
             }
         }
-
-        // 3. Particles Container
-        if (particleContainer == null)
+        if (backgroundImage != null)
         {
-            Transform t = transform.Find("ParticleContainer");
+            RectTransform rt = backgroundImage.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            backgroundImage.sprite = forestBackgroundSprite;
+            backgroundImage.type = Image.Type.Simple;
+            backgroundImage.color = Color.white;
+            backgroundImage.raycastTarget = false;
+        }
+
+        // 3. Particle Container inside ArtFrame
+        if (particleContainer == null && artFrame != null)
+        {
+            Transform t = artFrame.Find("ParticleContainer");
             if (t != null) particleContainer = t as RectTransform;
             else
             {
                 GameObject go = new GameObject("ParticleContainer", typeof(RectTransform));
-                go.transform.SetParent(transform, false);
+                go.transform.SetParent(artFrame, false);
                 particleContainer = go.GetComponent<RectTransform>();
-                particleContainer.anchorMin = Vector2.zero;
-                particleContainer.anchorMax = Vector2.one;
-                particleContainer.sizeDelta = Vector2.zero;
             }
         }
-
-        // 4. Bottom Dark Gradient Overlay (masks baked text & bar)
-        if (bottomGradientImage == null)
+        if (particleContainer != null)
         {
-            Transform t = transform.Find("BottomDarkGradient");
-            if (t != null) bottomGradientImage = t.GetComponent<Image>();
-            else
-            {
-                GameObject go = new GameObject("BottomDarkGradient", typeof(RectTransform), typeof(Image));
-                go.transform.SetParent(transform, false);
-                RectTransform rt = go.GetComponent<RectTransform>();
-                // Covers bottom 34% of canvas completely
-                rt.anchorMin = new Vector2(0f, 0f);
-                rt.anchorMax = new Vector2(1f, 0.34f);
-                rt.pivot = new Vector2(0.5f, 0f);
-                rt.sizeDelta = Vector2.zero;
-
-                bottomGradientImage = go.GetComponent<Image>();
-                bottomGradientImage.sprite = bottomGradientSprite;
-                bottomGradientImage.type = Image.Type.Simple;
-                bottomGradientImage.color = Color.white;
-                bottomGradientImage.raycastTarget = false;
-            }
+            particleContainer.anchorMin = Vector2.zero;
+            particleContainer.anchorMax = Vector2.one;
+            particleContainer.offsetMin = Vector2.zero;
+            particleContainer.offsetMax = Vector2.zero;
         }
 
-        // 5. Exit Bloom Flash Overlay
-        if (exitFlashImage == null)
+        // 4. Title Text (LOADING...) inside ArtFrame
+        // Full res box: x 440 to 880 (w=440), y 1195 to 1292 (Unity Y 244 to 341)
+        if (titleText == null && artFrame != null)
         {
-            Transform t = transform.Find("ExitFlash");
-            if (t != null) exitFlashImage = t.GetComponent<Image>();
-            else
-            {
-                GameObject go = new GameObject("ExitFlash", typeof(RectTransform), typeof(Image));
-                go.transform.SetParent(transform, false);
-                RectTransform rt = go.GetComponent<RectTransform>();
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
-                rt.sizeDelta = Vector2.zero;
-
-                exitFlashImage = go.GetComponent<Image>();
-                exitFlashImage.color = new Color(1f, 1f, 1f, 0f);
-                exitFlashImage.raycastTarget = false;
-            }
-        }
-
-        // 6. Bottom UI Panel (Fixed safe layout: Title, Wooden Bar, Pro Tips)
-        if (bottomUIPanel == null)
-        {
-            Transform t = transform.Find("BottomUIPanel");
-            if (t != null) bottomUIPanel = t as RectTransform;
-            else
-            {
-                GameObject go = new GameObject("BottomUIPanel", typeof(RectTransform));
-                go.transform.SetParent(transform, false);
-                bottomUIPanel = go.GetComponent<RectTransform>();
-                bottomUIPanel.anchorMin = new Vector2(0.5f, 0f);
-                bottomUIPanel.anchorMax = new Vector2(0.5f, 0f);
-                bottomUIPanel.pivot = new Vector2(0.5f, 0f);
-                bottomUIPanel.sizeDelta = new Vector2(1700f, 260f);
-                bottomUIPanel.anchoredPosition = Vector2.zero;
-            }
-        }
-
-        // 7. Golden "LOADING..." Title (Fredoka SDF)
-        if (titleText == null && bottomUIPanel != null)
-        {
-            Transform t = bottomUIPanel.Find("TitleText");
+            Transform t = artFrame.Find("TitleText");
             if (t != null) titleText = t.GetComponent<TMP_Text>();
             else
             {
                 GameObject go = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
-                go.transform.SetParent(bottomUIPanel, false);
-                RectTransform rt = go.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0.5f, 0f);
-                rt.anchorMax = new Vector2(0.5f, 0f);
-                rt.pivot = new Vector2(0f, 0f);
-                rt.anchoredPosition = new Vector2(-670f, 150f);
-                rt.sizeDelta = new Vector2(400f, 60f);
-
+                go.transform.SetParent(artFrame, false);
                 titleText = go.GetComponent<TextMeshProUGUI>();
-                if (titleFont != null) titleText.font = titleFont;
-                titleText.text = "LOADING...";
-                titleText.fontSize = 44f;
-                titleText.fontStyle = FontStyles.Bold;
-                titleText.alignment = TextAlignmentOptions.BottomLeft;
-                titleText.color = new Color(1.0f, 0.84f, 0.32f, 1f); // Rich golden yellow
-                titleText.outlineColor = new Color32(40, 20, 10, 255);
-                titleText.outlineWidth = 0.28f;
-                titleText.raycastTarget = false;
             }
         }
-
-        // 8. Wooden Bar Frame Container
-        if (barContainer == null && bottomUIPanel != null)
+        if (titleText != null)
         {
-            Transform t = bottomUIPanel.Find("BarContainer");
+            RectTransform rt = titleText.rectTransform;
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.anchorMin = new Vector2(440f / 2752f, 244f / 1536f);
+            rt.anchorMax = new Vector2(880f / 2752f, 341f / 1536f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            if (titleFont != null) titleText.font = titleFont;
+            if (titleMaterial != null) titleText.fontSharedMaterial = titleMaterial;
+            titleText.text = "LOADING...";
+            titleText.enableAutoSizing = true;
+            titleText.fontSizeMin = 24f;
+            titleText.fontSizeMax = 72f;
+            titleText.alignment = TextAlignmentOptions.MidlineLeft;
+            titleText.enableWordWrapping = false;
+            titleText.enableVertexGradient = true;
+            titleText.colorGradient = new VertexGradient(
+                new Color32(255, 238, 70, 255),
+                new Color32(255, 238, 70, 255),
+                new Color32(238, 142, 22, 255),
+                new Color32(238, 142, 22, 255)
+            );
+            titleText.raycastTarget = false;
+            baseTitlePos = rt.anchoredPosition;
+        }
+
+        // 5. Wooden Bar Frame Container inside ArtFrame
+        // Full res box: x 418 to 2333, y 1314 to 1414 (Unity Y 122 to 222)
+        if (barContainer == null && artFrame != null)
+        {
+            Transform t = artFrame.Find("BarContainer");
             if (t != null) barContainer = t as RectTransform;
             else
             {
-                GameObject go = new GameObject("BarContainer", typeof(RectTransform));
-                go.transform.SetParent(bottomUIPanel, false);
+                GameObject go = new GameObject("BarContainer", typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(artFrame, false);
                 barContainer = go.GetComponent<RectTransform>();
-                barContainer.anchorMin = new Vector2(0.5f, 0f);
-                barContainer.anchorMax = new Vector2(0.5f, 0f);
-                barContainer.pivot = new Vector2(0.5f, 0.5f);
-                barContainer.anchoredPosition = new Vector2(0f, 118f);
-                barContainer.sizeDelta = new Vector2(1360f, 52f);
+                barFrameImage = go.GetComponent<Image>();
             }
         }
-
-        // 9. Bar Frame Image (9-sliced wood)
-        if (barFrameImage == null && barContainer != null)
+        if (barContainer != null)
         {
-            Transform t = barContainer.Find("BarFrame");
-            if (t != null) barFrameImage = t.GetComponent<Image>();
-            else
-            {
-                GameObject go = new GameObject("BarFrame", typeof(RectTransform), typeof(Image));
-                go.transform.SetParent(barContainer, false);
-                RectTransform rt = go.GetComponent<RectTransform>();
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
-                rt.sizeDelta = Vector2.zero;
+            barContainer.pivot = new Vector2(0.5f, 0.5f);
+            barContainer.anchorMin = new Vector2(418f / 2752f, 122f / 1536f);
+            barContainer.anchorMax = new Vector2(2333f / 2752f, 222f / 1536f);
+            barContainer.offsetMin = Vector2.zero;
+            barContainer.offsetMax = Vector2.zero;
 
-                barFrameImage = go.GetComponent<Image>();
+            if (barFrameImage == null) barFrameImage = barContainer.GetComponent<Image>();
+            if (barFrameImage != null)
+            {
                 barFrameImage.sprite = barFrameSprite;
                 barFrameImage.type = Image.Type.Sliced;
                 barFrameImage.color = Color.white;
@@ -1138,7 +1148,8 @@ public class LoadingScreenController : MonoBehaviour
             }
         }
 
-        // 10. Fill Track Container & Image
+        // 6. Fill Track inside BarContainer
+        // Inset: left 27px, right 21px, top 24px, bottom 24px
         if (fillTrackRect == null && barContainer != null)
         {
             Transform t = barContainer.Find("FillTrack");
@@ -1148,14 +1159,17 @@ public class LoadingScreenController : MonoBehaviour
                 GameObject go = new GameObject("FillTrack", typeof(RectTransform));
                 go.transform.SetParent(barContainer, false);
                 fillTrackRect = go.GetComponent<RectTransform>();
-                // Inset inside wooden frame
-                fillTrackRect.anchorMin = new Vector2(0f, 0f);
-                fillTrackRect.anchorMax = new Vector2(1f, 1f);
-                fillTrackRect.offsetMin = new Vector2(12f, 10f);
-                fillTrackRect.offsetMax = new Vector2(-12f, -10f);
             }
         }
+        if (fillTrackRect != null)
+        {
+            fillTrackRect.anchorMin = new Vector2(27f / 1915f, 24f / 100f);
+            fillTrackRect.anchorMax = new Vector2(1f - (21f / 1915f), 1f - (24f / 100f));
+            fillTrackRect.offsetMin = Vector2.zero;
+            fillTrackRect.offsetMax = Vector2.zero;
+        }
 
+        // 7. Fill Bar inside FillTrack
         if (fillBarImage == null && fillTrackRect != null)
         {
             Transform t = fillTrackRect.Find("FillBar");
@@ -1164,23 +1178,27 @@ public class LoadingScreenController : MonoBehaviour
             {
                 GameObject go = new GameObject("FillBar", typeof(RectTransform), typeof(Image));
                 go.transform.SetParent(fillTrackRect, false);
-                RectTransform rt = go.GetComponent<RectTransform>();
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
-                rt.sizeDelta = Vector2.zero;
-
                 fillBarImage = go.GetComponent<Image>();
-                fillBarImage.sprite = barFillSprite;
-                fillBarImage.type = Image.Type.Filled;
-                fillBarImage.fillMethod = Image.FillMethod.Horizontal;
-                fillBarImage.fillOrigin = (int)Image.OriginHorizontal.Left;
-                fillBarImage.fillAmount = 0f;
-                fillBarImage.color = Color.white;
-                fillBarImage.raycastTarget = false;
             }
         }
+        if (fillBarImage != null)
+        {
+            RectTransform rt = fillBarImage.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
 
-        // 11. Leaf Handle Image
+            fillBarImage.sprite = barFillSprite;
+            fillBarImage.type = Image.Type.Filled;
+            fillBarImage.fillMethod = Image.FillMethod.Horizontal;
+            fillBarImage.fillOrigin = (int)Image.OriginHorizontal.Left;
+            fillBarImage.fillAmount = currentDisplayProgress;
+            fillBarImage.color = Color.white;
+            fillBarImage.raycastTarget = false;
+        }
+
+        // 8. Leaf Handle inside FillTrack
         if (leafHandleRect == null && fillTrackRect != null)
         {
             Transform t = fillTrackRect.Find("LeafHandle");
@@ -1194,48 +1212,32 @@ public class LoadingScreenController : MonoBehaviour
                 GameObject go = new GameObject("LeafHandle", typeof(RectTransform), typeof(Image));
                 go.transform.SetParent(fillTrackRect, false);
                 leafHandleRect = go.GetComponent<RectTransform>();
-                leafHandleRect.pivot = new Vector2(0.5f, 0.5f);
-                leafHandleRect.sizeDelta = new Vector2(62f, 62f);
-                leafHandleRect.anchoredPosition = new Vector2(-fillTrackRect.rect.width * 0.5f, 0f);
-
                 leafHandleImage = go.GetComponent<Image>();
+            }
+        }
+        if (leafHandleRect != null)
+        {
+            leafHandleRect.pivot = new Vector2(0.5f, 0.5f);
+            leafHandleRect.anchorMin = new Vector2(0f, 0.5f);
+            leafHandleRect.anchorMax = new Vector2(0f, 0.5f);
+            leafHandleRect.sizeDelta = new Vector2(126f, 159f);
+            float trackW = fillTrackRect.rect.width > 0 ? fillTrackRect.rect.width : 1867f;
+            leafHandleRect.anchoredPosition = new Vector2(currentDisplayProgress * trackW, 0f);
+            leafHandleRect.localRotation = Quaternion.identity;
+
+            if (leafHandleImage != null)
+            {
                 leafHandleImage.sprite = leafHandleSprite;
                 leafHandleImage.color = Color.white;
                 leafHandleImage.raycastTarget = false;
             }
         }
 
-        // 12. Percent Text (Optional toggle)
-        if (percentText == null && barContainer != null)
+        // 9. Tip Container & Tip Text inside ArtFrame
+        // Full res box: x 440 to 2240, y 1442 to 1495 (Unity Y 41 to 94)
+        if (tipText == null && artFrame != null)
         {
-            Transform t = barContainer.Find("PercentText");
-            if (t != null) percentText = t.GetComponent<TMP_Text>();
-            else
-            {
-                GameObject go = new GameObject("PercentText", typeof(RectTransform), typeof(TextMeshProUGUI));
-                go.transform.SetParent(barContainer, false);
-                RectTransform rt = go.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(1f, 0.5f);
-                rt.anchorMax = new Vector2(1f, 0.5f);
-                rt.pivot = new Vector2(0f, 0.5f);
-                rt.anchoredPosition = new Vector2(16f, 0f);
-                rt.sizeDelta = new Vector2(100f, 40f);
-
-                percentText = go.GetComponent<TextMeshProUGUI>();
-                if (titleFont != null) percentText.font = titleFont;
-                percentText.fontSize = 24f;
-                percentText.fontStyle = FontStyles.Bold;
-                percentText.color = new Color(0.95f, 0.95f, 0.85f, 1f);
-                percentText.alignment = TextAlignmentOptions.MidlineLeft;
-                percentText.raycastTarget = false;
-                percentText.gameObject.SetActive(showPercentage);
-            }
-        }
-
-        // 13. Pro Tips Container & Text (Nunito SDF)
-        if (tipText == null && bottomUIPanel != null)
-        {
-            Transform t = bottomUIPanel.Find("TipContainer");
+            Transform t = artFrame.Find("TipContainer");
             GameObject tipContainer;
             if (t != null)
             {
@@ -1246,33 +1248,61 @@ public class LoadingScreenController : MonoBehaviour
             else
             {
                 tipContainer = new GameObject("TipContainer", typeof(RectTransform), typeof(CanvasGroup));
-                tipContainer.transform.SetParent(bottomUIPanel, false);
-                RectTransform crt = tipContainer.GetComponent<RectTransform>();
-                crt.anchorMin = new Vector2(0.5f, 0f);
-                crt.anchorMax = new Vector2(0.5f, 0f);
-                crt.pivot = new Vector2(0.5f, 0.5f);
-                crt.anchoredPosition = new Vector2(0f, 48f);
-                crt.sizeDelta = new Vector2(1450f, 54f);
-
+                tipContainer.transform.SetParent(artFrame, false);
                 tipCanvasGroup = tipContainer.GetComponent<CanvasGroup>();
 
                 GameObject txtGo = new GameObject("TipText", typeof(RectTransform), typeof(TextMeshProUGUI));
                 txtGo.transform.SetParent(tipContainer.transform, false);
-                RectTransform trt = txtGo.GetComponent<RectTransform>();
-                trt.anchorMin = Vector2.zero;
-                trt.anchorMax = Vector2.one;
-                trt.sizeDelta = Vector2.zero;
-
                 tipText = txtGo.GetComponent<TextMeshProUGUI>();
-                if (tipFont != null) tipText.font = tipFont;
-                tipText.fontSize = 22f;
-                tipText.enableAutoSizing = true;
-                tipText.fontSizeMin = 16f;
-                tipText.fontSizeMax = 23f;
-                tipText.alignment = TextAlignmentOptions.Center;
-                tipText.color = new Color(0.96f, 0.91f, 0.82f, 1f); // Soft cream
-                tipText.text = "Pro Tips: Always put correct trash in the recycle bins to restore the forest and earn gold!";
-                tipText.raycastTarget = false;
+            }
+        }
+        if (tipText != null)
+        {
+            Transform tipContainer = tipText.transform.parent;
+            if (tipContainer != null && tipContainer != artFrame)
+            {
+                RectTransform crt = tipContainer as RectTransform;
+                crt.pivot = new Vector2(0.5f, 0.5f);
+                crt.anchorMin = new Vector2(440f / 2752f, 41f / 1536f);
+                crt.anchorMax = new Vector2(2240f / 2752f, 94f / 1536f);
+                crt.offsetMin = Vector2.zero;
+                crt.offsetMax = Vector2.zero;
+            }
+
+            RectTransform trt = tipText.rectTransform;
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+
+            if (tipFont != null) tipText.font = tipFont;
+            if (tipMaterial != null) tipText.fontSharedMaterial = tipMaterial;
+            tipText.enableAutoSizing = true;
+            tipText.fontSizeMin = 16f;
+            tipText.fontSizeMax = 38f;
+            tipText.alignment = TextAlignmentOptions.Center;
+            tipText.color = new Color(0.871f, 0.808f, 0.647f, 1f); // Soft cream #DECEA5
+            tipText.enableWordWrapping = false;
+            tipText.raycastTarget = false;
+            baseTipPos = trt.anchoredPosition;
+        }
+
+        // 10. Exit Flash (Canvas overlay)
+        if (exitFlashImage == null)
+        {
+            Transform t = transform.Find("ExitFlash");
+            if (t != null) exitFlashImage = t.GetComponent<Image>();
+            else
+            {
+                GameObject go = new GameObject("ExitFlash", typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(transform, false);
+                RectTransform rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.sizeDelta = Vector2.zero;
+                exitFlashImage = go.GetComponent<Image>();
+                exitFlashImage.color = new Color(1f, 1f, 1f, 0f);
+                exitFlashImage.raycastTarget = false;
             }
         }
     }
@@ -1304,6 +1334,41 @@ public class LoadingScreenController : MonoBehaviour
     // Editor Preview & Debug Tools
     // -------------------------------------------------------------------------
 
+    public void SetStaticTestState(float progress, string tip, bool showThreeDots)
+    {
+        EnsureReferences();
+        UpdateArtFrameLayout();
+        if (rootCanvas != null) rootCanvas.enabled = true;
+        if (rootCanvasGroup != null) rootCanvasGroup.alpha = 1f;
+
+        currentDisplayProgress = Mathf.Clamp01(progress);
+        UpdateProgressUI(currentDisplayProgress);
+
+        if (backgroundImage != null)
+        {
+            backgroundImage.rectTransform.localScale = Vector3.one;
+            backgroundImage.rectTransform.anchoredPosition = Vector2.zero;
+        }
+
+        if (titleText != null)
+        {
+            titleText.text = showThreeDots ? "LOADING..." : "LOADING";
+            titleText.rectTransform.anchoredPosition = baseTitlePos;
+        }
+
+        if (leafHandleRect != null)
+        {
+            leafHandleRect.localRotation = Quaternion.identity;
+        }
+
+        if (tipText != null && !string.IsNullOrEmpty(tip))
+        {
+            tipText.text = tip.StartsWith("Pro Tips:") ? tip : $"Pro Tips: {tip}";
+            tipText.rectTransform.anchoredPosition = baseTipPos;
+        }
+        if (tipCanvasGroup != null) tipCanvasGroup.alpha = 1f;
+    }
+
     public void EditorPreviewSetProgress(float progress)
     {
         EnsureReferences();
@@ -1317,7 +1382,7 @@ public class LoadingScreenController : MonoBehaviour
 
         if (titleText != null)
         {
-            titleText.text = isReady ? "READY!" : "LOADING...";
+            titleText.text = "LOADING...";
         }
 
         if (leafHandleRect != null && fillTrackRect != null)
