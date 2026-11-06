@@ -248,13 +248,30 @@ namespace EcoQuest.CityQuest.Editor
             if (lbPanel != null)
             {
                 var rt = lbPanel.GetComponent<RectTransform>();
-                if (rt != null && (Mathf.Abs(rt.anchoredPosition.x) > 1920f || rt.anchoredPosition.x <= 0f))
+                if (rt != null)
                 {
                     Undo.RecordObject(rt, "Fix Litterbug QuestPanel Pos");
                     rt.anchorMin = new Vector2(0f, 1f);
                     rt.anchorMax = new Vector2(0f, 1f);
                     rt.pivot = new Vector2(0f, 1f);
-                    rt.anchoredPosition = new Vector2(40f, -154f);
+                    rt.anchoredPosition = new Vector2(40f, -145f);
+                    rt.sizeDelta = new Vector2(395f, rt.sizeDelta.y);
+                    EditorUtility.SetDirty(rt);
+                }
+            }
+
+            var clPanel = GameObject.Find("--- UI ---/UI_CityTrashDetective/ChecklistPanel");
+            if (clPanel != null)
+            {
+                var rt = clPanel.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    Undo.RecordObject(rt, "Fix ChecklistPanel Pos");
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(0f, 1f);
+                    rt.pivot = new Vector2(0f, 1f);
+                    rt.anchoredPosition = new Vector2(40f, -145f);
+                    rt.sizeDelta = new Vector2(395f, 480f);
                     EditorUtility.SetDirty(rt);
                 }
             }
@@ -734,8 +751,10 @@ namespace EcoQuest.CityQuest.Editor
             ui.resultsEcoTipText = resEcoTmp;
             ui.resultsTakeQuizButton = btnQuiz;
             ui.resultsTakeQuizButtonText = btnQuizTmp;
+            ui.resultsTakeQuizKeyCap = btnQuiz.GetComponent<KeyCapPrompt>();
             ui.resultsPlayAgainButton = btnRetry;
             ui.resultsPlayAgainButtonText = btnRetryTmp;
+            ui.resultsPlayAgainKeyCap = btnRetry.GetComponent<KeyCapPrompt>();
             ui.resultsSkipCloseButton = btnSkip;
             ui.resultsSkipCloseButtonText = btnSkipTmp;
 
@@ -835,8 +854,8 @@ namespace EcoQuest.CityQuest.Editor
             // Feedback Panel (generous height & padding with auto-sizing so explanation text never cuts off)
             GameObject fbPanel = CreateSlicedPanel(modalGo.transform, "FeedbackPanel", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(760f, 156f), tabSprite, rowInnerFill, borderColor);
             CanvasGroup fbCg = fbPanel.AddComponent<CanvasGroup>();
-            TextMeshProUGUI fbTitle = CreateTMP(fbPanel.transform, "FeedbackTitle", "CORRECT!", headingFont, 20f, goldAccent, TextAlignmentOptions.TopLeft, new Vector2(0f, 1f), new Vector2(0.72f, 1f), new Vector2(24f, -44f), new Vector2(-10f, -16f));
-            TextMeshProUGUI fbExp = CreateTMP(fbPanel.transform, "ExplanationText", "Explanation", bodyFont, 14f, creamText, TextAlignmentOptions.TopLeft, new Vector2(0f, 0f), new Vector2(0.72f, 1f), new Vector2(24f, 14f), new Vector2(-10f, -48f));
+            TextMeshProUGUI fbTitle = CreateTMP(fbPanel.transform, "FeedbackTitle", "CORRECT!", headingFont, 20f, goldAccent, TextAlignmentOptions.TopLeft, new Vector2(0f, 1f), new Vector2(0.72f, 1f), new Vector2(24f, -54f), new Vector2(-10f, -24f));
+            TextMeshProUGUI fbExp = CreateTMP(fbPanel.transform, "ExplanationText", "Explanation", bodyFont, 14f, creamText, TextAlignmentOptions.TopLeft, new Vector2(0f, 0f), new Vector2(0.72f, 1f), new Vector2(24f, 12f), new Vector2(-10f, -56f));
             fbExp.enableAutoSizing = true;
             fbExp.fontSizeMin = 11.5f;
             fbExp.fontSizeMax = 14.5f;
@@ -1022,8 +1041,52 @@ namespace EcoQuest.CityQuest.Editor
             GameObject go = CreateSlicedPanel(parent, name, anchor, anchor, new Vector2(0.5f, 0.5f),
                 anchoredPos, size, bgSprite, bgCol, outlineColor);
             Button btn = go.AddComponent<Button>();
-            labelTmp = CreateTMP(go.transform, "Text", label, font, 15f, textCol, TextAlignmentOptions.Center,
-                Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
+
+            string key = null;
+            string cleanLabel = label;
+            if (label.StartsWith("[") && label.Contains("]"))
+            {
+                int closeIdx = label.IndexOf(']');
+                key = label.Substring(1, closeIdx - 1);
+                cleanLabel = label.Substring(closeIdx + 1).Trim();
+            }
+
+            if (!string.IsNullOrEmpty(key))
+            {
+                // Create authentic KeyCapPrompt badge matching Ranger Robin / Guardian dialogue
+                GameObject keyBox = CreateSlicedPanel(go.transform, "KeycapBadge",
+                    new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                    new Vector2(16f, 0f), new Vector2(28f, 28f), bgSprite, new Color(0.91f, 0.91f, 0.91f, 1f), new Color(0.20f, 0.20f, 0.20f, 0.9f));
+                RectTransform keyBoxRt = keyBox.GetComponent<RectTransform>();
+                Image keyBoxImg = keyBox.GetComponent<Image>();
+
+                TextMeshProUGUI keyTmp = CreateTMP(keyBox.transform, "KeyText", key, font, 14f,
+                    new Color(0.11f, 0.11f, 0.11f, 1f), TextAlignmentOptions.Center,
+                    Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                keyTmp.fontStyle = FontStyles.Bold;
+
+                labelTmp = CreateTMP(go.transform, "ActionLabel", cleanLabel, font, 14f, textCol, TextAlignmentOptions.MidlineLeft,
+                    new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(52f, 0f), new Vector2(-12f, 0f));
+                labelTmp.fontStyle = FontStyles.Bold;
+
+                KeyCapPrompt kcp = go.AddComponent<KeyCapPrompt>();
+                SerializedObject so = new SerializedObject(kcp);
+                so.FindProperty("keycapRect").objectReferenceValue = keyBoxRt;
+                so.FindProperty("keycapImage").objectReferenceValue = keyBoxImg;
+                so.FindProperty("keycapText").objectReferenceValue = keyTmp;
+                so.FindProperty("actionLabel").objectReferenceValue = labelTmp;
+                so.FindProperty("fallbackKey").stringValue = key;
+                so.FindProperty("defaultActionText").stringValue = cleanLabel;
+                so.ApplyModifiedPropertiesWithoutUndo();
+
+                kcp.SetPrompt(key, cleanLabel);
+            }
+            else
+            {
+                labelTmp = CreateTMP(go.transform, "Text", label, font, 15f, textCol, TextAlignmentOptions.Center,
+                    Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
+            }
+
             return btn;
         }
 
@@ -1142,9 +1205,9 @@ namespace EcoQuest.CityQuest.Editor
                         Debug.LogError($"[ValidateCityQuest] FAIL: Checklist anchor is not left! (min={ui.checklistRect.anchorMin}, max={ui.checklistRect.anchorMax})");
                         allValid = false;
                     }
-                    if (Mathf.Abs(ui.checklistRect.sizeDelta.x - 340f) > 10f)
+                    if (Mathf.Abs(ui.checklistRect.sizeDelta.x - 395f) > 10f)
                     {
-                        Debug.LogError($"[ValidateCityQuest] FAIL: Checklist width is {ui.checklistRect.sizeDelta.x}, expected 340!");
+                        Debug.LogError($"[ValidateCityQuest] FAIL: Checklist width is {ui.checklistRect.sizeDelta.x}, expected 395!");
                         allValid = false;
                     }
                 }

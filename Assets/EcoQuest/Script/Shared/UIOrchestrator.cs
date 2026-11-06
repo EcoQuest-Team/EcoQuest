@@ -389,20 +389,17 @@ public class UIOrchestrator : MonoBehaviour
                 }
             }
         }
-        if (questPanelGroup != null && !hasQuestPanelBasePos)
+        questPanelBasePos = new Vector2(40f, -145f);
+        hasQuestPanelBasePos = true;
+        if (questPanelGroup != null)
         {
             var rt = questPanelGroup.GetComponent<RectTransform>();
             if (rt != null)
             {
-                if (questPanelGroup.gameObject.name == "ChecklistPanel")
-                {
-                    questPanelBasePos = EcoQuest.CityQuest.CityTrashDetectiveUI.ChecklistHomePos;
-                }
-                else
-                {
-                    questPanelBasePos = rt.anchoredPosition;
-                }
-                hasQuestPanelBasePos = true;
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(0f, 1f);
+                rt.pivot = new Vector2(0f, 1f);
+                rt.anchoredPosition = questPanelBasePos;
             }
         }
         tutorialCardGroup = FindOrAddCG(uiRoot, "UI_Notification/Control Tip Banner");
@@ -906,11 +903,11 @@ public class UIOrchestrator : MonoBehaviour
             return;
         }
 
-        if (!hasQuestPanelBasePos)
-        {
-            questPanelBasePos = rt.anchoredPosition;
-            hasQuestPanelBasePos = true;
-        }
+        questPanelBasePos = new Vector2(40f, -145f);
+        hasQuestPanelBasePos = true;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
 
         if (!cg.gameObject.activeSelf) cg.gameObject.SetActive(true);
 
@@ -926,7 +923,7 @@ public class UIOrchestrator : MonoBehaviour
             cg.interactable = visible;
             cg.blocksRaycasts = visible;
             rt.localScale = Vector3.one;
-            rt.anchoredPosition = visible ? questPanelBasePos : (questPanelBasePos + new Vector2(40f, 0f));
+            rt.anchoredPosition = questPanelBasePos;
             if (!visible && currentPhase != GamePhase.QuestActive) cg.gameObject.SetActive(false);
             return;
         }
@@ -938,8 +935,7 @@ public class UIOrchestrator : MonoBehaviour
     {
         float startAlpha = cg.alpha;
         float targetAlpha = visible ? 1f : 0f;
-        Vector2 startPos = rt.anchoredPosition;
-        Vector2 targetPos = visible ? questPanelBasePos : (questPanelBasePos + new Vector2(40f, 0f));
+        Vector2 targetPos = questPanelBasePos;
 
         float elapsed = 0f;
         while (elapsed < duration)
@@ -948,7 +944,7 @@ public class UIOrchestrator : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
             float ease = 1f - Mathf.Pow(1f - t, 2.5f);
             cg.alpha = Mathf.Lerp(startAlpha, targetAlpha, ease);
-            rt.anchoredPosition = Vector2.Lerp(startPos, targetPos, ease);
+            rt.anchoredPosition = targetPos;
             rt.localScale = Vector3.one;
             yield return null;
         }

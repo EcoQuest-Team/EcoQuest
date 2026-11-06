@@ -250,14 +250,14 @@ public class LitterbugQuestManager : MonoBehaviour
         for (int c = 0; c < CategoryCount; c++)
             categoryShuffleBags[c] = new Queue<int>(3);
 
-        if (questPanelRect != null && !capturedPanelPos)
+        questPanelShownAnchoredPos = new Vector2(40f, -145f);
+        if (questPanelRect != null)
         {
-            questPanelShownAnchoredPos = questPanelRect.anchoredPosition;
-            if (Mathf.Abs(questPanelShownAnchoredPos.x) > 1920f || questPanelShownAnchoredPos.x <= 0f)
-            {
-                questPanelShownAnchoredPos = new Vector2(40f, -154f);
-                questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
-            }
+            questPanelRect.anchorMin = new Vector2(0f, 1f);
+            questPanelRect.anchorMax = new Vector2(0f, 1f);
+            questPanelRect.pivot = new Vector2(0f, 1f);
+            questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
+            questPanelRect.sizeDelta = new Vector2(395f, questPanelRect.sizeDelta.y);
             capturedPanelPos = true;
         }
     }
@@ -1393,6 +1393,20 @@ public class LitterbugQuestManager : MonoBehaviour
             activeSpeakerAnimator.TriggerReactionBeat(currentPageIndex);
 
         bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
+        if (activeDialogueMode == DialogueMode.QuestGiverOffer)
+        {
+            if (acceptKeyCapPrompt != null)
+            {
+                acceptKeyCapPrompt.SetPrompt("E", "Accept");
+                acceptKeyCapPrompt.SetLocked(false);
+            }
+            if (notNowKeyCapPrompt != null)
+            {
+                notNowKeyCapPrompt.SetPrompt("Q", "Close");
+                notNowKeyCapPrompt.SetLocked(false);
+            }
+        }
+
         if (choiceButtonsRoot != null)
         {
             choiceButtonsRoot.SetActive(false); // Only shows after typewriter finishes
@@ -1481,6 +1495,17 @@ public class LitterbugQuestManager : MonoBehaviour
         bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
         if (isOfferFinalPage)
         {
+            if (acceptKeyCapPrompt != null)
+            {
+                acceptKeyCapPrompt.SetPrompt("E", "Accept");
+                acceptKeyCapPrompt.SetLocked(false);
+            }
+            if (notNowKeyCapPrompt != null)
+            {
+                notNowKeyCapPrompt.SetPrompt("Q", "Close");
+                notNowKeyCapPrompt.SetLocked(false);
+            }
+
             if (choiceButtonsRoot != null)
             {
                 choiceButtonsRoot.SetActive(true);
@@ -1525,6 +1550,17 @@ public class LitterbugQuestManager : MonoBehaviour
             bool isOfferFinal = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
             if (isOfferFinal)
             {
+                if (acceptKeyCapPrompt != null)
+                {
+                    acceptKeyCapPrompt.SetPrompt("E", "Accept");
+                    acceptKeyCapPrompt.SetLocked(false);
+                }
+                if (notNowKeyCapPrompt != null)
+                {
+                    notNowKeyCapPrompt.SetPrompt("Q", "Close");
+                    notNowKeyCapPrompt.SetLocked(false);
+                }
+
                 if (choiceButtonsRoot != null)
                 {
                     choiceButtonsRoot.SetActive(true);
@@ -2017,34 +2053,28 @@ public class LitterbugQuestManager : MonoBehaviour
     private IEnumerator SlideInQuestPanelRoutine()
     {
         if (questPanelGroup == null || questPanelRect == null) yield break;
-        if (!capturedPanelPos)
-        {
-            questPanelShownAnchoredPos = questPanelRect.anchoredPosition;
-            if (Mathf.Abs(questPanelShownAnchoredPos.x) > 1920f || questPanelShownAnchoredPos.x <= 0f)
-            {
-                questPanelShownAnchoredPos = new Vector2(40f, -154f);
-            }
-            capturedPanelPos = true;
-        }
+        questPanelShownAnchoredPos = new Vector2(40f, -145f);
+        questPanelRect.anchorMin = new Vector2(0f, 1f);
+        questPanelRect.anchorMax = new Vector2(0f, 1f);
+        questPanelRect.pivot = new Vector2(0f, 1f);
+        questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
+        questPanelRect.sizeDelta = new Vector2(395f, questPanelRect.sizeDelta.y);
+        capturedPanelPos = true;
 
-        // Always reset active state, alpha, and slide offset cleanly on re-enter (DESIGN 8)
         questPanelGroup.gameObject.SetActive(true);
         questPanelGroup.alpha = 0f;
         questPanelGroup.interactable = false;
         questPanelGroup.blocksRaycasts = false;
 
-        Vector2 hiddenPos = questPanelShownAnchoredPos - new Vector2(350f, 0f);
-        questPanelRect.anchoredPosition = hiddenPos;
-
-        float duration = 0.38f;
+        float duration = 0.25f;
         float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            float ease = 1f - Mathf.Pow(1f - t, 3f);
-            questPanelGroup.alpha = t;
-            questPanelRect.anchoredPosition = Vector2.Lerp(hiddenPos, questPanelShownAnchoredPos, ease);
+            float ease = 1f - Mathf.Pow(1f - t, 2.5f);
+            questPanelGroup.alpha = ease;
+            questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
             yield return null;
         }
 
@@ -2059,10 +2089,17 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (questPanelGroup == null) yield break;
 
+        questPanelShownAnchoredPos = new Vector2(40f, -145f);
         questPanelGroup.gameObject.SetActive(true);
         questPanelGroup.alpha = 1f;
-        if (questPanelRect != null && capturedPanelPos)
+        if (questPanelRect != null)
+        {
+            questPanelRect.anchorMin = new Vector2(0f, 1f);
+            questPanelRect.anchorMax = new Vector2(0f, 1f);
+            questPanelRect.pivot = new Vector2(0f, 1f);
             questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
+            questPanelRect.sizeDelta = new Vector2(395f, questPanelRect.sizeDelta.y);
+        }
 
         // Show "Complete! +reward" for 2s, then fade out over 0.6s and disable (DESIGN 8)
         yield return new WaitForSecondsRealtime(2.0f);

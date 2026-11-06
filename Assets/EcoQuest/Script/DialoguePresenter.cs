@@ -381,8 +381,8 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         string speakerName,
         IEnumerable<string> lines,
         bool showChoicesAtEnd = false,
-        string acceptLabel = "Accept Quest",
-        string declineLabel = "Not now",
+        string acceptLabel = "Accept",
+        string declineLabel = "Close",
         Action onAccept = null,
         Action onDecline = null,
         Action onComplete = null)
@@ -818,6 +818,17 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
 
         CompleteTypewriterInstantly();
         if (punchRoutine != null) StopRunningCoroutine(punchRoutine);
+
+        if (acceptKeyCap != null)
+        {
+            acceptKeyCap.SetPrompt("E", "Accept");
+            acceptKeyCap.SetLocked(false);
+        }
+        if (notNowKeyCap != null)
+        {
+            notNowKeyCap.SetPrompt("Q", "Close");
+            notNowKeyCap.SetLocked(false);
+        }
 
         if (fadeRoutine != null) StopRunningCoroutine(fadeRoutine);
         fadeRoutine = RunCoroutine(FadeDialoguePanelRoutine(0f, panelCloseDuration));

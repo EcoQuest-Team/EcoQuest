@@ -389,6 +389,7 @@ namespace EcoQuest.CityQuest
             StopAllCoroutines();
             isCollected = false;
             isCollectingAnim = false;
+            if (shimmerAnchor != null) shimmerAnchor.gameObject.SetActive(false);
             if (activeItemVisual != null)
             {
                 activeItemVisual.SetActive(false);
@@ -396,6 +397,11 @@ namespace EcoQuest.CityQuest
             }
             transform.localScale = Vector3.one;
             gameObject.SetActive(false);
+        }
+
+        private void OnDisable()
+        {
+            if (shimmerAnchor != null) shimmerAnchor.gameObject.SetActive(false);
         }
     }
 }

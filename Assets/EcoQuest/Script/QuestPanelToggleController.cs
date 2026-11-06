@@ -99,8 +99,9 @@ public class QuestPanelToggleController : MonoBehaviour
         panelRt.anchorMin = new Vector2(0f, 1f);
         panelRt.anchorMax = new Vector2(0f, 1f);
         panelRt.pivot = new Vector2(0f, 1f);
+        panelRt.anchoredPosition = new Vector2(40f, -145f);
         panelRt.localScale = Vector3.one;
-        panelRt.sizeDelta = new Vector2(panelWidth, panelRt.sizeDelta.y);
+        panelRt.sizeDelta = new Vector2(395f, panelRt.sizeDelta.y);
 
         var rootVlg = panelRt.GetComponent<UnityEngine.UI.VerticalLayoutGroup>() ?? panelRt.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
         rootVlg.padding = new RectOffset(20, 20, 26, 18);

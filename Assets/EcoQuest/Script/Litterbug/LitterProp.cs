@@ -220,16 +220,16 @@ public class LitterProp : MonoBehaviour
         GameObject go = new GameObject("LitterShrinkPuff");
         go.transform.position = pos;
         var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var pr = go.GetComponent<ParticleSystemRenderer>();
 
-        if (cachedParticleMat == null)
-        {
-            Shader sh = Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply");
-            if (sh != null) cachedParticleMat = new Material(sh);
-        }
-        if (cachedParticleMat != null) pr.material = cachedParticleMat;
+        Material mat = GetSharedParticleMaterial();
+        if (mat != null) pr.material = mat;
 
         var main = ps.main;
+        main.playOnAwake = false;
+        main.loop = false;
+        main.duration = 0.35f;
         main.startLifetime = 0.32f;
         main.startSpeed = 1.4f;
         main.startSize = 0.08f;
@@ -237,9 +237,12 @@ public class LitterProp : MonoBehaviour
         main.stopAction = ParticleSystemStopAction.Destroy;
 
         var em = ps.emission;
+        em.enabled = true;
+        em.rateOverTime = 0f;
         em.SetBursts(new[] { new ParticleSystem.Burst(0f, 8) });
 
         ps.Play();
+        Destroy(go, 0.6f);
     }
 
     public static Material GetSharedParticleMaterial()
