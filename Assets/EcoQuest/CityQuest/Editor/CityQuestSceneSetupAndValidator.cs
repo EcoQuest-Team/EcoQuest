@@ -276,12 +276,143 @@ namespace EcoQuest.CityQuest.Editor
                 }
             }
 
+            // 11. Synchronize UI_Coins text styling to match World 1 (Forest Scene)
+            var coinTxtGo = GameObject.Find("--- UI ---/UI_Coins/Coin Txt") ?? GameObject.Find("UI_Coins/Coin Txt");
+            if (coinTxtGo != null)
+            {
+                var tmp = coinTxtGo.GetComponent<TextMeshProUGUI>();
+                if (tmp != null)
+                {
+                    Undo.RecordObject(tmp, "Sync UI_Coins Text");
+                    TMP_FontAsset libFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+                    if (libFont != null) tmp.font = libFont;
+                    tmp.color = new Color(1f, 0.92549026f, 0.65882355f, 1f); // #FFECAB
+                    tmp.fontSize = 55f;
+                    tmp.fontStyle = FontStyles.Bold;
+                    tmp.alignment = TextAlignmentOptions.MidlineLeft;
+                    EditorUtility.SetDirty(tmp);
+                }
+            }
+
+            // 12. Polish ResultsCard button placement & centered compact keycaps
+            var resCardGo = GameObject.Find("--- UI ---/UI_CityTrashDetective/ResultsAndBonusPopup/ResultsCard") ?? GameObject.Find("ResultsCard");
+            if (resCardGo != null)
+            {
+                var ecoTip = resCardGo.transform.Find("EcoTipText");
+                if (ecoTip != null)
+                {
+                    var rt = ecoTip.GetComponent<RectTransform>();
+                    if (rt != null)
+                    {
+                        Undo.RecordObject(rt, "Polish EcoTip Pos");
+                        rt.anchorMin = new Vector2(0.08f, 0.28f);
+                        rt.anchorMax = new Vector2(0.92f, 0.36f);
+                        rt.anchoredPosition = Vector2.zero;
+                        rt.sizeDelta = Vector2.zero;
+                        EditorUtility.SetDirty(rt);
+                    }
+                }
+
+                PolishResultButton(resCardGo.transform.Find("TakeQuizButton"), new Vector2(0f, 104f), new Vector2(440f, 46f), "E", "Take Bonus Quiz (+70 Coins Max)");
+                PolishResultButton(resCardGo.transform.Find("PlayAgainButton"), new Vector2(0f, 50f), new Vector2(320f, 46f), "Q", "Continue (Back to Robin)");
+            }
+
             if (!Application.isPlaying)
             {
                 EditorSceneManager.MarkSceneDirty(activeScene);
                 EditorSceneManager.SaveScene(activeScene);
             }
             Debug.Log("[CityQuestPolish] SUCCESS: City Quest UI Polish applied and scene saved cleanly.");
+        }
+
+        private static void PolishResultButton(Transform btnTrans, Vector2 pos, Vector2 size, string fallbackKey, string actionText)
+        {
+            if (btnTrans == null) return;
+            var rt = btnTrans.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                Undo.RecordObject(rt, "Polish Button Transform");
+                rt.anchorMin = new Vector2(0.5f, 0f);
+                rt.anchorMax = new Vector2(0.5f, 0f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = pos;
+                rt.sizeDelta = size;
+                EditorUtility.SetDirty(rt);
+            }
+
+            var hlg = btnTrans.GetComponent<HorizontalLayoutGroup>();
+            if (hlg == null) hlg = btnTrans.gameObject.AddComponent<HorizontalLayoutGroup>();
+            Undo.RecordObject(hlg, "Configure Button HLG");
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 10f;
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+            EditorUtility.SetDirty(hlg);
+
+            var keyBadge = btnTrans.Find("KeycapBadge");
+            if (keyBadge != null)
+            {
+                var krt = keyBadge.GetComponent<RectTransform>();
+                if (krt != null)
+                {
+                    Undo.RecordObject(krt, "KeyBadge Size");
+                    krt.anchorMin = new Vector2(0.5f, 0.5f);
+                    krt.anchorMax = new Vector2(0.5f, 0.5f);
+                    krt.pivot = new Vector2(0.5f, 0.5f);
+                    krt.anchoredPosition = Vector2.zero;
+                    krt.sizeDelta = new Vector2(26f, 26f);
+                    EditorUtility.SetDirty(krt);
+                }
+                var kle = keyBadge.GetComponent<LayoutElement>();
+                if (kle == null) kle = keyBadge.gameObject.AddComponent<LayoutElement>();
+                Undo.RecordObject(kle, "KeyBadge LayoutElement");
+                kle.minWidth = 26f;
+                kle.preferredWidth = 26f;
+                kle.minHeight = 26f;
+                kle.preferredHeight = 26f;
+                EditorUtility.SetDirty(kle);
+
+                var ktmp = keyBadge.GetComponentInChildren<TextMeshProUGUI>(true);
+                if (ktmp != null)
+                {
+                    Undo.RecordObject(ktmp, "KeyBadge TMP");
+                    ktmp.fontSize = 13f;
+                    ktmp.fontStyle = FontStyles.Bold;
+                    ktmp.alignment = TextAlignmentOptions.Center;
+                    EditorUtility.SetDirty(ktmp);
+                }
+            }
+
+            var actionLabel = btnTrans.Find("ActionLabel");
+            if (actionLabel != null)
+            {
+                var ltmp = actionLabel.GetComponent<TextMeshProUGUI>();
+                if (ltmp != null)
+                {
+                    Undo.RecordObject(ltmp, "ActionLabel TMP");
+                    ltmp.fontSize = 14f;
+                    ltmp.fontStyle = FontStyles.Bold;
+                    ltmp.textWrappingMode = TextWrappingModes.NoWrap;
+                    EditorUtility.SetDirty(ltmp);
+                }
+                var csf = actionLabel.GetComponent<ContentSizeFitter>();
+                if (csf == null) csf = actionLabel.gameObject.AddComponent<ContentSizeFitter>();
+                Undo.RecordObject(csf, "ActionLabel CSF");
+                csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+                csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+                EditorUtility.SetDirty(csf);
+            }
+
+            var kcp = btnTrans.GetComponent<KeyCapPrompt>();
+            if (kcp != null)
+            {
+                Undo.RecordObject(kcp, "KeyCapPrompt Config");
+                kcp.SetCustomKeycapHeight(26f);
+                kcp.SetPrompt(fallbackKey, actionText);
+                EditorUtility.SetDirty(kcp);
+            }
         }
 
         // =====================================================================
@@ -722,17 +853,17 @@ namespace EcoQuest.CityQuest.Editor
             TextMeshProUGUI resEcoTmp = CreateTMP(resCard.transform, "EcoTipText",
                 "Eco Tip: Recycling 1 ton of paper saves 17 mature trees and 7,000 gallons of water!",
                 bodyFont, 12.5f, new Color(0.78f, 0.92f, 0.82f, 0.9f), TextAlignmentOptions.Center,
-                new Vector2(0.08f, 0.25f), new Vector2(0.92f, 0.33f), Vector2.zero, Vector2.zero);
+                new Vector2(0.08f, 0.28f), new Vector2(0.92f, 0.36f), Vector2.zero, Vector2.zero);
 
             // Buttons
             Button btnQuiz = CreateKeycapButton(resCard.transform, "TakeQuizButton",
                 "[E] Take Bonus Quiz (+70 Coins Max)", headingFont,
-                new Vector2(0.5f, 0f), new Vector2(0f, 84f), new Vector2(460f, 44f),
+                new Vector2(0.5f, 0f), new Vector2(0f, 104f), new Vector2(440f, 46f),
                 tabSprite, accentGreen, borderColor, goldAccent, out TextMeshProUGUI btnQuizTmp);
 
             Button btnRetry = CreateKeycapButton(resCard.transform, "PlayAgainButton",
                 "[E] Continue", headingFont,
-                new Vector2(0.5f, 0f), new Vector2(0f, 32f), new Vector2(280f, 44f),
+                new Vector2(0.5f, 0f), new Vector2(0f, 50f), new Vector2(320f, 46f),
                 tabSprite, accentGreen, borderColor, goldAccent, out TextMeshProUGUI btnRetryTmp);
 
             Button btnSkip = CreateKeycapButton(resCard.transform, "SkipCloseButton",
@@ -1053,21 +1184,52 @@ namespace EcoQuest.CityQuest.Editor
 
             if (!string.IsNullOrEmpty(key))
             {
-                // Create authentic KeyCapPrompt badge matching Ranger Robin / Guardian dialogue
+                // Centered HorizontalLayoutGroup so the keycap badge and text label are dead-centered together
+                HorizontalLayoutGroup hlg = go.AddComponent<HorizontalLayoutGroup>();
+                hlg.childAlignment = TextAnchor.MiddleCenter;
+                hlg.spacing = 10f;
+                hlg.childControlWidth = false;
+                hlg.childControlHeight = false;
+                hlg.childForceExpandWidth = false;
+                hlg.childForceExpandHeight = false;
+
+                // Compact 26x26 keycap badge
                 GameObject keyBox = CreateSlicedPanel(go.transform, "KeycapBadge",
-                    new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                    new Vector2(16f, 0f), new Vector2(28f, 28f), bgSprite, new Color(0.91f, 0.91f, 0.91f, 1f), new Color(0.20f, 0.20f, 0.20f, 0.9f));
+                    new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    Vector2.zero, new Vector2(26f, 26f), bgSprite, new Color(0.91f, 0.91f, 0.91f, 1f), new Color(0.20f, 0.20f, 0.20f, 0.9f));
                 RectTransform keyBoxRt = keyBox.GetComponent<RectTransform>();
                 Image keyBoxImg = keyBox.GetComponent<Image>();
 
-                TextMeshProUGUI keyTmp = CreateTMP(keyBox.transform, "KeyText", key, font, 14f,
+                LayoutElement keyBoxLe = keyBox.AddComponent<LayoutElement>();
+                keyBoxLe.minWidth = 26f;
+                keyBoxLe.preferredWidth = 26f;
+                keyBoxLe.minHeight = 26f;
+                keyBoxLe.preferredHeight = 26f;
+
+                TextMeshProUGUI keyTmp = CreateTMP(keyBox.transform, "KeyText", key, font, 13f,
                     new Color(0.11f, 0.11f, 0.11f, 1f), TextAlignmentOptions.Center,
                     Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 keyTmp.fontStyle = FontStyles.Bold;
 
-                labelTmp = CreateTMP(go.transform, "ActionLabel", cleanLabel, font, 14f, textCol, TextAlignmentOptions.MidlineLeft,
-                    new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(52f, 0f), new Vector2(-12f, 0f));
+                // Action label
+                GameObject labelGo = new GameObject("ActionLabel", typeof(RectTransform));
+                labelGo.transform.SetParent(go.transform, false);
+                RectTransform labelRt = labelGo.GetComponent<RectTransform>();
+                labelRt.sizeDelta = new Vector2(0f, 26f);
+
+                labelTmp = labelGo.AddComponent<TextMeshProUGUI>();
+                labelTmp.text = cleanLabel;
+                labelTmp.font = font;
+                labelTmp.fontSize = 14f;
+                labelTmp.color = textCol;
+                labelTmp.alignment = TextAlignmentOptions.MidlineLeft;
+                labelTmp.textWrappingMode = TextWrappingModes.NoWrap;
+                labelTmp.raycastTarget = false;
                 labelTmp.fontStyle = FontStyles.Bold;
+
+                ContentSizeFitter csf = labelGo.AddComponent<ContentSizeFitter>();
+                csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+                csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
                 KeyCapPrompt kcp = go.AddComponent<KeyCapPrompt>();
                 SerializedObject so = new SerializedObject(kcp);
@@ -1077,8 +1239,10 @@ namespace EcoQuest.CityQuest.Editor
                 so.FindProperty("actionLabel").objectReferenceValue = labelTmp;
                 so.FindProperty("fallbackKey").stringValue = key;
                 so.FindProperty("defaultActionText").stringValue = cleanLabel;
+                so.FindProperty("customKeycapHeight").floatValue = 26f;
                 so.ApplyModifiedPropertiesWithoutUndo();
 
+                kcp.SetCustomKeycapHeight(26f);
                 kcp.SetPrompt(key, cleanLabel);
             }
             else

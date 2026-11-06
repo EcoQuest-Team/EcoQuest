@@ -91,6 +91,7 @@ public class NPCInteraction : MonoBehaviour
     private Vector3 originalCamPos;
     private Quaternion originalCamRot;
     private float originalCamFOV;
+    private static float globalNpcInteractCooldownUntil = 0f;
 
     public bool IsTalking => isTalking;
     public bool IsPlayerNearby => isPlayerNearby;
@@ -244,9 +245,9 @@ public class NPCInteraction : MonoBehaviour
         bool isQuestActive = hasAcceptedQuest && !QuestManager.IsQuestComplete;
         bool isHoldingTrash = DragAndDrop.CurrentlyGrabbedItem != null;
 
-        HandleInteractionPrompt(isQuestActive || isModalBlocking || isHoldingTrash || playerDist > interactDistance);
+        HandleInteractionPrompt(isQuestActive || isModalBlocking || isHoldingTrash || playerDist > interactDistance || Time.unscaledTime < globalNpcInteractCooldownUntil);
 
-        if (isPlayerNearby && !isTalking && !isQuestActive && !isModalBlocking && !isHoldingTrash && playerDist <= interactDistance && Input.GetKeyDown(KeyCode.E))
+        if (isPlayerNearby && !isTalking && !isQuestActive && !isModalBlocking && !isHoldingTrash && playerDist <= interactDistance && Time.unscaledTime >= globalNpcInteractCooldownUntil && Input.GetKeyDown(KeyCode.E))
         {
             if (IsTutorialLocked())
             {
@@ -586,6 +587,7 @@ public class NPCInteraction : MonoBehaviour
 
     public void StartDialogue()
     {
+        if (Time.unscaledTime < globalNpcInteractCooldownUntil) return;
         EnsureUIReferences();
 
         isTalking = true;
@@ -1242,6 +1244,7 @@ public class NPCInteraction : MonoBehaviour
 
     public void DeclineRepeatMission()
     {
+        globalNpcInteractCooldownUntil = Time.unscaledTime + 2.0f;
         if (!isTalking) return;
         bool wasRepeat = isRepeatOfferDialogue;
         isTalking = false;
@@ -1290,6 +1293,7 @@ public class NPCInteraction : MonoBehaviour
 
     public void EndDialogue()
     {
+        globalNpcInteractCooldownUntil = Time.unscaledTime + 2.0f;
         if (!isTalking) return;
         bool wasRepeatOffer = isRepeatOfferDialogue;
         isTalking = false;

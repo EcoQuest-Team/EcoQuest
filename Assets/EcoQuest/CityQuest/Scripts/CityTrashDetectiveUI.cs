@@ -794,9 +794,20 @@ namespace EcoQuest.CityQuest
             if (resultsTakeQuizButton != null)
             {
                 resultsTakeQuizButton.gameObject.SetActive(canTakeBonusQuiz);
+                var quizRt = resultsTakeQuizButton.GetComponent<RectTransform>();
+                if (quizRt != null)
+                {
+                    quizRt.anchorMin = new Vector2(0.5f, 0f);
+                    quizRt.anchorMax = new Vector2(0.5f, 0f);
+                    quizRt.pivot = new Vector2(0.5f, 0.5f);
+                    quizRt.anchoredPosition = new Vector2(0f, 104f);
+                    quizRt.sizeDelta = new Vector2(440f, 46f);
+                }
+
                 if (resultsTakeQuizKeyCap == null) resultsTakeQuizKeyCap = resultsTakeQuizButton.GetComponent<KeyCapPrompt>();
                 if (resultsTakeQuizKeyCap != null)
                 {
+                    resultsTakeQuizKeyCap.SetCustomKeycapHeight(26f);
                     resultsTakeQuizKeyCap.SetPrompt("E", "Take Bonus Quiz (+70 Coins Max)");
                 }
                 else if (resultsTakeQuizButtonText != null)
@@ -814,6 +825,7 @@ namespace EcoQuest.CityQuest
                 if (resultsPlayAgainKeyCap == null) resultsPlayAgainKeyCap = resultsPlayAgainButton.GetComponent<KeyCapPrompt>();
                 if (resultsPlayAgainKeyCap != null)
                 {
+                    resultsPlayAgainKeyCap.SetCustomKeycapHeight(26f);
                     resultsPlayAgainKeyCap.SetPrompt(retryKey, retryLabel);
                 }
                 else if (resultsPlayAgainButtonText != null)
@@ -827,8 +839,8 @@ namespace EcoQuest.CityQuest
                     rt.anchorMin = new Vector2(0.5f, 0f);
                     rt.anchorMax = new Vector2(0.5f, 0f);
                     rt.pivot = new Vector2(0.5f, 0.5f);
-                    rt.anchoredPosition = new Vector2(0f, 32f);
-                    rt.sizeDelta = new Vector2(300f, 44f);
+                    rt.anchoredPosition = new Vector2(0f, canTakeBonusQuiz ? 50f : 60f);
+                    rt.sizeDelta = new Vector2(320f, 46f);
                 }
             }
 

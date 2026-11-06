@@ -136,6 +136,7 @@ namespace EcoQuest.CityQuest
         private float hintActiveTimer = 0f;
         private bool cursorUnlockedByModal = false;
         private float modalCloseCooldownTimer = 0f;
+        private float robinInteractionCooldownUntil = 0f;
         private Coroutine letterboxRoutine;
         private Coroutine dialogueWatchdogRoutine;
         private Coroutine activeDialogueSessionRoutine;
@@ -596,7 +597,7 @@ namespace EcoQuest.CityQuest
             }
 
             // 2. Check Ranger Robin distance
-            if (rangerRobinTransform != null)
+            if (rangerRobinTransform != null && Time.unscaledTime >= robinInteractionCooldownUntil)
             {
                 Vector3 toRobin = rangerRobinTransform.position - pPos;
                 toRobin.y = 0f;
@@ -646,6 +647,7 @@ namespace EcoQuest.CityQuest
 
         public void OpenRangerRobinDialogue()
         {
+            if (Time.unscaledTime < robinInteractionCooldownUntil) return;
             if (dialogueState != RobinDialogueState.Idle || modalCloseCooldownTimer > 0f)
             {
 #if UNITY_EDITOR
@@ -922,6 +924,7 @@ namespace EcoQuest.CityQuest
             {
                 SetPlayerControlFrozen(false);
                 dialogueState = RobinDialogueState.Idle;
+                robinInteractionCooldownUntil = Time.unscaledTime + 2.0f;
 #if UNITY_EDITOR
                 if (isActiveAndEnabled && Application.isPlaying)
                 {

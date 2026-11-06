@@ -199,6 +199,7 @@ public class LitterbugQuestManager : MonoBehaviour
     private bool isTypingPage;
     private int lastInputFrame = -10;
     private float nextAllowedInputTime;
+    private float npcInteractCooldownUntil = 0f;
 
     private Coroutine typewriterCoroutine;
     private Coroutine dialogueFadeCoroutine;
@@ -551,7 +552,7 @@ public class LitterbugQuestManager : MonoBehaviour
                 }
             }
 
-            if (giverSqr <= giverInteractSqr && questState != LitterbugQuestState.Completed)
+            if (giverSqr <= giverInteractSqr && questState != LitterbugQuestState.Completed && Time.unscaledTime >= npcInteractCooldownUntil)
             {
                 canInteractFountain = true;
             }
@@ -587,7 +588,7 @@ public class LitterbugQuestManager : MonoBehaviour
                 targetSlots[i].litterbug.TickFromManager(sqr3D, playerPos, false, dt);
 
                 float slotInterSqr = targetSlots[i].litterbug.InteractRadiusSqr;
-                if (targetSlots[i].litterbug.State == LitterbugState.Listening && sqrXZ <= slotInterSqr && sqrXZ < bestInteractSqr)
+                if (Time.unscaledTime >= npcInteractCooldownUntil && targetSlots[i].litterbug.State == LitterbugState.Listening && sqrXZ <= slotInterSqr && sqrXZ < bestInteractSqr)
                 {
                     bestInteractSqr = sqrXZ;
                     interactSlot = i;
@@ -1233,6 +1234,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
     public void OpenQuestGiverDialogue()
     {
+        if (Time.unscaledTime < npcInteractCooldownUntil) return;
         if (IsDialogueOpen || questState == LitterbugQuestState.Completed) return;
 
         bool isRobinQuestBusy = EcoQuest.CityQuest.CityTrashDetectiveManager.Instance != null &&
@@ -1285,6 +1287,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
     public void OpenLitterbugDialogue(int slotIndex)
     {
+        if (Time.unscaledTime < npcInteractCooldownUntil) return;
         if (IsDialogueOpen) return;
         if (slotIndex < 0 || slotIndex >= TargetCount) return;
         if (targetSlots[slotIndex].persuaded || targetSlots[slotIndex].litterbug == null || targetSlots[slotIndex].entry == null) return;
@@ -1621,19 +1624,23 @@ public class LitterbugQuestManager : MonoBehaviour
         bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
         if (isOfferFinalPage && !isTypingPage)
         {
-            if (IsQKeyPressedThisFrame())
+            if (IsQKeyPressedThisFrame() || Input.GetKeyDown(KeyCode.Escape))
             {
                 ConsumeInputCooldown(0.20f);
                 OnNotNowButtonClicked();
                 return;
             }
 
-            if (IsAdvanceOrConfirmPressedThisFrame())
+            if (IsEKeyPressedThisFrame() || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
             {
                 ConsumeInputCooldown(0.20f);
                 OnAcceptButtonClicked();
                 return;
             }
+
+            // Note: Mouse clicks are handled by the UI button listeners (acceptQuestButton, notNowButton).
+            // Do not call IsAdvanceOrConfirmPressedThisFrame() here, as that triggers on any left mouse click
+            // anywhere on screen, which would incorrectly accept the quest when clicking Close.
             return;
         }
 
@@ -1779,6 +1786,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
     private void CloseDialogueImmediateOrFade()
     {
+        npcInteractCooldownUntil = Time.unscaledTime + 2.0f;
         IsDialogueOpen = false;
         activeDialogueMode = DialogueMode.None;
         activeSlotIndex = -1;

@@ -33,6 +33,7 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
     [SerializeField] private string defaultActionText = "Interact";
     [SerializeField] private float pressDepth = 3f;
     [SerializeField] private float idlePulseScale = 1.04f;
+    [SerializeField] private float customKeycapHeight = 0f;
 
     [Header("Colors")]
     [SerializeField] private Color normalColor = new Color(0.91f, 0.91f, 0.91f, 1f); // #E8E8E8
@@ -131,8 +132,9 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
             if (ale == null && hlg != null) ale = actionLabel.gameObject.AddComponent<LayoutElement>();
             if (ale != null)
             {
-                ale.minHeight = 48f;
-                ale.preferredHeight = 48f;
+                float targetH = customKeycapHeight > 0f ? customKeycapHeight : 48f;
+                ale.minHeight = targetH;
+                ale.preferredHeight = targetH;
             }
         }
 
@@ -152,6 +154,7 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
     private float GetBaselineY()
     {
         if (keycapRect == null) return 0f;
+        if (GetComponent<HorizontalLayoutGroup>() != null) return 0f;
         if (keycapRect.anchorMin.y > 0.9f && keycapRect.parent is RectTransform prt)
         {
             float h = prt.rect.height > 1f ? prt.rect.height : prt.sizeDelta.y;
@@ -161,15 +164,24 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         return 0f;
     }
 
+    public void SetCustomKeycapHeight(float h)
+    {
+        customKeycapHeight = h;
+        AdjustKeycapWidth();
+    }
+
     private void AdjustKeycapWidth()
     {
         if (keycapRect != null && keycapText != null)
         {
+            float targetHeight = customKeycapHeight > 0f ? customKeycapHeight : 48f;
             float textPreferred = keycapText.preferredWidth;
-            float targetWidth = Mathf.Max(48f, textPreferred + 18f);
+            float targetWidth = customKeycapHeight > 0f
+                ? Mathf.Max(targetHeight, textPreferred + 10f)
+                : Mathf.Max(48f, textPreferred + 18f);
             Vector2 size = keycapRect.sizeDelta;
             size.x = targetWidth;
-            size.y = 48f;
+            size.y = targetHeight;
             keycapRect.sizeDelta = size;
 
             var kle = keycapRect.GetComponent<LayoutElement>();
@@ -179,8 +191,8 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
             {
                 kle.minWidth = targetWidth;
                 kle.preferredWidth = targetWidth;
-                kle.minHeight = 48f;
-                kle.preferredHeight = 48f;
+                kle.minHeight = targetHeight;
+                kle.preferredHeight = targetHeight;
             }
         }
     }
