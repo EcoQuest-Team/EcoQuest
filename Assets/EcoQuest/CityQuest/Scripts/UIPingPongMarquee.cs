@@ -59,7 +59,7 @@ namespace EcoQuest.CityQuest
             if (tmpText != null)
             {
                 tmpText.alignment = TextAlignmentOptions.MidlineLeft;
-                tmpText.enableWordWrapping = false;
+                tmpText.textWrappingMode = TextWrappingModes.NoWrap;
                 tmpText.overflowMode = TextOverflowModes.Overflow;
             }
         }
@@ -74,6 +74,7 @@ namespace EcoQuest.CityQuest
                 textRect.pivot = new Vector2(0f, 0.5f);
                 textRect.anchorMin = new Vector2(0f, 0.5f);
                 textRect.anchorMax = new Vector2(0f, 0.5f);
+                textRect.sizeDelta = new Vector2(200f, 20f);
                 textRect.anchoredPosition = new Vector2(0f, 0f);
             }
         }
@@ -92,6 +93,7 @@ namespace EcoQuest.CityQuest
                 textRect.pivot = new Vector2(0f, 0.5f);
                 textRect.anchorMin = new Vector2(0f, 0.5f);
                 textRect.anchorMax = new Vector2(0f, 0.5f);
+                textRect.sizeDelta = new Vector2(200f, 20f);
             }
 
             // Detect text content change and reset
@@ -101,12 +103,14 @@ namespace EcoQuest.CityQuest
                 ResetMarquee();
             }
 
-            float textWidth = tmpText.preferredWidth;
             float maskWidth = maskRect.rect.width;
+            if (maskWidth <= 1f) return;
+
+            float textWidth = tmpText.GetPreferredValues(tmpText.text).x;
             maxScroll = Mathf.Max(0f, textWidth - maskWidth + 4f);
 
-            // If the text fits comfortably inside the mask, keep it at start
-            if (maxScroll <= 1f)
+            // If the text fits comfortably inside the mask, keep it stationary at start
+            if (maxScroll <= 2f)
             {
                 if (currentOffset != 0f)
                 {
@@ -132,7 +136,7 @@ namespace EcoQuest.CityQuest
                 {
                     currentOffset = maxScroll;
                     scrollingLeft = false;
-                    timer = pauseDuration;
+                    timer = pauseDuration * 0.9f;
                 }
             }
             else
@@ -142,7 +146,7 @@ namespace EcoQuest.CityQuest
                 {
                     currentOffset = 0f;
                     scrollingLeft = true;
-                    timer = pauseDuration;
+                    timer = pauseDuration * 1.2f;
                 }
             }
 

@@ -1518,7 +1518,7 @@ namespace EcoQuest.CityQuest
         private static void AwardCoins(int amount)
         {
             if (amount <= 0) return;
-            var currency = UnityEngine.Object.FindFirstObjectByType<PlayerCurrency>(FindObjectsInactive.Include);
+            var currency = PlayerCurrency.Instance ?? UnityEngine.Object.FindFirstObjectByType<PlayerCurrency>(FindObjectsInactive.Include);
             if (currency != null)
             {
                 if (amount >= 10)

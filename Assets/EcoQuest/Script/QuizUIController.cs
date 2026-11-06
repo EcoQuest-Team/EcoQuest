@@ -88,6 +88,11 @@ public class QuizUIController : MonoBehaviour
 
     private void Awake()
     {
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("City"))
+        {
+            isBonusQuizMode = true;
+        }
+
         if (questionContainerRect != null && !hasRecordedQuestionBasePos)
         {
             questionContainerBasePos = questionContainerRect.anchoredPosition;
@@ -507,7 +512,10 @@ public class QuizUIController : MonoBehaviour
     public void HideImmediate()
     {
         IsAnyQuizOpen = false;
-        isBonusQuizMode = false;
+        if (!UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("City"))
+        {
+            isBonusQuizMode = false;
+        }
         StopAndResetRewardGift();
 
         if (overlayCanvasGroup != null)
@@ -1164,7 +1172,8 @@ public class QuizUIController : MonoBehaviour
         Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
         if (quizModalTab != null) quizModalTab.gameObject.SetActive(false);
 
-        if (isBonusQuizMode || preScore == 0)
+        bool isCityScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("City");
+        if (isBonusQuizMode || isCityScene || preScore == 0)
         {
             if (resultsTitleText != null)
             {

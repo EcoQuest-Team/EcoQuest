@@ -12,6 +12,8 @@ public class PlayerCurrency : MonoBehaviour
     
     [SerializeField] private TextMeshProUGUI popupText; 
 
+    public static PlayerCurrency Instance { get; private set; }
+
     private int currentGold = 0;
     private Coroutine popupCoroutine;
     private Coroutine countUpCoroutine;
@@ -20,6 +22,7 @@ public class PlayerCurrency : MonoBehaviour
 
     private void Awake()
     {
+        Instance = this;
         currentGold = PlayerPrefs.GetInt(PrefsKey, PlayerPrefs.GetInt(LegacyPrefsKey, 0));
     }
 

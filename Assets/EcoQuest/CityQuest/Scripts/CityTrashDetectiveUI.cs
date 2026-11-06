@@ -786,7 +786,7 @@ namespace EcoQuest.CityQuest
                 {
                     resultsPlayAgainButtonText.text = canTakeBonusQuiz
                         ? "<b>[Q]</b> Continue (Back to Robin)"
-                        : "<b>[E]</b> Continue";
+                        : "<b>[E]</b> Continue (Return to Robin)";
                 }
                 var rt = resultsPlayAgainButton.GetComponent<RectTransform>();
                 if (rt != null)
@@ -825,8 +825,9 @@ namespace EcoQuest.CityQuest
                 if (resultsStarImages[i] != null)
                 {
                     resultsStarImages[i].transform.localScale = Vector3.zero;
-                    resultsStarImages[i].sprite = (i < starsEarned) ? starFilledSprite : starOutlineSprite;
-                    resultsStarImages[i].color = new Color(1f, 0.85f, 0.25f, 0.85f);
+                    bool isEarned = (i < starsEarned);
+                    resultsStarImages[i].sprite = (isEarned || starOutlineSprite == null) ? starFilledSprite : starOutlineSprite;
+                    resultsStarImages[i].color = isEarned ? new Color(1f, 0.85f, 0.20f, 1f) : new Color(1f, 0.85f, 0.20f, 0.35f);
                 }
             }
 
@@ -838,8 +839,8 @@ namespace EcoQuest.CityQuest
                 if (img == null) continue;
 
                 bool isEarned = (i < starsEarned);
-                img.sprite = isEarned ? starFilledSprite : starOutlineSprite;
-                img.color = isEarned ? new Color(1f, 0.88f, 0.18f, 1f) : new Color(1f, 0.85f, 0.25f, 0.90f);
+                img.sprite = (isEarned || starOutlineSprite == null) ? starFilledSprite : starOutlineSprite;
+                img.color = isEarned ? new Color(1f, 0.85f, 0.20f, 1f) : new Color(1f, 0.85f, 0.20f, 0.35f);
 
                 float dur = 0.28f;
                 float elapsed = 0f;

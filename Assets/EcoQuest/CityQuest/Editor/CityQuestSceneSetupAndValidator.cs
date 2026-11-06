@@ -387,11 +387,11 @@ namespace EcoQuest.CityQuest.Editor
             ui.categoryHazardSprite = catHazardSprite;
 
             // -----------------------------------------------------------------
-            // 1. FIELD CHECKLIST PANEL (Top-Left 340x480, margin left 130, top 40)
+            // 1. FIELD CHECKLIST PANEL (Top-Left 395x480, margin left 40, top -145)
             // -----------------------------------------------------------------
             GameObject checklistGo = CreateSlicedPanel(canvasGo.transform, "ChecklistPanel",
                 new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                CityTrashDetectiveUI.ChecklistHomePos, new Vector2(340f, 480f),
+                CityTrashDetectiveUI.ChecklistHomePos, new Vector2(395f, 480f),
                 panelSprite, panelFill, borderColor);
             CanvasGroup checklistCg = checklistGo.AddComponent<CanvasGroup>();
 
@@ -406,20 +406,20 @@ namespace EcoQuest.CityQuest.Editor
             // Header Title + Timer
             TextMeshProUGUI headerTitle = CreateTMP(checklistGo.transform, "HeaderProgressText", "FIELD CHECKLIST (0/10)",
                 headingFont, 16f, creamText, TextAlignmentOptions.MidlineLeft,
-                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -38f), new Vector2(-120f, -12f));
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -38f), new Vector2(-130f, -12f));
 
             // Clock icon + Timer Text
             GameObject clockIconGo = CreateImage(checklistGo.transform, "ClockIcon",
                 new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0.5f),
-                new Vector2(-88f, -25f), new Vector2(18f, 18f), clockSprite, goldAccent);
+                new Vector2(-96f, -25f), new Vector2(18f, 18f), clockSprite, goldAccent);
 
             TextMeshProUGUI timerTmp = CreateTMP(checklistGo.transform, "TimerText", "04:00",
                 headingFont, 17f, goldAccent, TextAlignmentOptions.MidlineRight,
-                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-85f, -38f), new Vector2(-16f, -12f));
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-92f, -38f), new Vector2(-16f, -12f));
 
             TextMeshProUGUI timerPausedTmp = CreateTMP(checklistGo.transform, "TimerPausedText", "PAUSED",
                 headingFont, 10f, new Color(1f, 0.5f, 0.5f, 1f), TextAlignmentOptions.Center,
-                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-85f, -50f), new Vector2(-16f, -38f));
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-92f, -50f), new Vector2(-16f, -38f));
             timerPausedTmp.gameObject.SetActive(false);
 
             // Thin progress bar
@@ -448,63 +448,66 @@ namespace EcoQuest.CityQuest.Editor
                 CanvasGroup rowCg = rowGo.AddComponent<CanvasGroup>();
                 Image rowBg = rowGo.GetComponent<Image>();
 
-                // Item Icon (28x28)
+                // Item Icon (26x26)
                 GameObject iconGo = CreateImage(rowGo.transform, "Icon",
                     new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                     new Vector2(6f, 0f), new Vector2(26f, 26f), null, Color.white);
                 Image iconImg = iconGo.GetComponent<Image>();
 
-                // Name (single line, ellipsis, no wrap)
+                // Name (single line, ellipsis, no wrap, width ~146px)
                 TextMeshProUGUI nameTmp = CreateTMP(rowGo.transform, "ItemName", $"Item #{r + 1}",
                     bodyFont, 12f, creamText, TextAlignmentOptions.MidlineLeft,
-                    new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(36f, 0f), new Vector2(150f, 0f));
+                    new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(36f, 0f), new Vector2(182f, 0f));
                 nameTmp.overflowMode = TextOverflowModes.Ellipsis;
+                nameTmp.textWrappingMode = TextWrappingModes.NoWrap;
                 nameTmp.enableWordWrapping = false;
 
-                // Category Badge (84x20) with category icon + masked left-right ping-pong marquee text
+                // Category Badge (106x20) with category icon + masked left-right ping-pong marquee text
                 GameObject catPillGo = CreateSlicedPanel(rowGo.transform, "CategoryBadge",
                     new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                    new Vector2(-74f, 0f), new Vector2(84f, 20f),
+                    new Vector2(-84f, 0f), new Vector2(106f, 20f),
                     tabSprite, accentGreen, Color.clear);
                 Image catPillImg = catPillGo.GetComponent<Image>();
 
                 GameObject catIconGo = CreateImage(catPillGo.transform, "CatIcon",
                     new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                    new Vector2(3f, 0f), new Vector2(12f, 12f), catBioSprite, Color.white);
+                    new Vector2(3.5f, 0f), new Vector2(12f, 12f), catBioSprite, Color.white);
                 Image catIconImg = catIconGo.GetComponent<Image>();
 
-                // Masked container for smooth left-right ping-pong marquee
+                // Masked container for smooth left-right ping-pong marquee (85px wide)
                 GameObject catMaskGo = new GameObject("CatTextMask");
                 catMaskGo.transform.SetParent(catPillGo.transform, false);
                 RectTransform catMaskRt = catMaskGo.AddComponent<RectTransform>();
                 catMaskRt.anchorMin = new Vector2(0f, 0f);
                 catMaskRt.anchorMax = new Vector2(1f, 1f);
-                catMaskRt.offsetMin = new Vector2(17f, 0f);
+                catMaskRt.offsetMin = new Vector2(18f, 0f);
                 catMaskRt.offsetMax = new Vector2(-3f, 0f);
                 catMaskGo.AddComponent<RectMask2D>();
 
                 TextMeshProUGUI catTmp = CreateTMP(catMaskGo.transform, "CatText", "BIODEGRADABLE",
-                    headingFont, 10.5f, Color.white, TextAlignmentOptions.MidlineLeft,
-                    new Vector2(0f, 0f), new Vector2(0f, 1f), Vector2.zero, new Vector2(160f, 0f));
+                    headingFont, 10f, Color.white, TextAlignmentOptions.MidlineLeft,
+                    new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
                 catTmp.rectTransform.pivot = new Vector2(0f, 0.5f);
-                catTmp.rectTransform.anchorMin = new Vector2(0f, 0.5f);
-                catTmp.rectTransform.anchorMax = new Vector2(0f, 0.5f);
+                catTmp.rectTransform.sizeDelta = new Vector2(200f, 20f);
                 catTmp.rectTransform.anchoredPosition = Vector2.zero;
-                catTmp.rectTransform.sizeDelta = new Vector2(160f, 20f);
                 catTmp.overflowMode = TextOverflowModes.Overflow;
+                catTmp.textWrappingMode = TextWrappingModes.NoWrap;
                 catTmp.enableWordWrapping = false;
 
                 UIPingPongMarquee marquee = catTmp.gameObject.AddComponent<UIPingPongMarquee>();
                 marquee.maskRect = catMaskRt;
                 marquee.textRect = catTmp.rectTransform;
                 marquee.tmpText = catTmp;
-                marquee.scrollSpeed = 18f;
-                marquee.pauseDuration = 1.3f;
+                marquee.scrollSpeed = 16f;
+                marquee.pauseDuration = 1.4f;
 
-                // District Tag
+                // District Tag (single line, no wrapping on "Residential")
                 TextMeshProUGUI distTmp = CreateTMP(rowGo.transform, "DistrictTag", "Park",
-                    bodyFont, 10f, new Color(0.75f, 0.90f, 0.80f, 1f), TextAlignmentOptions.MidlineRight,
-                    new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-74f, 0f), new Vector2(-28f, 0f));
+                    bodyFont, 9.5f, new Color(0.75f, 0.90f, 0.80f, 1f), TextAlignmentOptions.MidlineRight,
+                    new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-82f, 0f), new Vector2(-28f, 0f));
+                distTmp.textWrappingMode = TextWrappingModes.NoWrap;
+                distTmp.overflowMode = TextOverflowModes.Ellipsis;
+                distTmp.enableWordWrapping = false;
 
                 // Checkbox (20x20 rounded) + Checkmark Image
                 GameObject chkGo = CreateSlicedPanel(rowGo.transform, "CheckBox",
