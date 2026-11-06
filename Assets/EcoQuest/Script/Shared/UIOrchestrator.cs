@@ -40,6 +40,19 @@ public class UIOrchestrator : MonoBehaviour
         QuestComplete = 3
     }
 
+    public enum HudProfile
+    {
+        Title = 0,
+        ForestExploring = 1,
+        BinSorting = 2,
+        CityLitterbug = 3,
+        CityScavenger = 4
+    }
+
+    // Optional City Trash Detective (CityScavenger) additive hooks (default null outside City Scene)
+    public static Func<bool> IsCityScavengerActiveHook;
+    public static Func<bool> IsCityScavengerOverlayOpenHook;
+
     public static bool IsCityScene()
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
@@ -50,6 +63,10 @@ public class UIOrchestrator : MonoBehaviour
     {
         if (IsCityScene())
         {
+            if (IsCityScavengerActiveHook != null && IsCityScavengerActiveHook())
+            {
+                return GamePhase.QuestActive;
+            }
             if (LitterbugQuestManager.Instance != null)
             {
                 var qState = LitterbugQuestManager.Instance.QuestState;
@@ -155,6 +172,15 @@ public class UIOrchestrator : MonoBehaviour
 
     public void ToggleQuestPanel(string caller = "User")
     {
+        if (IsCityScene())
+        {
+            if (activeOverlays.Count == 0 && currentFlowStep == FlowStep.ExplorerTravel)
+            {
+                currentFlowStep = FlowStep.FreePlay;
+            }
+            currentPhase = EvaluateLivePhase("ToggleQuestPanel");
+        }
+
         bool allowedByStep;
         if (IsCityScene())
         {
@@ -171,15 +197,16 @@ public class UIOrchestrator : MonoBehaviour
         isQuestPanelUserHidden = !isQuestPanelUserHidden;
         LastWriter = $"{caller}:ToggleQuestPanel(hidden={isQuestPanelUserHidden})";
 
-#if UNITY_EDITOR
+        ResolveReferences();
         bool panelVisible = GetExpectedVisibility(UIElement.QuestPanel);
-        Debug.Log($"[FlowTrace] TAB: toggle -> userHidden={isQuestPanelUserHidden}, panelVisible={panelVisible}");
+#if UNITY_EDITOR
+        Debug.Log($"[FlowTrace] TAB: toggle -> userHidden={isQuestPanelUserHidden}, panelVisible={panelVisible}, phase={currentPhase}, step={currentFlowStep}, overlays=[{ActiveOverlaysSummary}]");
 #endif
 
         // TAB toggles ONLY the quest tab, nothing else
         if (questPanelGroup != null)
         {
-            AnimateQuestPanel(questPanelGroup, GetExpectedVisibility(UIElement.QuestPanel), 0.25f);
+            AnimateQuestPanel(questPanelGroup, panelVisible, 0.25f);
         }
         else
         {
@@ -258,7 +285,8 @@ public class UIOrchestrator : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
 
         ResolveReferences();
-        overlayStack.Clear();
+        activeOverlays.Clear();
+        overlayOrder.Clear();
     }
 
     private void OnDestroy()
@@ -283,11 +311,13 @@ public class UIOrchestrator : MonoBehaviour
 
     public void ClearAllOverlays()
     {
-        overlayStack.Clear();
+        activeOverlays.Clear();
+        overlayOrder.Clear();
         if (currentFlowStep == FlowStep.ExplorerTravel)
         {
             currentFlowStep = FlowStep.FreePlay;
         }
+        currentPhase = EvaluateLivePhase("ClearAllOverlays");
         ApplyCurrentProfile(0f);
     }
 
@@ -339,14 +369,39 @@ public class UIOrchestrator : MonoBehaviour
         questPanelGroup = FindOrAddCG(uiRoot, "UI_Quest/QuestPanel");
         if (questPanelGroup == null)
         {
-            questPanelGroup = FindOrAddCG(uiRoot, "UI_LitterbugQuest/QuestPanel");
+            bool cityScavengerActive = IsCityScene() && IsCityScavengerActiveHook != null && IsCityScavengerActiveHook();
+            if (cityScavengerActive)
+            {
+                var cityPanel = FindOrAddCG(uiRoot, "UI_CityTrashDetective/ChecklistPanel");
+                if (cityPanel != null && questPanelGroup != cityPanel)
+                {
+                    hasQuestPanelBasePos = false;
+                    questPanelGroup = cityPanel;
+                }
+            }
+            if (questPanelGroup == null)
+            {
+                var lbPanel = FindOrAddCG(uiRoot, "UI_LitterbugQuest/QuestPanel");
+                if (lbPanel != null && questPanelGroup != lbPanel)
+                {
+                    hasQuestPanelBasePos = false;
+                    questPanelGroup = lbPanel;
+                }
+            }
         }
         if (questPanelGroup != null && !hasQuestPanelBasePos)
         {
             var rt = questPanelGroup.GetComponent<RectTransform>();
             if (rt != null)
             {
-                questPanelBasePos = rt.anchoredPosition;
+                if (questPanelGroup.gameObject.name == "ChecklistPanel")
+                {
+                    questPanelBasePos = EcoQuest.CityQuest.CityTrashDetectiveUI.ChecklistHomePos;
+                }
+                else
+                {
+                    questPanelBasePos = rt.anchoredPosition;
+                }
                 hasQuestPanelBasePos = true;
             }
         }
@@ -470,57 +525,172 @@ public class UIOrchestrator : MonoBehaviour
 
     public struct OverlaySnapshot
     {
+        public string overlayId;
         public FlowStep flowStep;
         public GamePhase phase;
         public bool isQuestPanelUserHidden;
         public bool modalsOpen;
     }
 
-    private readonly Stack<OverlaySnapshot> overlayStack = new Stack<OverlaySnapshot>();
-    public bool IsOverlayActive => overlayStack.Count > 0;
+    private readonly Dictionary<string, OverlaySnapshot> activeOverlays = new Dictionary<string, OverlaySnapshot>(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> overlayOrder = new List<string>();
+    private Coroutine nextFrameVerifyRoutine;
+    private float noOverlayOrModalDuration = 0f;
 
+    public bool IsOverlayActive => activeOverlays.Count > 0;
+    public int ActiveOverlayCount => activeOverlays.Count;
+    public string ActiveOverlaysSummary => activeOverlays.Count == 0 ? "none" : string.Join(",", overlayOrder);
+    public IReadOnlyCollection<string> ActiveOverlayIds => overlayOrder;
+
+    /// <summary>
+    /// Idempotent overlay push per overlayName: pushing an overlay id already in the set is a no-op.
+    /// </summary>
     public void PushOverlay(string overlayName)
     {
-        overlayStack.Push(new OverlaySnapshot
+        if (string.IsNullOrWhiteSpace(overlayName)) overlayName = "DefaultOverlay";
+
+        if (activeOverlays.ContainsKey(overlayName))
         {
-            flowStep = currentFlowStep,
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] PushOverlay('{overlayName}') no-op (already active; set=[{ActiveOverlaysSummary}])");
+#endif
+            return;
+        }
+
+        FlowStep baseStep = currentFlowStep != FlowStep.ExplorerTravel ? currentFlowStep : FlowStep.FreePlay;
+        if (overlayOrder.Count > 0 && activeOverlays.TryGetValue(overlayOrder[0], out var firstSnap))
+        {
+            baseStep = firstSnap.flowStep;
+        }
+
+        activeOverlays[overlayName] = new OverlaySnapshot
+        {
+            overlayId = overlayName,
+            flowStep = baseStep,
             phase = currentPhase,
             isQuestPanelUserHidden = isQuestPanelUserHidden,
             modalsOpen = modalsOpen
-        });
+        };
+        overlayOrder.Add(overlayName);
 
         FlowStep prevStep = currentFlowStep;
         currentFlowStep = FlowStep.ExplorerTravel;
+        LastWriter = $"PushOverlay({overlayName})";
         Debug.Log($"[FlowState] Push overlay '{overlayName}' (base step: {prevStep})");
+#if UNITY_EDITOR
+        Debug.Log($"[FlowTrace] PushOverlay('{overlayName}') -> overlays=[{ActiveOverlaysSummary}], step={currentFlowStep}, phase={currentPhase}, modals={AreModalsOpen}");
+#endif
         ApplyCurrentProfile(0.20f);
     }
 
-    public void PopOverlay()
+    /// <summary>
+    /// Idempotent overlay pop: removes overlayName (or last pushed if null).
+    /// Popping an id not in the set is a safe no-op.
+    /// When the overlay set becomes empty, immediately restores the live gameplay HUD profile and verifies next frame.
+    /// </summary>
+    public void PopOverlay(string overlayName = null)
     {
-        if (overlayStack.Count > 0)
+        if (activeOverlays.Count == 0)
         {
-            var snap = overlayStack.Pop();
-            FlowStep overlayStep = currentFlowStep;
-            currentFlowStep = snap.flowStep;
-            
-            // Evaluate phase from live state instead of blindly restoring pre-overlay snapshot
-            GamePhase livePhase = EvaluateLivePhase("PopOverlay");
-            currentPhase = livePhase;
-            isQuestPanelUserHidden = snap.isQuestPanelUserHidden;
-            modalsOpen = snap.modalsOpen;
+            if (currentFlowStep == FlowStep.ExplorerTravel)
+            {
+                currentFlowStep = FlowStep.FreePlay;
+            }
+            currentPhase = EvaluateLivePhase("PopOverlayEmptySet");
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] PopOverlay('{overlayName ?? "*"}') no-op (set already empty) -> step={currentFlowStep}, phase={currentPhase}");
+#endif
+            ApplyCurrentProfile(0.20f);
+            OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
+            return;
+        }
 
-            Debug.Log($"[FlowState] Pop overlay -> restored step {currentFlowStep}, live phase {currentPhase} (from {overlayStep})");
+        string targetKey = overlayName;
+        if (string.IsNullOrWhiteSpace(targetKey))
+        {
+            targetKey = overlayOrder[overlayOrder.Count - 1];
+        }
+
+        if (!activeOverlays.TryGetValue(targetKey, out var snap))
+        {
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] PopOverlay('{targetKey}') no-op (id not in active set=[{ActiveOverlaysSummary}])");
+#endif
+            return;
+        }
+
+        activeOverlays.Remove(targetKey);
+        overlayOrder.RemoveAll(k => string.Equals(k, targetKey, StringComparison.OrdinalIgnoreCase));
+
+        if (activeOverlays.Count == 0)
+        {
+            FlowStep overlayStep = currentFlowStep;
+            currentFlowStep = (snap.flowStep == FlowStep.ExplorerTravel) ? FlowStep.FreePlay : snap.flowStep;
+            if (IsCityScene() && currentFlowStep != FlowStep.FreePlay)
+            {
+                currentFlowStep = FlowStep.FreePlay;
+            }
+
+            currentPhase = EvaluateLivePhase("PopOverlay");
+            isQuestPanelUserHidden = snap.isQuestPanelUserHidden;
+            if (ModalManager.Instance == null || !ModalManager.Instance.IsAnyModalActuallyVisible())
+            {
+                modalsOpen = false;
+            }
+
+            LastWriter = $"PopOverlay({targetKey})";
+            Debug.Log($"[FlowState] Pop overlay '{targetKey}' -> restored step {currentFlowStep}, live phase {currentPhase} (from {overlayStep})");
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] PopOverlay('{targetKey}') -> set empty, restored step={currentFlowStep}, phase={currentPhase}, userHidden={isQuestPanelUserHidden}");
+#endif
             ApplyCurrentProfile(0.20f);
             ValidateStepState(currentFlowStep);
             OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
+
+            if (isActiveAndEnabled && Application.isPlaying)
+            {
+                if (nextFrameVerifyRoutine != null) StopCoroutine(nextFrameVerifyRoutine);
+                nextFrameVerifyRoutine = StartCoroutine(VerifyHudRestoredNextFrameRoutine(targetKey));
+            }
         }
         else
         {
-            currentPhase = EvaluateLivePhase("PopOverlayEmptyStack");
-            Debug.LogWarning("[FlowState] PopOverlay called but overlay stack is empty! Applying current profile.");
-            ApplyCurrentProfile(0.20f);
-            OnFlowStateChanged?.Invoke(currentFlowStep, currentPhase);
+#if UNITY_EDITOR
+            Debug.Log($"[FlowTrace] PopOverlay('{targetKey}') -> remaining overlays=[{ActiveOverlaysSummary}]");
+#endif
         }
+    }
+
+    private IEnumerator VerifyHudRestoredNextFrameRoutine(string poppedOverlay)
+    {
+        yield return null;
+        if (activeOverlays.Count > 0 || AreModalsOpen) yield break;
+
+        ResolveReferences();
+        foreach (var kvp in elementGroups)
+        {
+            var element = kvp.Key;
+            var cg = kvp.Value;
+            if (cg == null) continue;
+
+            bool expected = GetExpectedVisibility(element);
+            if (expected)
+            {
+                if (!cg.gameObject.activeSelf) cg.gameObject.SetActive(true);
+                var anim = cg.GetComponent<UIAnimator>();
+                bool isAnim = (anim != null && anim.IsAnimating) || (element == UIElement.QuestPanel && questPanelSlideRoutine != null);
+                if (!isAnim && cg.alpha < 0.99f)
+                {
+                    SnapElement(cg, true);
+                }
+                cg.interactable = true;
+                cg.blocksRaycasts = true;
+            }
+        }
+#if UNITY_EDITOR
+        Debug.Log($"[FlowTrace] NextFrameVerify after '{poppedOverlay}': Gear={(gearGroup != null ? gearGroup.alpha : -1f):F2}, Minimap={(minimapGroup != null ? minimapGroup.alpha : -1f):F2}, Coins={(coinsGroup != null ? coinsGroup.alpha : -1f):F2}, Crosshair={(crosshairGroup != null ? crosshairGroup.alpha : -1f):F2}, QuestPanel={(questPanelGroup != null ? questPanelGroup.alpha : -1f):F2}");
+#endif
+        nextFrameVerifyRoutine = null;
     }
 
     public void EnterCinematicProfile(string caller = "ExplorerGate")
@@ -531,8 +701,11 @@ public class UIOrchestrator : MonoBehaviour
 
     public void ExitCinematicProfile(string caller = "ExplorerGate")
     {
-        PopOverlay();
-        WorldInteractionPrompt.Instance?.SetBlocked(false);
+        PopOverlay(caller);
+        if (!IsOverlayActive)
+        {
+            WorldInteractionPrompt.Instance?.SetBlocked(false);
+        }
     }
 
     /// <summary>
@@ -643,7 +816,8 @@ public class UIOrchestrator : MonoBehaviour
         bool isCinematicOrDialogue = (HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden) ||
                                      (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue) ||
                                      LitterbugQuestManager.IsDialogueOpen ||
-                                     overlayStack.Count > 0;
+                                     (IsCityScavengerOverlayOpenHook != null && IsCityScavengerOverlayOpenHook()) ||
+                                     activeOverlays.Count > 0;
 
         if (isCinematicOrDialogue)
         {
@@ -664,7 +838,12 @@ public class UIOrchestrator : MonoBehaviour
             case UIElement.QuestPanel:
                 if (IsCityScene())
                 {
-                    bool cityQuestActive = (currentPhase == GamePhase.QuestActive || currentPhase == GamePhase.QuestComplete);
+                    if (IsCityScavengerOverlayOpenHook != null && IsCityScavengerOverlayOpenHook())
+                    {
+                        return false;
+                    }
+                    bool cityQuestActive = (currentPhase == GamePhase.QuestActive || currentPhase == GamePhase.QuestComplete) ||
+                                           (IsCityScavengerActiveHook != null && IsCityScavengerActiveHook());
                     if (!cityQuestActive && LitterbugQuestManager.Instance != null)
                     {
                         var qState = LitterbugQuestManager.Instance.QuestState;
@@ -837,17 +1016,18 @@ public class UIOrchestrator : MonoBehaviour
     private void SnapElement(CanvasGroup cg, bool visible)
     {
         if (cg == null) return;
+        if (visible && !cg.gameObject.activeSelf) cg.gameObject.SetActive(true);
         cg.alpha = visible ? 1f : 0f;
         cg.interactable = visible;
         cg.blocksRaycasts = visible;
-        if (cg.gameObject.name == "QuestPanel")
+        if (cg.gameObject.name == "QuestPanel" || cg.gameObject.name == "ChecklistPanel")
         {
             var rt = cg.GetComponent<RectTransform>();
             if (rt != null)
             {
                 if (!hasQuestPanelBasePos)
                 {
-                    questPanelBasePos = rt.anchoredPosition;
+                    questPanelBasePos = cg.gameObject.name == "ChecklistPanel" ? EcoQuest.CityQuest.CityTrashDetectiveUI.ChecklistHomePos : rt.anchoredPosition;
                     hasQuestPanelBasePos = true;
                 }
                 rt.anchoredPosition = visible ? questPanelBasePos : (questPanelBasePos + new Vector2(40f, 0f));
@@ -872,7 +1052,15 @@ public class UIOrchestrator : MonoBehaviour
 
             if (IsCityScene())
             {
-                if (LitterbugQuestManager.Instance != null)
+                bool scavengerActive = IsCityScavengerActiveHook != null && IsCityScavengerActiveHook();
+                if (scavengerActive)
+                {
+                    if (currentPhase != GamePhase.QuestActive)
+                    {
+                        SetPhase(GamePhase.QuestActive, "Polling: CityScavenger is Active");
+                    }
+                }
+                else if (LitterbugQuestManager.Instance != null)
                 {
                     var qState = LitterbugQuestManager.Instance.QuestState;
                     if ((qState == LitterbugQuestState.Active || qState == LitterbugQuestState.ReadyToTurnIn) && currentPhase != GamePhase.QuestActive)
@@ -883,7 +1071,7 @@ public class UIOrchestrator : MonoBehaviour
                     {
                         SetPhase(GamePhase.QuestComplete, "Polling: City LitterbugQuestState is Completed");
                     }
-                    else if (qState == LitterbugQuestState.Available && currentPhase != GamePhase.FreePlay && overlayStack.Count == 0)
+                    else if (qState == LitterbugQuestState.Available && currentPhase != GamePhase.FreePlay && activeOverlays.Count == 0)
                     {
                         SetPhase(GamePhase.FreePlay, "Polling: City LitterbugQuestState is Available");
                     }
@@ -905,6 +1093,39 @@ public class UIOrchestrator : MonoBehaviour
             if (ModalManager.Instance != null)
             {
                 modalsOpen = ModalManager.Instance.IsAnyModalActuallyVisible();
+            }
+
+            // 0.5s Leak Watchdog: if no modal is open and overlay set is empty for 0.5s, detect and force-restore any leaked hide reason or stuck flowStep
+            bool anyDialogueActive = (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue) ||
+                                     LitterbugQuestManager.IsDialogueOpen ||
+                                     (IsCityScavengerOverlayOpenHook != null && IsCityScavengerOverlayOpenHook()) ||
+                                     NPCInteraction.IsAnyGuardianFlowRunning;
+
+            if (!modalsOpen && activeOverlays.Count == 0 && !anyDialogueActive)
+            {
+                noOverlayOrModalDuration += 0.10f;
+                if (noOverlayOrModalDuration >= 0.50f)
+                {
+                    if (currentFlowStep == FlowStep.ExplorerTravel)
+                    {
+                        Debug.LogWarning($"LEAK: FlowStep.ExplorerTravel stuck with empty overlay set owner={LastWriter}");
+                        currentFlowStep = FlowStep.FreePlay;
+                        currentPhase = EvaluateLivePhase("LeakWatchdog");
+                        ApplyCurrentProfile(0f);
+                    }
+                    if (HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden)
+                    {
+                        foreach (var leakedReason in new List<string>(HudVisibilityService.Instance.ActiveReasons))
+                        {
+                            Debug.LogWarning($"LEAK: {leakedReason} owner=HudVisibilityService");
+                        }
+                        HudVisibilityService.Instance.ClearAllReasons(0f);
+                    }
+                }
+            }
+            else
+            {
+                noOverlayOrModalDuration = 0f;
             }
 
             foreach (var kvp in elementGroups)
@@ -963,6 +1184,10 @@ public class UIOrchestrator : MonoBehaviour
                         if (!correctedElements.Contains(element))
                         {
                             correctedElements.Add(element);
+                            if (expected && !actualVisible)
+                            {
+                                Debug.LogWarning($"LEAK: {element} hidden for 0.5s owner={LastWriter}");
+                            }
                         }
                         else if (!loggedConflictElements.Contains(element))
                         {

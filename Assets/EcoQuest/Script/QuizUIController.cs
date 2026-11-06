@@ -55,6 +55,9 @@ public class QuizUIController : MonoBehaviour
     [SerializeField] private GameObject celebratoryParticlesGroup;
     public RectTransform rewardGiftIcon;
 
+    [Header("Quiz Mode")]
+    public bool isBonusQuizMode = false;
+
     [Header("Colors")]
     [SerializeField] private Color normalButtonColor = new Color(0.96f, 0.93f, 0.88f, 1f);
     [SerializeField] private Color correctHighlightColor = Color.white;
@@ -97,15 +100,18 @@ public class QuizUIController : MonoBehaviour
         }
 
         // Wire button clicks
-        for (int i = 0; i < answerButtons.Length; i++)
+        if (answerButtons != null)
         {
-            int index = i;
-            if (answerButtons[i] != null)
+            for (int i = 0; i < answerButtons.Length; i++)
             {
-                answerButtons[i].onClick.AddListener(() => HandleAnswerClicked(index));
-                if (answerButtons[i].GetComponent<QuizButtonHoverEffect>() == null)
+                int index = i;
+                if (answerButtons[i] != null)
                 {
-                    answerButtons[i].gameObject.AddComponent<QuizButtonHoverEffect>();
+                    answerButtons[i].onClick.AddListener(() => HandleAnswerClicked(index));
+                    if (answerButtons[i].GetComponent<QuizButtonHoverEffect>() == null)
+                    {
+                        answerButtons[i].gameObject.AddComponent<QuizButtonHoverEffect>();
+                    }
                 }
             }
         }
@@ -170,23 +176,40 @@ public class QuizUIController : MonoBehaviour
                 var fbRt = feedbackPanel.GetComponent<RectTransform>();
                 if (fbRt != null)
                 {
-                    fbRt.anchoredPosition = new Vector2(245.3f, 30f);
-                    fbRt.sizeDelta = new Vector2(760f, 128f);
+                    fbRt.anchorMin = new Vector2(0.5f, 0f);
+                    fbRt.anchorMax = new Vector2(0.5f, 0f);
+                    fbRt.pivot = new Vector2(0.5f, 0f);
+                    fbRt.anchoredPosition = new Vector2(0f, 16f);
+                    fbRt.sizeDelta = new Vector2(760f, 156f);
                 }
                 if (feedbackTitleText != null)
                 {
                     var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
                     if (titleFont != null) feedbackTitleText.font = titleFont;
-                    feedbackTitleText.fontSize = 26.4f;
+                    feedbackTitleText.fontSize = 20f;
                     feedbackTitleText.fontStyle = FontStyles.Bold;
+                    var rt = feedbackTitleText.rectTransform;
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(0.72f, 1f);
+                    rt.offsetMin = new Vector2(24f, -44f);
+                    rt.offsetMax = new Vector2(-10f, -16f);
                 }
                 if (explanationText != null)
                 {
                     var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
                     if (bodyFont != null) explanationText.font = bodyFont;
-                    explanationText.fontSize = 22f;
+                    explanationText.fontSize = 14f;
+                    explanationText.enableAutoSizing = true;
+                    explanationText.fontSizeMin = 11.5f;
+                    explanationText.fontSizeMax = 14.5f;
+                    explanationText.lineSpacing = -4f;
                     explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
                     explanationText.enableWordWrapping = true;
+                    var rt = explanationText.rectTransform;
+                    rt.anchorMin = new Vector2(0f, 0f);
+                    rt.anchorMax = new Vector2(0.72f, 1f);
+                    rt.offsetMin = new Vector2(24f, 14f);
+                    rt.offsetMax = new Vector2(-10f, -48f);
                 }
                 if (nextQuestionButton != null)
                 {
@@ -391,6 +414,18 @@ public class QuizUIController : MonoBehaviour
 
     private void Update()
     {
+        if (IsAnyQuizOpen)
+        {
+            if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
+            if (!Cursor.visible) Cursor.visible = true;
+            var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
+            if (inputs != null && (inputs.cursorLocked || inputs.cursorInputForLook))
+            {
+                inputs.cursorLocked = false;
+                inputs.cursorInputForLook = false;
+            }
+        }
+
         if (!IsAnyQuizOpen || isAnimating) return;
 
         // Number keys 1-4 for answers
@@ -415,6 +450,16 @@ public class QuizUIController : MonoBehaviour
                 HandleContinueClicked();
             }
         }
+    }
+
+    public void SimulateSelectAnswer(int index)
+    {
+        SelectButtonByIndex(index);
+    }
+
+    public void SimulateClickNext()
+    {
+        HandleNextClicked();
     }
 
     private void SelectButtonByIndex(int index)
@@ -462,6 +507,7 @@ public class QuizUIController : MonoBehaviour
     public void HideImmediate()
     {
         IsAnyQuizOpen = false;
+        isBonusQuizMode = false;
         StopAndResetRewardGift();
 
         if (overlayCanvasGroup != null)
@@ -561,7 +607,39 @@ public class QuizUIController : MonoBehaviour
         if (feedbackPanel != null) feedbackPanel.SetActive(false);
         if (resultsPanel != null) resultsPanel.SetActive(true);
         if (celebratoryParticlesGroup != null) celebratoryParticlesGroup.SetActive(false);
-        if (resultsTitleText != null) resultsTitleText.text = "EcoQuest Learning Results";
+        if (resultsTitleText != null) resultsTitleText.text = isBonusQuizMode ? "Bonus Quiz Results" : "EcoQuest Learning Results";
+        else if (titleText != null) titleText.text = isBonusQuizMode ? "Bonus Quiz Results" : "EcoQuest Learning Results";
+
+        if (isBonusQuizMode)
+        {
+            if (preScoreText != null) preScoreText.gameObject.SetActive(false);
+            if (postScoreText != null)
+            {
+                postScoreText.gameObject.SetActive(true);
+                postScoreText.rectTransform.anchorMin = new Vector2(0f, 0.58f);
+                postScoreText.rectTransform.anchorMax = new Vector2(1f, 0.74f);
+                postScoreText.rectTransform.offsetMin = Vector2.zero;
+                postScoreText.rectTransform.offsetMax = Vector2.zero;
+                postScoreText.text = "Score: 5 / 5";
+            }
+            if (improvementBadgeRect != null)
+            {
+                improvementBadgeRect.anchorMin = new Vector2(0.5f, 0.48f);
+                improvementBadgeRect.anchorMax = new Vector2(0.5f, 0.48f);
+            }
+            if (improvementText != null) improvementText.text = "Master Detective! (5/5)";
+            if (encouragingMessageText != null)
+            {
+                encouragingMessageText.text = "Flawless! You correctly categorized every city trash item. Ranger Robin and the City are proud of you!";
+                encouragingMessageText.rectTransform.anchorMin = new Vector2(0.08f, 0.26f);
+                encouragingMessageText.rectTransform.anchorMax = new Vector2(0.92f, 0.42f);
+            }
+            if (bonusGoldText != null)
+            {
+                bonusGoldText.gameObject.SetActive(true);
+                bonusGoldText.text = "+70 Bonus Gold Earned!";
+            }
+        }
         else if (titleText != null) titleText.text = "EcoQuest Learning Results";
     }
 
@@ -698,6 +776,15 @@ public class QuizUIController : MonoBehaviour
     {
         isAnimating = true;
         IsAnyQuizOpen = true;
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        var openInputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
+        if (openInputs != null)
+        {
+            openInputs.cursorLocked = false;
+            openInputs.cursorInputForLook = false;
+        }
 
         if (CenterScreenCursor.Instance != null)
         {
@@ -1017,7 +1104,10 @@ public class QuizUIController : MonoBehaviour
             {
                 explanationText.text = explanation;
                 explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
-                explanationText.fontSize = 22f;
+                explanationText.enableAutoSizing = true;
+                explanationText.fontSizeMin = 11.5f;
+                explanationText.fontSizeMax = 14.5f;
+                explanationText.lineSpacing = -4f;
             }
 
             Transform accentBar = feedbackPanel.transform.Find("AccentBar");
@@ -1073,6 +1163,138 @@ public class QuizUIController : MonoBehaviour
         // Hide quiz modal tab so only the RESULTS tab is visible
         Transform quizModalTab = modalPanelRect != null ? modalPanelRect.Find("PillTab") : null;
         if (quizModalTab != null) quizModalTab.gameObject.SetActive(false);
+
+        if (isBonusQuizMode || preScore == 0)
+        {
+            if (resultsTitleText != null)
+            {
+                resultsTitleText.text = "Bonus Quiz Results";
+                resultsTitleText.color = Color.white;
+            }
+            else if (titleText != null)
+            {
+                titleText.text = "Bonus Quiz Results";
+                titleText.color = Color.white;
+            }
+
+            if (resultsPanel != null) resultsPanel.SetActive(true);
+            if (preScoreText != null)
+            {
+                preScoreText.gameObject.SetActive(false);
+            }
+            if (postScoreText != null)
+            {
+                postScoreText.gameObject.SetActive(true);
+                postScoreText.rectTransform.anchorMin = new Vector2(0f, 0.58f);
+                postScoreText.rectTransform.anchorMax = new Vector2(1f, 0.74f);
+                postScoreText.rectTransform.offsetMin = Vector2.zero;
+                postScoreText.rectTransform.offsetMax = Vector2.zero;
+                postScoreText.fontSize = 28f;
+                postScoreText.color = new Color(0.29f, 0.88f, 0.46f, 1f); // #4AE076
+            }
+            if (rewardGiftIcon != null)
+            {
+                StopAndResetRewardGift();
+                rewardGiftIcon.gameObject.SetActive(true);
+                rewardGiftCoroutine = StartCoroutine(QuizUIAnimator.AnimateRewardGift(rewardGiftIcon));
+            }
+            if (resultsCanvasGroup != null)
+            {
+                yield return QuizUIAnimator.FadeCanvasGroup(resultsCanvasGroup, 0f, 1f, 0.3f);
+            }
+
+            // Single score count-up for Bonus Quiz
+            Coroutine bonusCount = StartCoroutine(QuizUIAnimator.CountUpText(postScoreText, "Score: ", postScore, $" / {totalQuestions}", 0.7f));
+            yield return bonusCount;
+
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            // Badge text & pill
+            if (improvementBadgeRect != null)
+            {
+                improvementBadgeRect.anchorMin = new Vector2(0.5f, 0.48f);
+                improvementBadgeRect.anchorMax = new Vector2(0.5f, 0.48f);
+            }
+            if (improvementText != null)
+            {
+                if (postScore == totalQuestions)
+                {
+                    improvementText.text = "Master Detective! (5/5)";
+                    improvementText.color = Color.white;
+                }
+                else if (postScore >= 3)
+                {
+                    improvementText.text = $"Great Job! ({postScore}/{totalQuestions})";
+                    improvementText.color = Color.white;
+                }
+                else
+                {
+                    improvementText.text = $"Quiz Complete ({postScore}/{totalQuestions})";
+                    improvementText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+                }
+            }
+
+            if (improvementBadgeRect != null)
+            {
+                yield return QuizUIAnimator.PulseScale(improvementBadgeRect, 1.25f, 0.35f);
+            }
+
+            // City-appropriate message (no forest!)
+            if (encouragingMessageText != null)
+            {
+                encouragingMessageText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+                encouragingMessageText.enableAutoSizing = true;
+                encouragingMessageText.fontSizeMin = 12f;
+                encouragingMessageText.fontSizeMax = 15f;
+                encouragingMessageText.rectTransform.anchorMin = new Vector2(0.08f, 0.26f);
+                encouragingMessageText.rectTransform.anchorMax = new Vector2(0.92f, 0.42f);
+
+                if (postScore == totalQuestions)
+                {
+                    encouragingMessageText.text = "Flawless! You correctly categorized every city trash item. Ranger Robin and the City are proud of you!";
+                }
+                else if (postScore >= 3)
+                {
+                    encouragingMessageText.text = "Well done! Proper sorting keeps city streets, markets, and parks clean and sustainable.";
+                }
+                else
+                {
+                    encouragingMessageText.text = "Good effort! Every piece of trash properly sorted makes our city cleaner. Keep practicing!";
+                }
+            }
+
+            // Bonus gold notification
+            if (bonusGoldText != null)
+            {
+                bonusGoldText.rectTransform.anchorMin = new Vector2(0f, 0.14f);
+                bonusGoldText.rectTransform.anchorMax = new Vector2(1f, 0.24f);
+                if (bonusGold > 0)
+                {
+                    bonusGoldText.gameObject.SetActive(true);
+                    bonusGoldText.text = $"+{bonusGold} Bonus Gold Earned!";
+                    bonusGoldText.color = new Color(1f, 0.85f, 0.2f, 1f);
+                }
+                else
+                {
+                    bonusGoldText.gameObject.SetActive(false);
+                }
+            }
+
+            if (continueButton != null)
+            {
+                var contRt = continueButton.GetComponent<RectTransform>();
+                if (contRt != null) contRt.anchoredPosition = new Vector2(0f, 32f);
+            }
+
+            if (postScore >= 3 && celebratoryParticlesGroup != null)
+            {
+                celebratoryParticlesGroup.SetActive(true);
+                StartCoroutine(AnimateCelebratoryParticles());
+            }
+
+            isAnimating = false;
+            yield break;
+        }
 
         if (resultsTitleText != null)
         {

@@ -1388,11 +1388,12 @@ public class NPCInteraction : MonoBehaviour
     private void ActivateDialogueCamera()
     {
         EnsureCameraPointSetup();
+        EcoQuest.Shared.DialogueCameraRig.Instance.EnterDialogue(transform, playerTransform, 0.6f, "Guardian");
 
         Camera mainCam = Camera.main;
-        bool usedCinemachine = false;
+        bool usedCinemachine = true;
 
-        if (mainCam != null)
+        if (false && mainCam != null)
         {
             if (!cameraCullingMaskModified)
             {
@@ -1515,6 +1516,8 @@ public class NPCInteraction : MonoBehaviour
 
     public void DeactivateDialogueCamera()
     {
+        EcoQuest.Shared.DialogueCameraRig.Instance.ExitDialogue("Guardian", 0.6f);
+
         if (dialogueCameraPoint != null)
         {
             CinemachineCamera cmCam = dialogueCameraPoint.GetComponent<CinemachineCamera>();

@@ -38,6 +38,7 @@ public class WorldInteractionPrompt : MonoBehaviour
     private bool isBehindCamera = false;
     private bool isOffScreen = false;
     private Vector3 lastScreenPos = Vector3.zero;
+    private int lastShowFrame = -1;
 
     public bool IsVisible => currentAlpha > 0.1f;
     public Camera MainCam => mainCam != null ? mainCam : GetActiveWorldCamera();
@@ -121,10 +122,18 @@ public class WorldInteractionPrompt : MonoBehaviour
             targetNameText.horizontalAlignment = HorizontalAlignmentOptions.Center;
             targetNameText.textWrappingMode = TextWrappingModes.NoWrap;
             targetNameText.overflowMode = TextOverflowModes.Overflow;
+            targetNameText.color = new Color(0.847f, 0.953f, 0.863f, 0.95f); // #D8F3DC
         }
 
         if (promptPanelRect != null)
         {
+            var panelImg = promptPanelRect.GetComponent<Image>();
+            if (panelImg != null && panelImg.sprite != null && panelImg.sprite.name.Contains("panel_rounded_forest_green"))
+            {
+                // Sprite already contains #0F2A1E (92% alpha) fill and 2px #6DBE6D border; white tint prevents double-darkening into gray
+                panelImg.color = Color.white;
+            }
+
             var hlg = promptPanelRect.GetComponent<HorizontalLayoutGroup>();
             if (hlg != null)
             {
@@ -176,6 +185,7 @@ public class WorldInteractionPrompt : MonoBehaviour
                     act.horizontalAlignment = HorizontalAlignmentOptions.Center;
                     act.textWrappingMode = TextWrappingModes.NoWrap;
                     act.overflowMode = TextOverflowModes.Overflow;
+                    act.color = Color.white;
                 }
             }
         }
@@ -234,6 +244,7 @@ public class WorldInteractionPrompt : MonoBehaviour
 
         activeTarget = target;
         isManuallyHidden = false;
+        lastShowFrame = Time.frameCount;
 
         string cleanName = targetName;
         if (targetName.Contains("Litterbug")) cleanName = "Litterbug";
@@ -266,6 +277,22 @@ public class WorldInteractionPrompt : MonoBehaviour
         }
 
         targetAlpha = 1f;
+        currentAlpha = 1f;
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+        }
+    }
+
+    /// <summary>
+    /// Hides the prompt only if it is currently showing for the specified target.
+    /// </summary>
+    public void HidePromptIfTarget(Transform target)
+    {
+        if (activeTarget == target)
+        {
+            HidePrompt();
+        }
     }
 
     /// <summary>
@@ -273,6 +300,10 @@ public class WorldInteractionPrompt : MonoBehaviour
     /// </summary>
     public void HidePrompt()
     {
+        if (Application.isPlaying && lastShowFrame == Time.frameCount && !isManuallyHidden)
+        {
+            return;
+        }
         targetAlpha = 0f;
         currentAlpha = 0f;
         activeTarget = null;
@@ -312,7 +343,11 @@ public class WorldInteractionPrompt : MonoBehaviour
         if (mainCam == null) return;
 
         bool isHoldingTrash = DragAndDrop.CurrentlyGrabbedItem != null;
-        bool canShow = !isManuallyHidden && !isHoldingTrash && activeTarget != null && activeTarget.gameObject.activeInHierarchy;
+        bool isDialogueOrModalOpen = (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue) ||
+                                     LitterbugQuestManager.IsDialogueOpen ||
+                                     (UIOrchestrator.Instance != null && UIOrchestrator.Instance.IsOverlayActive) ||
+                                     (ModalManager.Instance != null && ModalManager.Instance.IsAnyModalOpen);
+        bool canShow = !isManuallyHidden && !isHoldingTrash && !isDialogueOrModalOpen && activeTarget != null && activeTarget.gameObject.activeInHierarchy;
         Vector3 screenPos = Vector3.zero;
         float targetDistance = 2f;
         isBehindCamera = false;
@@ -338,7 +373,13 @@ public class WorldInteractionPrompt : MonoBehaviour
                 }
                 else
                 {
-                    Vector3 worldPos = activeTarget.position + Vector3.up * shoulderHeight + mainCam.transform.right * rightOffset;
+                    bool isPickupItem = activeTarget.GetComponent<EcoQuest.CityQuest.CityTrashPickupInstance>() != null ||
+                                        activeTarget.name.StartsWith("PooledCityTrash") ||
+                                        activeTarget.name.StartsWith("CityTrash") ||
+                                        activeTarget.CompareTag("Trash");
+                    float targetH = isPickupItem ? 0.30f : shoulderHeight;
+                    float targetR = isPickupItem ? 0f : rightOffset;
+                    Vector3 worldPos = activeTarget.position + Vector3.up * targetH + mainCam.transform.right * targetR;
                     screenPos = mainCam.WorldToScreenPoint(worldPos);
                     lastScreenPos = screenPos;
 
@@ -350,6 +391,7 @@ public class WorldInteractionPrompt : MonoBehaviour
                     else if (screenPos.x < 0f || screenPos.x > Screen.width || screenPos.y < 0f || screenPos.y > Screen.height)
                     {
                         isOffScreen = true;
+                        canShow = false;
                     }
                 }
             }
@@ -359,7 +401,7 @@ public class WorldInteractionPrompt : MonoBehaviour
         {
             targetAlpha = 0f;
             // Immediate cut when player turns away, is blocked, holds trash, or activeTarget is null: never freeze at screen center
-            if (activeTarget == null || isBehindCamera || isHoldingTrash || isManuallyHidden)
+            if (activeTarget == null || isBehindCamera || isOffScreen || isHoldingTrash || isManuallyHidden)
             {
                 currentAlpha = 0f;
                 if (canvasGroup != null)

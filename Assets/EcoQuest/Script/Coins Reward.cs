@@ -4,6 +4,9 @@ using System.Collections;
 
 public class PlayerCurrency : MonoBehaviour
 {
+    private const string PrefsKey = "PlayerGold";
+    private const string LegacyPrefsKey = "PlayerCoins";
+
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI coinText; 
     
@@ -15,6 +18,16 @@ public class PlayerCurrency : MonoBehaviour
 
     public int CurrentGold => currentGold;
 
+    private void Awake()
+    {
+        currentGold = PlayerPrefs.GetInt(PrefsKey, PlayerPrefs.GetInt(LegacyPrefsKey, 0));
+    }
+
+    private void OnEnable()
+    {
+        UpdateGoldUI();
+    }
+
     private void Start()
     {
         UpdateGoldUI();
@@ -25,9 +38,17 @@ public class PlayerCurrency : MonoBehaviour
         }
     }
 
+    private void SaveGold()
+    {
+        PlayerPrefs.SetInt(PrefsKey, currentGold);
+        PlayerPrefs.SetInt(LegacyPrefsKey, currentGold);
+        PlayerPrefs.Save();
+    }
+
     public void AddGold(int amount)
     {
         currentGold += amount;
+        SaveGold();
         UpdateGoldUI();
         
         ShowPopup("+" + amount.ToString(), Color.green);
@@ -37,6 +58,7 @@ public class PlayerCurrency : MonoBehaviour
     {
         int startGold = currentGold;
         currentGold += amount;
+        SaveGold();
         ShowPopup("+" + amount.ToString(), Color.green);
 
         if (coinText == null || !isActiveAndEnabled || duration <= 0f)
@@ -81,6 +103,7 @@ public class PlayerCurrency : MonoBehaviour
     {
         currentGold -= amount;
         if (currentGold < 0) currentGold = 0; 
+        SaveGold();
         UpdateGoldUI();
         
         ShowPopup("-" + amount.ToString(), Color.red);

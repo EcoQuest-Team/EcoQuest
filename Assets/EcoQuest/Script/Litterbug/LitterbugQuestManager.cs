@@ -103,7 +103,7 @@ public class LitterbugQuestManager : MonoBehaviour
     [SerializeField] private KeyCapPrompt continueKeyCapPrompt;
     [SerializeField] private KeyCapPrompt acceptKeyCapPrompt;
     [SerializeField] private KeyCapPrompt notNowKeyCapPrompt;
-    [SerializeField] private float advanceDelay = 0.5f;
+    [SerializeField] private float advanceDelay = 0.25f;
     [SerializeField] private GameObject dialogueNextTriangle;
     [SerializeField] private RectTransform topLetterboxBar;
     [SerializeField] private RectTransform bottomLetterboxBar;
@@ -142,7 +142,8 @@ public class LitterbugQuestManager : MonoBehaviour
         QuestGiverOffer = 1,
         QuestGiverInProgress = 2,
         LitterbugPersuade = 3,
-        QuestGiverTurnIn = 4
+        QuestGiverTurnIn = 4,
+        QuestGiverConflict = 5
     }
 
     // 3 randomized intro variants (DESIGN 1)
@@ -252,6 +253,11 @@ public class LitterbugQuestManager : MonoBehaviour
         if (questPanelRect != null && !capturedPanelPos)
         {
             questPanelShownAnchoredPos = questPanelRect.anchoredPosition;
+            if (Mathf.Abs(questPanelShownAnchoredPos.x) > 1920f || questPanelShownAnchoredPos.x <= 0f)
+            {
+                questPanelShownAnchoredPos = new Vector2(40f, -154f);
+                questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
+            }
             capturedPanelPos = true;
         }
     }
@@ -619,9 +625,25 @@ public class LitterbugQuestManager : MonoBehaviour
                 WorldInteractionPrompt.Instance?.ShowPrompt(questGiverTransform, "Guardian", "Talk", "E");
             }
         }
-        else
+        else if (WorldInteractionPrompt.Instance != null && WorldInteractionPrompt.Instance.ActiveTarget != null)
         {
-            WorldInteractionPrompt.Instance?.HidePrompt();
+            Transform activePromptTarget = WorldInteractionPrompt.Instance.ActiveTarget;
+            bool isOwnedByLitterbugQuest = (activePromptTarget == questGiverTransform);
+            if (!isOwnedByLitterbugQuest && targetSlots != null)
+            {
+                for (int i = 0; i < targetSlots.Length; i++)
+                {
+                    if (targetSlots[i].brain != null && targetSlots[i].brain.transform == activePromptTarget)
+                    {
+                        isOwnedByLitterbugQuest = true;
+                        break;
+                    }
+                }
+            }
+            if (isOwnedByLitterbugQuest)
+            {
+                WorldInteractionPrompt.Instance.HidePrompt();
+            }
         }
 
         if (interactPromptRoot != null && interactPromptRoot.activeSelf)
@@ -1213,6 +1235,21 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (IsDialogueOpen || questState == LitterbugQuestState.Completed) return;
 
+        bool isRobinQuestBusy = EcoQuest.CityQuest.CityTrashDetectiveManager.Instance != null &&
+            (EcoQuest.CityQuest.CityTrashDetectiveManager.Instance.QuestState == EcoQuest.CityQuest.CityDetectiveState.Active ||
+             EcoQuest.CityQuest.CityTrashDetectiveManager.Instance.QuestState == EcoQuest.CityQuest.CityDetectiveState.ReadyToTurnIn);
+
+        if (isRobinQuestBusy)
+        {
+            string conflictLine = "Looks like you're currently working on Ranger Robin's Field Checklist! Finish that investigation first, then return to me for the Litterbug patrol.";
+            string[] lines = new string[] { conflictLine };
+            string[] speakers = new string[] { "Guardian" };
+
+            StartDialogueSession(DialogueMode.QuestGiverConflict, -1, questGiverTransform, speakers, lines);
+            if (questGiverAnimator != null) questGiverAnimator.SetBool("IsTalking", true);
+            return;
+        }
+
         if (questState == LitterbugQuestState.Available)
         {
             List<string> offerLines = DialogueData.GetCityOffer(TargetCount);
@@ -1372,7 +1409,9 @@ public class LitterbugQuestManager : MonoBehaviour
 
         if (continueKeyCapPrompt != null)
         {
-            string act = (currentPageIndex == activePages.Count - 1) ? "Finish" : "Continue";
+            string act = (currentPageIndex == activePages.Count - 1)
+                ? ((activeDialogueMode == DialogueMode.QuestGiverConflict) ? "Close" : "Finish")
+                : "Continue";
             continueKeyCapPrompt.SetPrompt("E", act);
             continueKeyCapPrompt.SetLocked(false);
         }
@@ -1765,69 +1804,13 @@ public class LitterbugQuestManager : MonoBehaviour
 
     private void EaseCameraTowardSpeaker(Transform speaker)
     {
-        if (speaker == null || mainCam == null || dialogueVirtualCam == null) return;
-
-        // Restore player head and accessories by enabling layer 7 (HiddenFromFirstPerson) on MainCamera
-        if (!cameraCullingMaskModified)
-        {
-            savedCameraCullingMask = mainCam.cullingMask;
-            mainCam.cullingMask |= (1 << 7);
-            cameraCullingMaskModified = true;
-        }
-
-        // Hide carried item during dialogue
-        if (ItemCarry.ActiveCarriedItem != null)
-        {
-            hiddenCarriedItem = ItemCarry.ActiveCarriedItem;
-            hiddenCarriedItem.SetActive(false);
-        }
-
-        // Over-the-shoulder framing calculation
-        Vector3 playerPos = playerTransform != null ? playerTransform.position : (mainCam.transform.position - Vector3.up * 1.5f);
-        Vector3 speakerPos = speaker.position;
-
-        Vector3 toSpeaker = speakerPos - playerPos;
-        toSpeaker.y = 0f;
-        if (toSpeaker.sqrMagnitude < 0.01f)
-            toSpeaker = playerTransform != null ? playerTransform.forward : Vector3.forward;
-        toSpeaker.Normalize();
-
-        Vector3 rightOffset = Vector3.Cross(Vector3.up, toSpeaker) * 0.42f;
-        Vector3 playerEye = playerPos + Vector3.up * 1.52f;
-        Vector3 desiredShotPos = playerPos - toSpeaker * 0.85f + rightOffset + Vector3.up * 1.58f;
-
-        // Anti-clipping spherecast behind player
-        Vector3 rayDir = desiredShotPos - playerEye;
-        float rayDist = rayDir.magnitude;
-        if (rayDist > 0.05f)
-        {
-            rayDir /= rayDist;
-            int mask = ~((1 << 8) | (1 << 2)); // Ignore Player (layer 8) and Ignore Raycast (layer 2)
-            if (Physics.SphereCast(playerEye, 0.20f, rayDir, out RaycastHit hit, rayDist, mask, QueryTriggerInteraction.Ignore))
-            {
-                desiredShotPos = playerEye + rayDir * Mathf.Max(0.35f, hit.distance - 0.1f);
-            }
-        }
-
-        Vector3 speakerChest = speakerPos + Vector3.up * 1.35f;
-        Quaternion shotRot = Quaternion.LookRotation((speakerChest - desiredShotPos).normalized, Vector3.up);
-
-        CinemachineBrain brain = mainCam.GetComponent<CinemachineBrain>();
-        if (brain != null)
-        {
-            brain.IgnoreTimeScale = true;
-            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, 0.35f);
-        }
-
-        dialogueVirtualCam.transform.SetPositionAndRotation(desiredShotPos, shotRot);
-        dialogueVirtualCam.Lens.FieldOfView = 42f; // Slight push (-8 deg FOV from 50)
-        dialogueVirtualCam.Lens.NearClipPlane = 0.03f;
-        dialogueVirtualCam.gameObject.SetActive(true);
-        dialogueVirtualCam.Priority.Value = 35;
+        if (speaker == null) return;
+        EcoQuest.Shared.DialogueCameraRig.Instance.EnterDialogue(speaker, playerTransform, 0.6f, "CityDialogue");
     }
 
     private void ReleaseCameraEase()
     {
+        EcoQuest.Shared.DialogueCameraRig.Instance.ExitDialogue("CityDialogue", 0.6f);
         if (cameraCullingMaskModified && mainCam != null)
         {
             mainCam.cullingMask = savedCameraCullingMask;
@@ -1890,7 +1873,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
 #if ENABLE_INPUT_SYSTEM
         var playerInput = cachedFps != null ? cachedFps.GetComponent<PlayerInput>() : FindFirstObjectByType<PlayerInput>();
-        if (playerInput != null && playerInput.actions != null)
+        if (playerInput != null && playerInput.isActiveAndEnabled && playerInput.inputIsActive && playerInput.actions != null)
         {
             playerInput.SwitchCurrentActionMap("Player");
             playerInput.currentActionMap?.Enable();
@@ -2037,6 +2020,10 @@ public class LitterbugQuestManager : MonoBehaviour
         if (!capturedPanelPos)
         {
             questPanelShownAnchoredPos = questPanelRect.anchoredPosition;
+            if (Mathf.Abs(questPanelShownAnchoredPos.x) > 1920f || questPanelShownAnchoredPos.x <= 0f)
+            {
+                questPanelShownAnchoredPos = new Vector2(40f, -154f);
+            }
             capturedPanelPos = true;
         }
 
@@ -2249,14 +2236,21 @@ public class LitterbugQuestManager : MonoBehaviour
         WorldInteractionPrompt.Instance?.SetBlocked(false);
     }
 
+    // Skip the reset during app quit / exiting Play Mode / scene unload: it would re-create
+    // singletons (UIOrchestrator, HudVisibilityService, UI_Blur_Volume) while the scene is being torn down.
+    private bool isQuitting;
+    private void OnApplicationQuit() { isQuitting = true; }
+
     private void OnDisable()
     {
+        if (isQuitting || !gameObject.scene.isLoaded) return;
         PerformSafetyReset();
     }
 
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
+        if (isQuitting || !gameObject.scene.isLoaded) return;
         PerformSafetyReset();
     }
 }

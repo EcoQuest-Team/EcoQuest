@@ -19,6 +19,13 @@ public static class EcoQuestSaveKeys
     public const string ForestRewardClaimed = "EcoQuest_ForestRewardClaimed";
     public const string ForestExplorerGateNotified = "EcoQuest_ForestExplorerGateNotified";
 
+    // City Trash Detective Keys
+    public const string CityBestStars = "EcoQuest_City_BestStars";
+    public const string CityBestTime = "EcoQuest_City_BestTime";
+    public const string CityBonusPending = "EcoQuest_City_BonusPending";
+    public const string CityBonusTaken = "EcoQuest_City_BonusTaken";
+    public const string CityLastSeed = "EcoQuest_City_LastSeed";
+
     /// <summary>
     /// Complete array of all persistent keys related to tutorial and quest progress.
     /// Settings (volume, resolution, graphics) are excluded so player preferences remain intact.
@@ -33,7 +40,12 @@ public static class EcoQuestSaveKeys
         ForestQuestAccepted,
         ForestTrashQuestDone,
         ForestRewardClaimed,
-        ForestExplorerGateNotified
+        ForestExplorerGateNotified,
+        CityBestStars,
+        CityBestTime,
+        CityBonusPending,
+        CityBonusTaken,
+        CityLastSeed
     };
 
     /// <summary>

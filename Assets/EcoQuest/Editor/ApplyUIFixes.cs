@@ -58,7 +58,7 @@ public static class ApplyUIFixes
                 Debug.Log("[ApplyUIFixes] TrashItemsGroup already inactive. OK.");
             }
         }
-        else
+        else if (scene.name != "City Scene" && !scene.path.Contains("City Scene"))
         {
             Debug.LogWarning("[ApplyUIFixes] TrashItemsGroup not found in active scene.");
         }
@@ -111,17 +111,24 @@ public static class ApplyUIFixes
             var hlg = kcpPrefab.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
             if (hlg != null)
             {
-                if (hlg.childAlignment != TextAnchor.MiddleRight)
+                if (hlg.childAlignment != TextAnchor.MiddleCenter)
                 {
-                    hlg.childAlignment = TextAnchor.MiddleRight;
+                    hlg.childAlignment = TextAnchor.MiddleCenter;
                     prefabDirty = true;
                 }
             }
             if (prefabDirty)
             {
                 PrefabUtility.SavePrefabAsset(kcpPrefab);
-                Debug.Log("[ApplyUIFixes] Updated KeyCapPrompt.prefab layout alignment.");
+                Debug.Log("[ApplyUIFixes] Updated KeyCapPrompt.prefab layout alignment to MiddleCenter.");
             }
+        }
+
+        // 4. City Scene Specific Polish & Fixes (InteractPrompt pill tint, BlurVolume reset, DialogueCameraRig, Robin 4:00 text)
+        if (scene.name == "City Scene" || scene.path.Contains("City Scene"))
+        {
+            EcoQuest.CityQuest.Editor.CityQuestSceneSetupAndValidator.ApplyCityQuestUIPolish();
+            isSceneDirty = true;
         }
 
         if (isSceneDirty && !Application.isPlaying)

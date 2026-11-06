@@ -201,6 +201,9 @@ public class HudVisibilityService : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(reason)) reason = "Default";
         activeHideReasons.Add(reason);
+#if UNITY_EDITOR
+        Debug.Log($"[FlowTrace] HudVisibilityService.HideHUD('{reason}') -> activeReasons=[{string.Join(",", activeHideReasons)}]");
+#endif
         ApplyVisibility(duration);
     }
 
@@ -211,6 +214,9 @@ public class HudVisibilityService : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(reason)) reason = "Default";
         activeHideReasons.Remove(reason);
+#if UNITY_EDITOR
+        Debug.Log($"[FlowTrace] HudVisibilityService.ShowHUD('{reason}') -> activeReasons=[{string.Join(",", activeHideReasons)}]");
+#endif
         ApplyVisibility(duration);
     }
 

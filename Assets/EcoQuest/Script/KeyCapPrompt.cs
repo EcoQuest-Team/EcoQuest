@@ -51,6 +51,7 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
 
     public string CurrentKey => keycapText != null ? keycapText.text : fallbackKey;
     public string CurrentAction => actionLabel != null ? actionLabel.text : defaultActionText;
+    public TextMeshProUGUI ActionLabelText => actionLabel;
     public bool IsLocked => isLocked;
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -108,8 +109,30 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         {
             if (!hasBasePos)
             {
-                baseKeycapPos = new Vector2(keycapRect.anchoredPosition.x, 0f);
+                baseKeycapPos = new Vector2(keycapRect.anchoredPosition.x, GetBaselineY());
                 hasBasePos = true;
+            }
+        }
+
+        var hlg = GetComponent<HorizontalLayoutGroup>();
+        if (hlg != null)
+        {
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+        }
+
+        if (actionLabel != null)
+        {
+            actionLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            var ale = actionLabel.GetComponent<LayoutElement>();
+            if (ale == null && hlg != null) ale = actionLabel.gameObject.AddComponent<LayoutElement>();
+            if (ale != null)
+            {
+                ale.minHeight = 48f;
+                ale.preferredHeight = 48f;
             }
         }
 
@@ -126,16 +149,39 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         AdjustKeycapWidth();
     }
 
+    private float GetBaselineY()
+    {
+        if (keycapRect == null) return 0f;
+        if (keycapRect.anchorMin.y > 0.9f && keycapRect.parent is RectTransform prt)
+        {
+            float h = prt.rect.height > 1f ? prt.rect.height : prt.sizeDelta.y;
+            if (h <= 1f) h = 48f;
+            return -h * 0.5f;
+        }
+        return 0f;
+    }
+
     private void AdjustKeycapWidth()
     {
         if (keycapRect != null && keycapText != null)
         {
             float textPreferred = keycapText.preferredWidth;
-            float targetWidth = Mathf.Max(44f, textPreferred + 18f);
+            float targetWidth = Mathf.Max(48f, textPreferred + 18f);
             Vector2 size = keycapRect.sizeDelta;
             size.x = targetWidth;
-            size.y = 44f;
+            size.y = 48f;
             keycapRect.sizeDelta = size;
+
+            var kle = keycapRect.GetComponent<LayoutElement>();
+            if (kle == null && GetComponent<HorizontalLayoutGroup>() != null)
+                kle = keycapRect.gameObject.AddComponent<LayoutElement>();
+            if (kle != null)
+            {
+                kle.minWidth = targetWidth;
+                kle.preferredWidth = targetWidth;
+                kle.minHeight = 48f;
+                kle.preferredHeight = 48f;
+            }
         }
     }
 
@@ -194,9 +240,9 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         {
             isPressed = false;
             isHovered = false;
-            if (keycapRect != null && hasBasePos)
+            if (keycapRect != null)
             {
-                keycapRect.anchoredPosition = baseKeycapPos;
+                keycapRect.anchoredPosition = new Vector2(keycapRect.anchoredPosition.x, GetBaselineY());
                 keycapRect.localScale = Vector3.one;
             }
         }
@@ -278,7 +324,7 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
 
         float pressY = isPressed ? -pressDepth : (isHovered ? 2f : 0f);
         Vector2 curPos = keycapRect.anchoredPosition;
-        float targetY = 0f + pressY;
+        float targetY = GetBaselineY() + pressY;
         keycapRect.anchoredPosition = new Vector2(curPos.x, Mathf.Lerp(curPos.y, targetY, Time.unscaledDeltaTime * 25f));
 
         if (keycapImage != null)

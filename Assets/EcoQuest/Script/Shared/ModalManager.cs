@@ -354,7 +354,7 @@ public class ModalManager : MonoBehaviour
         while (true)
         {
             yield return new WaitForSecondsRealtime(0.5f);
-            if (!IsAnyModalOpen && !isBlurTweening)
+            if (!IsAnyModalOpen && !isBlurTweening && !UIBackgroundBlur.IsDialogueDofActive)
             {
                 if (blurVolume != null && (blurVolume.weight > 0.01f || blurVolume.gameObject.activeSelf))
                 {
@@ -368,10 +368,14 @@ public class ModalManager : MonoBehaviour
     public void BlurFailsafeReset()
     {
         isBlurTweening = false;
-        if (blurVolume != null)
+        if (!UIBackgroundBlur.IsDialogueDofActive)
         {
-            blurVolume.weight = 0f;
-            blurVolume.gameObject.SetActive(false);
+            if (blurVolume != null)
+            {
+                blurVolume.weight = 0f;
+                blurVolume.gameObject.SetActive(false);
+            }
+            UIBackgroundBlur.SetWeight(0f);
         }
         if (backdropCanvasGroup != null)
         {
@@ -743,6 +747,12 @@ public class ModalManager : MonoBehaviour
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        var inputs = UnityEngine.Object.FindAnyObjectByType<StarterAssets.StarterAssetsInputs>();
+        if (inputs != null)
+        {
+            inputs.cursorLocked = false;
+            inputs.cursorInputForLook = false;
+        }
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
         transitionRoutine = StartCoroutine(OpenModalRoutine(request));
     }
@@ -755,6 +765,12 @@ public class ModalManager : MonoBehaviour
         // Unlock and show cursor during any open modal
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        var modalInputs = UnityEngine.Object.FindAnyObjectByType<StarterAssets.StarterAssetsInputs>();
+        if (modalInputs != null)
+        {
+            modalInputs.cursorLocked = false;
+            modalInputs.cursorInputForLook = false;
+        }
 
         // 2. Activate modal object hierarchy
         if (request.modalObject != null)
@@ -789,29 +805,38 @@ public class ModalManager : MonoBehaviour
 
     private IEnumerator FadeBackdropAndHudRoutine(bool showModal)
     {
-        float duration = hudFadeDuration;
+        bool isDialogueModal = (activeModal != null && activeModal.type == ModalType.Dialogue) || UIBackgroundBlur.IsDialogueDofActive;
+        float duration = showModal ? (isDialogueModal ? 0.40f : hudFadeDuration) : (isDialogueModal ? 0.30f : hudFadeDuration);
         float elapsed = 0f;
         float startBackdropAlpha = backdropCanvasGroup != null ? backdropCanvasGroup.alpha : 0f;
-        float targetBackdropAlpha = showModal ? 1f : 0f;
+        // Never darken the 3D scene with the black ModalBackdrop during NPC dialogue
+        float targetBackdropAlpha = (showModal && !isDialogueModal) ? 1f : 0f;
+
+        if (blurVolume == null) blurVolume = UIBackgroundBlur.EnsureVolume();
+        if (showModal)
+        {
+            if (isDialogueModal) UIBackgroundBlur.UpdateDialogueFocusImmediate();
+            else UIBackgroundBlur.ConfigureFullModalBlur();
+        }
 
         float startBlurWeight = blurVolume != null ? blurVolume.weight : 0f;
-        float targetBlurWeight = showModal ? 0.60f : 0f;
+        float targetBlurWeight = showModal ? (isDialogueModal ? 1.0f : 0.60f) : 0f;
 
         if (showModal && blurVolume != null) blurVolume.gameObject.SetActive(true);
         if (backdropCanvasGroup != null)
         {
-            backdropCanvasGroup.blocksRaycasts = showModal;
-            backdropCanvasGroup.interactable = showModal;
+            backdropCanvasGroup.blocksRaycasts = showModal && !isDialogueModal;
+            backdropCanvasGroup.interactable = showModal && !isDialogueModal;
         }
 
         if (showModal)
         {
-            HudVisibilityService.Instance?.HideHUD("Modal", duration);
+            HudVisibilityService.Instance?.HideHUD("Modal", hudFadeDuration);
             UIOrchestrator.Instance?.SetModalsOpen(true);
         }
         else
         {
-            HudVisibilityService.Instance?.ShowHUD("Modal", duration);
+            HudVisibilityService.Instance?.ShowHUD("Modal", hudFadeDuration);
         }
 
         isBlurTweening = true;
@@ -827,6 +852,10 @@ public class ModalManager : MonoBehaviour
                 if (backdropCanvasGroup != null)
                 {
                     backdropCanvasGroup.alpha = Mathf.Lerp(startBackdropAlpha, targetBackdropAlpha, ease);
+                }
+                if (isDialogueModal)
+                {
+                    UIBackgroundBlur.UpdateDialogueFocusImmediate();
                 }
                 if (blurVolume != null)
                 {
@@ -844,7 +873,7 @@ public class ModalManager : MonoBehaviour
             if (blurVolume != null)
             {
                 blurVolume.weight = targetBlurWeight;
-                if (!showModal) blurVolume.gameObject.SetActive(false);
+                if (!showModal && !UIBackgroundBlur.IsDialogueDofActive) blurVolume.gameObject.SetActive(false);
             }
             isHudFaded = showModal;
             UIOrchestrator.Instance?.SetModalsOpen(showModal);

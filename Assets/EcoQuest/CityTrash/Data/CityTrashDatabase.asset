@@ -1,0 +1,426 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d61841b688c866b44b80c611884b3d80, type: 3}
+  m_Name: CityTrashDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::EcoQuest.CityQuest.CityTrashDatabase
+  items:
+  - id: BananaPeel
+    displayName: Banana Peel
+    category: 0
+    icon: {fileID: 21300000, guid: 946ba1d6b3577e245ba6281bb80d021e, type: 3}
+    worldPrefab: {fileID: 316645165000038242, guid: 4f3cc02a7a3e74b4b8e52a5d953c2817, type: 3}
+    districtWeights:
+    - district: 0
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 4
+      weight: 3
+    - district: 3
+      weight: 2
+    funFact: Banana peels rot into rich soil food in a few weeks when composted!
+    quizExplanation: Banana peels are organic fruit scraps that decompose naturally
+      into nutrient-rich compost.
+    isRare: 0
+  - id: AppleCore
+    displayName: Apple Core
+    category: 0
+    icon: {fileID: 21300000, guid: fe430b143f29abc43a4313d2638dce4e, type: 3}
+    worldPrefab: {fileID: 8696718397516287512, guid: 3a84367ff3dba1344887d3c5874ab5fe, type: 3}
+    districtWeights:
+    - district: 0
+      weight: 5
+    - district: 4
+      weight: 4
+    - district: 2
+      weight: 3
+    - district: 3
+      weight: 2
+    funFact: Apple cores break down in compost in about a month and feed earthworms!
+    quizExplanation: Apple cores are natural plant matter that breaks down quickly
+      in a biodegradable compost bin.
+    isRare: 0
+  - id: DryLeavesBundle
+    displayName: Dry Leaves Bundle
+    category: 0
+    icon: {fileID: 21300000, guid: 8463841540f544040bbd60752d95a97a, type: 3}
+    worldPrefab: {fileID: 3986428436936287579, guid: 695b7c8a23943aa4aba3e472cbfddb66, type: 3}
+    districtWeights:
+    - district: 0
+      weight: 6
+    - district: 3
+      weight: 5
+    - district: 4
+      weight: 3
+    funFact: Fallen leaves turn into natural forest mulch that keeps soil moist!
+    quizExplanation: Dry leaves and twigs are 100% organic yard waste that enriches
+      soil as biodegradable mulch.
+    isRare: 0
+  - id: PaperNapkin
+    displayName: Paper Napkin
+    category: 0
+    icon: {fileID: 21300000, guid: 7c4fd1dbba256084289145f5f3d4bfcd, type: 3}
+    worldPrefab: {fileID: 3933311822733369891, guid: d7bbb499ece86cb45a97275cb1dcf371, type: 3}
+    districtWeights:
+    - district: 2
+      weight: 5
+    - district: 1
+      weight: 4
+    - district: 0
+      weight: 3
+    funFact: Clean or food-stained paper napkins can decompose in a compost bin!
+    quizExplanation: Unbleached or food-soiled paper napkins have short plant fibers
+      that compost cleanly.
+    isRare: 0
+  - id: CardboardSleeve
+    displayName: Cardboard Cup Sleeve
+    category: 0
+    icon: {fileID: 21300000, guid: 6837a6879d87e4f4ea06ed1c6b82e325, type: 3}
+    worldPrefab: {fileID: 5078993171839285524, guid: 0ba1859e7e3cee442b83740d2d935175, type: 3}
+    districtWeights:
+    - district: 1
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 0
+      weight: 2
+    funFact: Unwaxed cardboard coffee sleeves come from trees and break down naturally!
+    quizExplanation: Plain corrugated cup sleeves are uncoated wood pulp, making
+      them biodegradable.
+    isRare: 0
+  - id: WoodenFork
+    displayName: Wooden Fork
+    category: 0
+    icon: {fileID: 21300000, guid: c1c13f68eaa5aaf47b1e8606eea32cf9, type: 3}
+    worldPrefab: {fileID: 5614303820907012596, guid: 380ea8f02b252e14ea9416cd375aa390, type: 3}
+    districtWeights:
+    - district: 2
+      weight: 5
+    - district: 0
+      weight: 4
+    - district: 3
+      weight: 3
+    funFact: Untreated birch wood forks rot back into nature just like small twigs!
+    quizExplanation: Natural wooden cutlery has no plastic coating and decomposes
+      safely with organic waste.
+    isRare: 0
+  - id: PlasticWaterBottle
+    displayName: Plastic Water Bottle
+    category: 1
+    icon: {fileID: 21300000, guid: 05803114a5ff5ed48897c4b3a71142b9, type: 3}
+    worldPrefab: {fileID: 7149276016307094781, guid: e657382a3ce803a4aa53bafe22f499b5, type: 3}
+    districtWeights:
+    - district: 0
+      weight: 4
+    - district: 1
+      weight: 4
+    - district: 3
+      weight: 5
+    - district: 2
+      weight: 3
+    funFact: Recycling one plastic bottle saves enough energy to power a lamp for
+      hours!
+    quizExplanation: Clean PET plastic water bottles are highly recyclable and can
+      be spun into new bottles or fleece.
+    isRare: 0
+  - id: CrushedSodaCan
+    displayName: Crushed Soda Can
+    category: 1
+    icon: {fileID: 21300000, guid: 8146312171ac1c14f95af2aaf839c449, type: 3}
+    worldPrefab: {fileID: 3582746296672880439, guid: 9d12084ca3b35c24b9b52031e87cc156, type: 3}
+    districtWeights:
+    - district: 1
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 0
+      weight: 3
+    - district: 4
+      weight: 3
+    funFact: Aluminum soda cans can be recycled again and again without losing quality!
+    quizExplanation: Aluminum cans are 100% recyclable and save 95% of the energy
+      needed to make new metal.
+    isRare: 0
+  - id: CardboardBox
+    displayName: Folded Cardboard Box
+    category: 1
+    icon: {fileID: 21300000, guid: 4e4a4e80fc92b364f8fb0cb1fbe58a84, type: 3}
+    worldPrefab: {fileID: 6237367008933452270, guid: 45495404ee9c92f41945b450592266b7, type: 3}
+    districtWeights:
+    - district: 2
+      weight: 5
+    - district: 1
+      weight: 4
+    - district: 4
+      weight: 4
+    funFact: Flattening cardboard boxes saves space and turns old boxes into new
+      paper!
+    quizExplanation: Clean corrugated cardboard boxes have strong paper fibers that
+      paper mills recycle into new boxes.
+    isRare: 0
+  - id: NewspaperStack
+    displayName: Rolled Newspaper
+    category: 1
+    icon: {fileID: 21300000, guid: e924a3c6faa90274299db00ed26c4076, type: 3}
+    worldPrefab: {fileID: 4331630423649979947, guid: 2c2227f678cc0db4d96a5eeded356f8f, type: 3}
+    districtWeights:
+    - district: 4
+      weight: 5
+    - district: 1
+      weight: 4
+    - district: 0
+      weight: 3
+    funFact: Old newspapers can be pulped and reborn as fresh paper in just seven
+      days!
+    quizExplanation: Clean newspapers are standard paper recyclables that save trees
+      when re-pulped.
+    isRare: 0
+  - id: GlassJar
+    displayName: Empty Glass Jar
+    category: 1
+    icon: {fileID: 21300000, guid: ad3e925ae78eb984e833bc7db241050a, type: 3}
+    worldPrefab: {fileID: 7101417190093464565, guid: ae805ef83c62d794a8044498e566cfd8, type: 3}
+    districtWeights:
+    - district: 4
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 3
+      weight: 2
+    funFact: Glass jars can be melted and remade endlessly without ever wearing out!
+    quizExplanation: Empty, unbroken glass jars are 100% recyclable and can be melted
+      into new jars forever.
+    isRare: 0
+  - id: MilkCarton
+    displayName: Milk Carton
+    category: 1
+    icon: {fileID: 21300000, guid: b4baf56493de5d04a9b38215d94580b1, type: 3}
+    worldPrefab: {fileID: 7833657217611197147, guid: ac7c45a945903864db6a0664bf915509, type: 3}
+    districtWeights:
+    - district: 4
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 1
+      weight: 2
+    funFact: Rinsed milk cartons contain high-grade paper fibers that mills love
+      to reuse!
+    quizExplanation: Rinsed beverage and milk cartons are recyclable paperboard containers.
+    isRare: 0
+  - id: TinCan
+    displayName: Empty Tin Can
+    category: 1
+    icon: {fileID: 21300000, guid: e64223fe759914a4ca4212be46b9f8e0, type: 3}
+    worldPrefab: {fileID: 7256952333057708775, guid: 0a1806b1c68645b4980ec2c94a80df73, type: 3}
+    districtWeights:
+    - district: 4
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 3
+      weight: 2
+    funFact: Steel tin cans are magnetic, making them easy to sort and recycle at
+      plants!
+    quizExplanation: Steel and tin food cans are recyclable metals that magnets pull
+      straight off the sorting belt.
+    isRare: 0
+  - id: FlyerStack
+    displayName: Stack of Flyers
+    category: 1
+    icon: {fileID: 21300000, guid: b8c776de42f8bbb419efca4e441d7d0a, type: 3}
+    worldPrefab: {fileID: 7830881639378986102, guid: c68c953c7c542944fbda064961d919d4, type: 3}
+    districtWeights:
+    - district: 1
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 4
+      weight: 3
+    funFact: Paper flyers recycle into egg cartons, notebooks, and new cardboard
+      boxes!
+    quizExplanation: Paper flyers and leaflets are clean mixed paper that goes in
+      the Recyclable bin.
+    isRare: 0
+  - id: ChipBag
+    displayName: Foil Chip Bag
+    category: 2
+    icon: {fileID: 21300000, guid: 6c462b2f237802f44bef3628a01c29ff, type: 3}
+    worldPrefab: {fileID: 7612144401134894612, guid: 1c0dcf1ae741c5e44a6333251d1d64fd, type: 3}
+    districtWeights:
+    - district: 0
+      weight: 4
+    - district: 2
+      weight: 4
+    - district: 1
+      weight: 4
+    - district: 4
+      weight: 3
+    funFact: Shiny chip bags mix plastic and foil layers, so regular mills cannot
+      recycle them.
+    quizExplanation: Foil-lined chip bags fuse plastic and aluminum layers together,
+      making them non-biodegradable residual waste.
+    isRare: 0
+  - id: StyrofoamCup
+    displayName: Styrofoam Cup
+    category: 2
+    icon: {fileID: 21300000, guid: 03bb91ff7f60af543beb3c5c8710b639, type: 3}
+    worldPrefab: {fileID: 2512581485904933324, guid: 1e1c9a40019a7304797c118366fc6a56, type: 3}
+    districtWeights:
+    - district: 1
+      weight: 4
+    - district: 2
+      weight: 4
+    - district: 3
+      weight: 5
+    funFact: Styrofoam crumbles into tiny beads that never rot and can harm water
+      birds.
+    quizExplanation: Expanded polystyrene (Styrofoam) does not biodegrade and is
+      not accepted in standard recycling.
+    isRare: 0
+  - id: PlasticStrawWrapper
+    displayName: Plastic Straw & Wrapper
+    category: 2
+    icon: {fileID: 21300000, guid: e82428a6427e57340a55cdd38263ee47, type: 3}
+    worldPrefab: {fileID: 8502241778614227035, guid: 2682550b8f23eff42a8738c08a88de28, type: 3}
+    districtWeights:
+    - district: 2
+      weight: 5
+    - district: 3
+      weight: 4
+    - district: 0
+      weight: 4
+    funFact: Lightweight straws blow into storm drains easily and cannot be recycled
+      curbside.
+    quizExplanation: Single-use plastic straws are too small and flexible for sorting
+      screens, so they go in Non-Biodegradable trash.
+    isRare: 0
+  - id: CandyWrapper
+    displayName: Candy Wrapper
+    category: 2
+    icon: {fileID: 21300000, guid: 9a534e3ec9af1504f8035c4f6cddc300, type: 3}
+    worldPrefab: {fileID: 7894499358505191411, guid: 6babeb8b3d5f9ad4d9a42daaaccd5ac4, type: 3}
+    districtWeights:
+    - district: 0
+      weight: 5
+    - district: 4
+      weight: 4
+    - district: 1
+      weight: 3
+    funFact: Crinkly candy wrappers are too small and mixed-plastic for recycling
+      machines.
+    quizExplanation: Plastic candy wrappers neither decompose nor recycle in curbside
+      bins, so they belong in Non-Biodegradable waste.
+    isRare: 0
+  - id: TornPlasticBag
+    displayName: Torn Plastic Bag
+    category: 2
+    icon: {fileID: 21300000, guid: 3b597b6a0810ce84b9e8d545f7dc20d3, type: 3}
+    worldPrefab: {fileID: 474123440782874184, guid: 4c5b0ba77dd138742b579ab423691585, type: 3}
+    districtWeights:
+    - district: 3
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 0
+      weight: 3
+    - district: 4
+      weight: 3
+    funFact: Thin plastic bags tangle sorting machines and must stay out of regular
+      bins.
+    quizExplanation: Torn plastic film bags jam recycling machinery and do not rot
+      in nature, making them Non-Biodegradable.
+    isRare: 0
+  - id: AABattery
+    displayName: Used AA Battery
+    category: 3
+    icon: {fileID: 21300000, guid: 6088dc88f25dcfe40855bbd0fa1c74cd, type: 3}
+    worldPrefab: {fileID: 7034505206216589312, guid: 69f2861e471bbb54da247824b5150eb9, type: 3}
+    districtWeights:
+    - district: 4
+      weight: 5
+    - district: 1
+      weight: 4
+    - district: 2
+      weight: 2
+    funFact: Batteries hold corrosive metals that can leak into soil if tossed in
+      regular trash!
+    quizExplanation: Used batteries contain heavy metals and corrosive electrolytes
+      that require Hazardous waste drop-off.
+    isRare: 1
+  - id: SprayPaintCan
+    displayName: Empty Spray Paint Can
+    category: 3
+    icon: {fileID: 21300000, guid: ff5a6e1515c5a5c46bc664ef9423ad41, type: 3}
+    worldPrefab: {fileID: 3992935919323865103, guid: 03cad2817491fe74ca9590395a10bdbb, type: 3}
+    districtWeights:
+    - district: 1
+      weight: 5
+    - district: 3
+      weight: 4
+    - district: 4
+      weight: 2
+    funFact: Pressurized aerosol cans can burst or leak toxic chemicals if not handled
+      safely!
+    quizExplanation: Aerosol spray paint cans contain pressurized propellants and
+      chemical solvents classified as Hazardous waste.
+    isRare: 1
+  - id: BrokenLightBulb
+    displayName: Compact Light Bulb
+    category: 3
+    icon: {fileID: 21300000, guid: 6854c7bb3ae11894fa291ece559cdd26, type: 3}
+    worldPrefab: {fileID: 6270538509634724948, guid: f963636cd298ad842bda729f9846bf3e, type: 3}
+    districtWeights:
+    - district: 4
+      weight: 5
+    - district: 1
+      weight: 4
+    - district: 3
+      weight: 2
+    funFact: Some compact bulbs contain trace mercury and need special hazardous
+      drop-off!
+    quizExplanation: Compact bulbs and fragile glass lamps require Hazardous collection
+      to prevent mercury release and injuries.
+    isRare: 1
+  - id: MedicineBlisterPack
+    displayName: Empty Medicine Blister
+    category: 3
+    icon: {fileID: 21300000, guid: 2e0842e1313808142a95f7bc166b3200, type: 3}
+    worldPrefab: {fileID: 6027510995019445471, guid: 7d9c0d2186029594aad573ad418106e8, type: 3}
+    districtWeights:
+    - district: 4
+      weight: 5
+    - district: 2
+      weight: 4
+    - district: 3
+      weight: 2
+    funFact: Leftover medicine packs can pollute waterways if flushed or thrown in
+      open trash!
+    quizExplanation: Pharmaceutical blister packs can carry chemical residues that
+      belong in Hazardous/medical take-back bins.
+    isRare: 1
+  - id: SmallCircuitBoard
+    displayName: E-Waste Circuit Board
+    category: 3
+    icon: {fileID: 21300000, guid: 0960e5e4b59c243419e8d6c1a5a54454, type: 3}
+    worldPrefab: {fileID: 1293512345991217167, guid: beab73d6d9879384f8e2cb928cd1e045, type: 3}
+    districtWeights:
+    - district: 1
+      weight: 5
+    - district: 4
+      weight: 4
+    - district: 2
+      weight: 3
+    funFact: E-waste circuit boards hold lead and gold that need special electronics
+      recovery!
+    quizExplanation: Electronic circuit boards contain lead solder and heavy metals,
+      so they must go to Hazardous E-Waste recovery.
+    isRare: 1

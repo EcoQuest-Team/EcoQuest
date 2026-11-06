@@ -317,18 +317,19 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
             var chlg = continuePromptRoot.GetComponent<HorizontalLayoutGroup>();
             if (chlg != null)
             {
-                chlg.childAlignment = TextAnchor.MiddleRight;
+                chlg.childAlignment = TextAnchor.MiddleCenter;
                 chlg.childControlWidth = true;
                 chlg.childControlHeight = true;
                 chlg.childForceExpandWidth = false;
                 chlg.childForceExpandHeight = false;
                 chlg.spacing = 14f;
             }
+            continuePromptRoot.sizeDelta = new Vector2(continuePromptRoot.sizeDelta.x, 48f);
 
             var csf = continuePromptRoot.GetComponent<ContentSizeFitter>();
             if (csf == null) csf = continuePromptRoot.gameObject.AddComponent<ContentSizeFitter>();
             csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
             var kcp = continuePromptRoot.GetComponentInChildren<KeyCapPrompt>(true);
             if (kcp != null)
@@ -440,11 +441,27 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         {
             acceptQuestButton.onClick.RemoveAllListeners();
             acceptQuestButton.onClick.AddListener(HandleAccept);
+            var rt = acceptQuestButton.GetComponent<RectTransform>();
+            if (rt != null && acceptKeyCap != null && acceptKeyCap.ActionLabelText != null)
+            {
+                float w = Mathf.Max(240f, acceptKeyCap.ActionLabelText.preferredWidth + 92f);
+                rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
+                var le = acceptQuestButton.GetComponent<LayoutElement>();
+                if (le != null) { le.minWidth = w; le.preferredWidth = w; }
+            }
         }
         if (notNowButton != null)
         {
             notNowButton.onClick.RemoveAllListeners();
             notNowButton.onClick.AddListener(HandleDecline);
+            var rt = notNowButton.GetComponent<RectTransform>();
+            if (rt != null && notNowKeyCap != null && notNowKeyCap.ActionLabelText != null)
+            {
+                float w = Mathf.Max(165f, notNowKeyCap.ActionLabelText.preferredWidth + 92f);
+                rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
+                var le = notNowButton.GetComponent<LayoutElement>();
+                if (le != null) { le.minWidth = w; le.preferredWidth = w; }
+            }
         }
 
         // Setup speaker
@@ -560,6 +577,17 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         if (dialogueBodyText != null)
         {
             dialogueBodyText.text = fullText;
+            if (!Application.isPlaying)
+            {
+                dialogueBodyText.maxVisibleCharacters = 99999;
+                isTypewriterComplete = true;
+                isAdvanceLocked = false;
+                if (continueKeyCap != null) continueKeyCap.SetLocked(false);
+                if (acceptKeyCap != null) acceptKeyCap.SetLocked(false);
+                if (notNowKeyCap != null) notNowKeyCap.SetLocked(false);
+                if (dialogueCanvasGroup != null) dialogueCanvasGroup.alpha = 1f;
+                yield break;
+            }
             dialogueBodyText.maxVisibleCharacters = 0;
             int totalChars = fullText.Length;
 

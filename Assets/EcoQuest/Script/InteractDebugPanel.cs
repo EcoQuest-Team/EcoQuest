@@ -54,7 +54,7 @@ public class InteractDebugPanel : MonoBehaviour
         var guide = lqm != null ? lqm.QuestGiverTransform : GameObject.Find("FountainQuestGiver")?.transform;
         var player = lqm != null ? lqm.PlayerTransform : GameObject.FindGameObjectWithTag("Player")?.transform;
 
-        if (guide != null && player != null)
+        if (isVisible && guide != null && player != null)
         {
             float dist = Vector3.Distance(player.position, guide.position);
             if (dist <= 6.0f && Time.unscaledTime - lastLogTime >= 1.0f)
