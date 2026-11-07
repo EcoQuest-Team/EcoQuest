@@ -722,7 +722,7 @@ namespace EcoQuest.CityQuest
                 // Determine dialogue content & choices
                 string[] lines;
                 bool showChoices = true;
-                string acceptLabel = "Accept Checklist (4:00)";
+                string acceptLabel = "Accept";
                 string declineLabel = "Not now";
                 Action onAccept = null;
                 Action onDecline = null;
@@ -740,14 +740,14 @@ namespace EcoQuest.CityQuest
                     bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
                     if (hasPendingQuiz)
                     {
-                        acceptLabel = "Start Checklist (4:00)";
+                        acceptLabel = "Accept";
                         declineLabel = "Take Pending Bonus Quiz";
                         onAccept = () => StartNewAttempt();
                         onDecline = () => LaunchBonusQuiz();
                     }
                     else
                     {
-                        acceptLabel = "Accept Checklist (4:00)";
+                        acceptLabel = "Accept";
                         declineLabel = "Not now";
                         onAccept = () => StartNewAttempt();
                         onDecline = null;

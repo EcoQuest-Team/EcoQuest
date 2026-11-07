@@ -444,7 +444,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
             var rt = acceptQuestButton.GetComponent<RectTransform>();
             if (rt != null && acceptKeyCap != null && acceptKeyCap.ActionLabelText != null)
             {
-                float w = Mathf.Max(240f, acceptKeyCap.ActionLabelText.preferredWidth + 92f);
+                float w = Mathf.Max(140f, acceptKeyCap.ActionLabelText.preferredWidth + 76f);
                 rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
                 var le = acceptQuestButton.GetComponent<LayoutElement>();
                 if (le != null) { le.minWidth = w; le.preferredWidth = w; }
@@ -457,7 +457,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
             var rt = notNowButton.GetComponent<RectTransform>();
             if (rt != null && notNowKeyCap != null && notNowKeyCap.ActionLabelText != null)
             {
-                float w = Mathf.Max(165f, notNowKeyCap.ActionLabelText.preferredWidth + 92f);
+                float w = Mathf.Max(140f, notNowKeyCap.ActionLabelText.preferredWidth + 76f);
                 rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
                 var le = notNowButton.GetComponent<LayoutElement>();
                 if (le != null) { le.minWidth = w; le.preferredWidth = w; }

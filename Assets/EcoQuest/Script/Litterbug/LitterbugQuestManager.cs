@@ -1398,16 +1398,8 @@ public class LitterbugQuestManager : MonoBehaviour
         bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
         if (activeDialogueMode == DialogueMode.QuestGiverOffer)
         {
-            if (acceptKeyCapPrompt != null)
-            {
-                acceptKeyCapPrompt.SetPrompt("E", "Accept");
-                acceptKeyCapPrompt.SetLocked(false);
-            }
-            if (notNowKeyCapPrompt != null)
-            {
-                notNowKeyCapPrompt.SetPrompt("Q", "Close");
-                notNowKeyCapPrompt.SetLocked(false);
-            }
+            AutoFitChoiceButton(acceptQuestButton, acceptKeyCapPrompt, "E", "Accept");
+            AutoFitChoiceButton(notNowButton, notNowKeyCapPrompt, "Q", "Close");
         }
 
         if (choiceButtonsRoot != null)
@@ -1498,16 +1490,8 @@ public class LitterbugQuestManager : MonoBehaviour
         bool isOfferFinalPage = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
         if (isOfferFinalPage)
         {
-            if (acceptKeyCapPrompt != null)
-            {
-                acceptKeyCapPrompt.SetPrompt("E", "Accept");
-                acceptKeyCapPrompt.SetLocked(false);
-            }
-            if (notNowKeyCapPrompt != null)
-            {
-                notNowKeyCapPrompt.SetPrompt("Q", "Close");
-                notNowKeyCapPrompt.SetLocked(false);
-            }
+            AutoFitChoiceButton(acceptQuestButton, acceptKeyCapPrompt, "E", "Accept");
+            AutoFitChoiceButton(notNowButton, notNowKeyCapPrompt, "Q", "Close");
 
             if (choiceButtonsRoot != null)
             {
@@ -1553,16 +1537,8 @@ public class LitterbugQuestManager : MonoBehaviour
             bool isOfferFinal = (activeDialogueMode == DialogueMode.QuestGiverOffer) && (currentPageIndex == activePages.Count - 1);
             if (isOfferFinal)
             {
-                if (acceptKeyCapPrompt != null)
-                {
-                    acceptKeyCapPrompt.SetPrompt("E", "Accept");
-                    acceptKeyCapPrompt.SetLocked(false);
-                }
-                if (notNowKeyCapPrompt != null)
-                {
-                    notNowKeyCapPrompt.SetPrompt("Q", "Close");
-                    notNowKeyCapPrompt.SetLocked(false);
-                }
+                AutoFitChoiceButton(acceptQuestButton, acceptKeyCapPrompt, "E", "Accept");
+                AutoFitChoiceButton(notNowButton, notNowKeyCapPrompt, "Q", "Close");
 
                 if (choiceButtonsRoot != null)
                 {
@@ -2279,6 +2255,44 @@ public class LitterbugQuestManager : MonoBehaviour
         SetHudVisibility(true, 0f);
         Time.timeScale = 1f;
         WorldInteractionPrompt.Instance?.SetBlocked(false);
+    }
+
+    private void AutoFitChoiceButton(Button btn, KeyCapPrompt kcp, string fallbackKey, string actionText)
+    {
+        if (btn == null) return;
+        if (kcp != null)
+        {
+            kcp.SetPrompt(fallbackKey, actionText);
+            kcp.SetLocked(false);
+        }
+
+        var rt = btn.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            float textWidth = 60f;
+            var labelTmp = btn.Find("KeyCapPrompt/ActionLabel")?.GetComponent<TMPro.TextMeshProUGUI>();
+            if (labelTmp != null)
+            {
+                textWidth = labelTmp.GetPreferredValues(actionText).x;
+            }
+            // Keycap (34px) + spacing (10px) + textWidth + horizontal margins (32px) = textWidth + 76px
+            float w = Mathf.Max(140f, textWidth + 76f);
+            rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 60f);
+
+            var le = btn.GetComponent<LayoutElement>();
+            if (le != null)
+            {
+                le.minWidth = w;
+                le.preferredWidth = w;
+            }
+
+            var kcpRt = btn.Find("KeyCapPrompt")?.GetComponent<RectTransform>();
+            if (kcpRt != null)
+            {
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(kcpRt);
+            }
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+        }
     }
 
     // Skip the reset during app quit / exiting Play Mode / scene unload: it would re-create

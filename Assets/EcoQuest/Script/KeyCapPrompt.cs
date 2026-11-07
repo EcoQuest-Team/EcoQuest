@@ -248,14 +248,34 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
     {
         fallbackKey = key;
         UpdateCachedKeyCode();
-        if (actionLabel != null) actionLabel.text = action;
+        if (actionLabel != null)
+        {
+            actionLabel.text = action;
+            var ale = actionLabel.GetComponent<LayoutElement>();
+            if (ale != null)
+            {
+                float pw = actionLabel.preferredWidth;
+                ale.minWidth = pw;
+                ale.preferredWidth = pw;
+            }
+        }
         if (keycapText != null) keycapText.text = key;
         AdjustKeycapWidth();
     }
 
     public void SetActionText(string action)
     {
-        if (actionLabel != null) actionLabel.text = action;
+        if (actionLabel != null)
+        {
+            actionLabel.text = action;
+            var ale = actionLabel.GetComponent<LayoutElement>();
+            if (ale != null)
+            {
+                float pw = actionLabel.preferredWidth;
+                ale.minWidth = pw;
+                ale.preferredWidth = pw;
+            }
+        }
     }
 
     public void SetKey(string key)

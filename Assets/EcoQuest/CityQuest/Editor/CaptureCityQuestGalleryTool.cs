@@ -193,7 +193,7 @@ namespace EcoQuest.CityQuest.Editor
                     dp.ShowDialogue("RANGER ROBIN", new string[] {
                         "Hey there, Detective! Welcome to the City Eco-Watch station.",
                         "Take my Field Checklist, explore the 5 districts before the 4:00 timer runs out, and press E to collect each item and learn its story!"
-                    }, true, "Accept Checklist (4:00)", "Not now");
+                    }, true, "Accept", "Not now");
                     // Show page 0 ([E] Continue state)
                     var showPageMethod = typeof(DialoguePresenter).GetMethod("ShowPage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     showPageMethod?.Invoke(dp, new object[] { 0 });
