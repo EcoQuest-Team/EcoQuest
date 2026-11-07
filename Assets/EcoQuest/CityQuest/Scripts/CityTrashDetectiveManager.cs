@@ -770,7 +770,7 @@ namespace EcoQuest.CityQuest
                 {
                     rangerRobinController?.PlayReaction("Cheer");
                     lines = new string[] { turnInDialogue };
-                    acceptLabel = "Claim Star Bonus & View Results!";
+                    acceptLabel = "View Results";
                     declineLabel = "Close";
                     showChoices = false;
                     onAccept = () => FinalizeAttemptAndShowResults();

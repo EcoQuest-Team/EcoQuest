@@ -120,7 +120,7 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         {
             hlg.childAlignment = TextAnchor.MiddleCenter;
             hlg.childControlWidth = true;
-            hlg.childControlHeight = true;
+            hlg.childControlHeight = false;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
         }
@@ -132,9 +132,19 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
             if (ale == null && hlg != null) ale = actionLabel.gameObject.AddComponent<LayoutElement>();
             if (ale != null)
             {
-                float targetH = customKeycapHeight > 0f ? customKeycapHeight : 48f;
+                float targetH = GetEffectiveKeycapHeight();
                 ale.minHeight = targetH;
                 ale.preferredHeight = targetH;
+            }
+
+            float aph = GetParentHeight();
+            if (actionLabel.rectTransform.anchorMin.y > 0.8f)
+            {
+                actionLabel.rectTransform.anchoredPosition = new Vector2(actionLabel.rectTransform.anchoredPosition.x, -aph * 0.5f);
+            }
+            else if (actionLabel.rectTransform.anchorMin.y < 0.2f)
+            {
+                actionLabel.rectTransform.anchoredPosition = new Vector2(actionLabel.rectTransform.anchoredPosition.x, aph * 0.5f);
             }
         }
 
@@ -151,16 +161,55 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         AdjustKeycapWidth();
     }
 
+    private float GetParentHeight()
+    {
+        if (keycapRect != null && keycapRect.parent is RectTransform prt)
+        {
+            float h = prt.rect.height > 1f ? prt.rect.height : prt.sizeDelta.y;
+            if (h <= 1f && prt.parent is RectTransform gprt)
+            {
+                h = gprt.rect.height > 1f ? gprt.rect.height : gprt.sizeDelta.y;
+            }
+            if (h > 1f) return h;
+        }
+        return 48f;
+    }
+
+    private float GetEffectiveKeycapHeight()
+    {
+        if (customKeycapHeight > 0f) return customKeycapHeight;
+        float ph = GetParentHeight();
+        if (ph <= 48f)
+        {
+            return Mathf.Min(26f, ph - 12f);
+        }
+        if (ph <= 64f)
+        {
+            // Ensure keycap sits cleanly inside button with comfortable padding
+            return Mathf.Min(34f, ph - 18f);
+        }
+        return 40f;
+    }
+
     private float GetBaselineY()
     {
         if (keycapRect == null) return 0f;
-        if (GetComponent<HorizontalLayoutGroup>() != null) return 0f;
-        if (keycapRect.anchorMin.y > 0.9f && keycapRect.parent is RectTransform prt)
+
+        float h = GetParentHeight();
+
+        // If top-anchored (anchorMin.y > 0.8f), center is halfway down the parent height
+        if (keycapRect.anchorMin.y > 0.8f)
         {
-            float h = prt.rect.height > 1f ? prt.rect.height : prt.sizeDelta.y;
-            if (h <= 1f) h = 48f;
             return -h * 0.5f;
         }
+
+        // If bottom-anchored (anchorMin.y < 0.2f), center is halfway up the parent height
+        if (keycapRect.anchorMin.y < 0.2f)
+        {
+            return h * 0.5f;
+        }
+
+        // If middle-anchored (around 0.5f), center is at Y = 0
         return 0f;
     }
 
@@ -174,11 +223,9 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
     {
         if (keycapRect != null && keycapText != null)
         {
-            float targetHeight = customKeycapHeight > 0f ? customKeycapHeight : 48f;
+            float targetHeight = GetEffectiveKeycapHeight();
             float textPreferred = keycapText.preferredWidth;
-            float targetWidth = customKeycapHeight > 0f
-                ? Mathf.Max(targetHeight, textPreferred + 10f)
-                : Mathf.Max(48f, textPreferred + 18f);
+            float targetWidth = Mathf.Max(targetHeight, textPreferred + (targetHeight < 35f ? 10f : 16f));
             Vector2 size = keycapRect.sizeDelta;
             size.x = targetWidth;
             size.y = targetHeight;

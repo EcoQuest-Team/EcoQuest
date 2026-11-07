@@ -345,7 +345,7 @@ namespace EcoQuest.CityQuest.Editor
             Undo.RecordObject(hlg, "Configure Button HLG");
             hlg.childAlignment = TextAnchor.MiddleCenter;
             hlg.spacing = 10f;
-            hlg.childControlWidth = false;
+            hlg.childControlWidth = true;
             hlg.childControlHeight = false;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
@@ -372,6 +372,7 @@ namespace EcoQuest.CityQuest.Editor
                 kle.preferredWidth = 26f;
                 kle.minHeight = 26f;
                 kle.preferredHeight = 26f;
+                kle.flexibleWidth = 0f;
                 EditorUtility.SetDirty(kle);
 
                 var ktmp = keyBadge.GetComponentInChildren<TextMeshProUGUI>(true);
@@ -388,21 +389,30 @@ namespace EcoQuest.CityQuest.Editor
             var actionLabel = btnTrans.Find("ActionLabel");
             if (actionLabel != null)
             {
+                var csf = actionLabel.GetComponent<ContentSizeFitter>();
+                if (csf != null) Undo.DestroyObjectImmediate(csf);
+
                 var ltmp = actionLabel.GetComponent<TextMeshProUGUI>();
                 if (ltmp != null)
                 {
                     Undo.RecordObject(ltmp, "ActionLabel TMP");
+                    ltmp.text = actionText;
                     ltmp.fontSize = 14f;
                     ltmp.fontStyle = FontStyles.Bold;
                     ltmp.textWrappingMode = TextWrappingModes.NoWrap;
                     EditorUtility.SetDirty(ltmp);
+
+                    var lle = actionLabel.GetComponent<LayoutElement>();
+                    if (lle == null) lle = actionLabel.gameObject.AddComponent<LayoutElement>();
+                    Undo.RecordObject(lle, "ActionLabel LayoutElement");
+                    float pw = ltmp.GetPreferredValues(actionText).x;
+                    lle.minWidth = pw;
+                    lle.preferredWidth = pw;
+                    lle.minHeight = 26f;
+                    lle.preferredHeight = 26f;
+                    lle.flexibleWidth = 0f;
+                    EditorUtility.SetDirty(lle);
                 }
-                var csf = actionLabel.GetComponent<ContentSizeFitter>();
-                if (csf == null) csf = actionLabel.gameObject.AddComponent<ContentSizeFitter>();
-                Undo.RecordObject(csf, "ActionLabel CSF");
-                csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-                csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
-                EditorUtility.SetDirty(csf);
             }
 
             var kcp = btnTrans.GetComponent<KeyCapPrompt>();
@@ -1188,7 +1198,7 @@ namespace EcoQuest.CityQuest.Editor
                 HorizontalLayoutGroup hlg = go.AddComponent<HorizontalLayoutGroup>();
                 hlg.childAlignment = TextAnchor.MiddleCenter;
                 hlg.spacing = 10f;
-                hlg.childControlWidth = false;
+                hlg.childControlWidth = true;
                 hlg.childControlHeight = false;
                 hlg.childForceExpandWidth = false;
                 hlg.childForceExpandHeight = false;
@@ -1205,6 +1215,7 @@ namespace EcoQuest.CityQuest.Editor
                 keyBoxLe.preferredWidth = 26f;
                 keyBoxLe.minHeight = 26f;
                 keyBoxLe.preferredHeight = 26f;
+                keyBoxLe.flexibleWidth = 0f;
 
                 TextMeshProUGUI keyTmp = CreateTMP(keyBox.transform, "KeyText", key, font, 13f,
                     new Color(0.11f, 0.11f, 0.11f, 1f), TextAlignmentOptions.Center,
@@ -1227,9 +1238,13 @@ namespace EcoQuest.CityQuest.Editor
                 labelTmp.raycastTarget = false;
                 labelTmp.fontStyle = FontStyles.Bold;
 
-                ContentSizeFitter csf = labelGo.AddComponent<ContentSizeFitter>();
-                csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-                csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+                LayoutElement labelLe = labelGo.AddComponent<LayoutElement>();
+                float pw = labelTmp.GetPreferredValues(cleanLabel).x;
+                labelLe.minWidth = pw;
+                labelLe.preferredWidth = pw;
+                labelLe.minHeight = 26f;
+                labelLe.preferredHeight = 26f;
+                labelLe.flexibleWidth = 0f;
 
                 KeyCapPrompt kcp = go.AddComponent<KeyCapPrompt>();
                 SerializedObject so = new SerializedObject(kcp);
