@@ -723,7 +723,7 @@ namespace EcoQuest.CityQuest
                 string[] lines;
                 bool showChoices = true;
                 string acceptLabel = "Accept";
-                string declineLabel = "Not now";
+                string declineLabel = "Close";
                 Action onAccept = null;
                 Action onDecline = null;
 
@@ -748,7 +748,7 @@ namespace EcoQuest.CityQuest
                     else
                     {
                         acceptLabel = "Accept";
-                        declineLabel = "Not now";
+                        declineLabel = "Close";
                         onAccept = () => StartNewAttempt();
                         onDecline = null;
                     }
@@ -800,8 +800,8 @@ namespace EcoQuest.CityQuest
                             completedDialogue,
                             $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). Ready for a brand-new Field Checklist?"
                         };
-                        acceptLabel = "Play Again (New Checklist)";
-                        declineLabel = "Not now";
+                        acceptLabel = "Accept";
+                        declineLabel = "Close";
                         onAccept = () => StartNewAttempt();
                         onDecline = null;
                     }

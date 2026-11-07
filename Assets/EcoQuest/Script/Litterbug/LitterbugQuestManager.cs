@@ -2270,7 +2270,7 @@ public class LitterbugQuestManager : MonoBehaviour
         if (rt != null)
         {
             float textWidth = 60f;
-            var labelTmp = btn.Find("KeyCapPrompt/ActionLabel")?.GetComponent<TMPro.TextMeshProUGUI>();
+            var labelTmp = btn.transform.Find("KeyCapPrompt/ActionLabel")?.GetComponent<TMPro.TextMeshProUGUI>();
             if (labelTmp != null)
             {
                 textWidth = labelTmp.GetPreferredValues(actionText).x;
@@ -2286,7 +2286,7 @@ public class LitterbugQuestManager : MonoBehaviour
                 le.preferredWidth = w;
             }
 
-            var kcpRt = btn.Find("KeyCapPrompt")?.GetComponent<RectTransform>();
+            var kcpRt = btn.transform.Find("KeyCapPrompt")?.GetComponent<RectTransform>();
             if (kcpRt != null)
             {
                 UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(kcpRt);

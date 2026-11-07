@@ -1097,18 +1097,27 @@ public class NPCInteraction : MonoBehaviour
 
         if (acceptMissionButton != null)
         {
+            string acceptLabel = "Accept";
             KeyCapPrompt kcp = acceptMissionButton.GetComponentInChildren<KeyCapPrompt>(true);
             if (kcp != null)
             {
-                kcp.SetPrompt("E", repeatMode ? "Yes, let's go!" : "Accept Quest");
+                kcp.SetPrompt("E", acceptLabel);
             }
             else
             {
                 TextMeshProUGUI txt = acceptMissionButton.GetComponentInChildren<TextMeshProUGUI>(true);
                 if (txt != null)
                 {
-                    txt.text = repeatMode ? "Yes, let's go!" : "Accept Quest";
+                    txt.text = acceptLabel;
                 }
+            }
+
+            var rt = acceptMissionButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                float textWidth = kcp?.ActionLabelText != null ? kcp.ActionLabelText.GetPreferredValues(acceptLabel).x : 60f;
+                float w = Mathf.Max(140f, textWidth + 76f);
+                rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
             }
 
             acceptMissionButton.onClick.RemoveAllListeners();
@@ -1118,18 +1127,27 @@ public class NPCInteraction : MonoBehaviour
 
         if (notNowButton != null)
         {
+            string declineLabel = "Close";
             KeyCapPrompt kcp = notNowButton.GetComponentInChildren<KeyCapPrompt>(true);
             if (kcp != null)
             {
-                kcp.SetPrompt("Q", "Not now");
+                kcp.SetPrompt("Q", declineLabel);
             }
             else
             {
                 TextMeshProUGUI nTxt = notNowButton.GetComponentInChildren<TextMeshProUGUI>(true);
                 if (nTxt != null)
                 {
-                    nTxt.text = "Not now";
+                    nTxt.text = declineLabel;
                 }
+            }
+
+            var rt = notNowButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                float textWidth = kcp?.ActionLabelText != null ? kcp.ActionLabelText.GetPreferredValues(declineLabel).x : 60f;
+                float w = Mathf.Max(140f, textWidth + 76f);
+                rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
             }
 
             notNowButton.onClick.RemoveAllListeners();
