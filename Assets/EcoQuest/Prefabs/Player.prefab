@@ -681,6 +681,7 @@ GameObject:
   - component: {fileID: 4010498856136576506}
   - component: {fileID: 101999848127899630}
   - component: {fileID: 1964283621183083371}
+  - component: {fileID: 7085714152741062074}
   m_Layer: 8
   m_Name: PlayerCapsule
   m_TagString: Player
@@ -1088,6 +1089,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MinimapIcon
   type: 2
   customSprite: {fileID: 0}
+--- !u!114 &7085714152741062074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 838396786922661753}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 599abdec563ebfe468f9ceef2d68f854, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSurvivalStats
+  maxHunger: 100
+  currentHunger: 100
+  hungerDepletionPerSec: 0.05
+  sprintHungerDepletionPerSec: 0.08
+  maxStamina: 100
+  currentStamina: 100
+  staminaDrainPerSec: 22
+  staminaRegenPerSec: 18
+  regenDelay: 0.5
+  exhaustionThreshold: 15
+  _isSprinting: 0
+  _isExhausted: 0
+  _timeSinceLastSprint: 0
 --- !u!1 &870882826156474581
 GameObject:
   m_ObjectHideFlags: 0

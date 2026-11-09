@@ -44,6 +44,10 @@ public class PlayerSprintController : MonoBehaviour
         if (Instance == null) Instance = this;
         fpc = GetComponent<FirstPersonController>();
         inputs = GetComponent<StarterAssetsInputs>();
+        if (GetComponent<PlayerSurvivalStats>() == null)
+        {
+            gameObject.AddComponent<PlayerSurvivalStats>();
+        }
     }
 
     private void Start()
@@ -85,7 +89,13 @@ public class PlayerSprintController : MonoBehaviour
         bool isMoving = (inputs != null && inputs.move.sqrMagnitude > 0.01f);
         bool isGrounded = (fpc == null || fpc.Grounded);
 
-        IsSprinting = isHoldingSprint && isMoving && isGrounded;
+        bool hasStamina = PlayerSurvivalStats.Instance == null || PlayerSurvivalStats.Instance.CanSprint;
+        IsSprinting = isHoldingSprint && isMoving && isGrounded && hasStamina;
+
+        if (PlayerSurvivalStats.Instance != null)
+        {
+            PlayerSurvivalStats.Instance.SetSprinting(IsSprinting);
+        }
 
         // Smooth FOV Bump
         float targetFOV = IsSprinting ? (baseFOV + fovBump) : baseFOV;

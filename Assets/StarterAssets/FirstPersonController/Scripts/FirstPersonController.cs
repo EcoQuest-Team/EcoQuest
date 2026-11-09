@@ -336,7 +336,8 @@ namespace StarterAssets
 		{
 			bool slowWalk = (Keyboard.current != null && Keyboard.current.leftAltKey.isPressed) || Input.GetKey(KeyCode.LeftAlt);
 			float carrySpeedMult = DragAndDrop.IsAnyItemGrabbed ? 0.85f : 1.0f;
-			float baseTargetSpeed = _input.sprint ? SprintSpeed : (slowWalk ? WalkSpeed : MoveSpeed);
+			bool canSprint = PlayerSurvivalStats.Instance == null || PlayerSurvivalStats.Instance.CanSprint;
+			float baseTargetSpeed = (_input.sprint && canSprint) ? SprintSpeed : (slowWalk ? WalkSpeed : MoveSpeed);
 			float targetSpeed = baseTargetSpeed * carrySpeedMult;
 
 			if (_input.move == Vector2.zero) targetSpeed = 0.0f;
