@@ -788,12 +788,6 @@ namespace EcoQuest.CityTraffic
                         _reservedIntersectionIndex = candidateNext.intersectionIndex;
                     }
                 }
-                            _currentSpeed = 0f;
-                            break;
-                        }
-                        _reservedIntersectionIndex = candidateNext.intersectionIndex;
-                    }
-                }
 
                 // If leaving an intersection arc, release its reservation
                 if (edge.isIntersectionArc && edge.intersectionIndex >= 0)
