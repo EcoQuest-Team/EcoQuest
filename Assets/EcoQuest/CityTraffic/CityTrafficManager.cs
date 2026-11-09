@@ -21,11 +21,13 @@ namespace EcoQuest.CityTraffic
 
         public static CityTrafficManager Instance { get; private set; }
 
-        [Header("Graph & Pool Settings")]
+        [Header("Graph & Pool Budgets (Near + Far Activity Bands)")]
         public CityTrafficGraph graph;
-        [Range(6, 12)] public int activeCarTarget = 10;
+        [Range(6, 12)] public int activeCarTarget = 10; // Near band (0-80m) budget
+        [Range(8, 24)] public int farCarBudget = 22;    // Far band (80-260m / Always-Visible) budget
         public int randomSeed = 20261108;
         public List<GameObject> fleetPrefabs = new List<GameObject>();
+        public List<TrafficVehicleController> sceneCityVehicles = new List<TrafficVehicleController>();
 
         [Header("Speed & Sensor Tuning")]
         public float minSpeed = 4.0f;
@@ -33,13 +35,23 @@ namespace EcoQuest.CityTraffic
         public float parkSpeed = 3.5f;
         public float curveSpeed = 3.0f;
         public float sensorLength = 5.0f;
+        public float highwayMinSpeed = 8.0f;
+        public float highwayMaxSpeed = 11.0f;
 
-        [Header("Spawn & Despawn Radii")]
-        public float minSpawnRadius = 30.0f;
+        [Header("Near & Far Activity Band Radii")]
+        public float minSpawnRadius = 18.0f;
         public float maxSpawnRadius = 75.0f;
-        public float despawnRadius = 80.0f;
+        public float despawnRadius = 80.0f;   // Near band outer radius (80m)
+        public float maxFarRadius = 260.0f;   // Far band outer radius (260m)
         public float offscreenFarRadius = 48.0f;
-        public float offscreenDespawnSeconds = 10.0f;
+        public float offscreenDespawnSeconds = 12.0f;
+
+        [Header("Extended Traffic Controllers (Highway, Rail, Air)")]
+        public List<TrafficVehicleController> highwayVehicles = new List<TrafficVehicleController>();
+        public TrafficTrainController trainController;
+        public RailCrossingController railCrossingController;
+        public List<TrafficPlaneController> planeControllers = new List<TrafficPlaneController>();
+        public TrafficBalloonController balloonController;
 
         [Header("Runtime Options & Diagnostics")]
         public bool showDebugOverlay;
@@ -52,11 +64,13 @@ namespace EcoQuest.CityTraffic
 
         [SerializeField] private float _averageStepTimeMs;
         [SerializeField] private int _activeCount;
+        [SerializeField] private int _nearBandCount;
+        [SerializeField] private int _farBandCount;
         [SerializeField] private int _totalSpawnCount;
         [SerializeField] private int _totalDespawnCount;
 
-        private readonly List<TrafficVehicleController> _pool = new List<TrafficVehicleController>(16);
-        private readonly List<TrafficVehicleController> _activeVehicles = new List<TrafficVehicleController>(16);
+        private readonly List<TrafficVehicleController> _pool = new List<TrafficVehicleController>(32);
+        private readonly List<TrafficVehicleController> _activeVehicles = new List<TrafficVehicleController>(32);
         private readonly List<int> _candidateEdges = new List<int>(128);
         private readonly Plane[] _frustumPlanes = new Plane[6];
 
@@ -77,10 +91,18 @@ namespace EcoQuest.CityTraffic
 
         public List<TrafficVehicleController> ActiveVehicles => _activeVehicles;
         public List<TrafficVehicleController> AllPooledVehicles => _pool;
+        public List<TrafficVehicleController> HighwayVehicles => highwayVehicles;
         public float AverageStepTimeMs => _averageStepTimeMs;
+        public int NearBandCount => _nearBandCount;
+        public int FarBandCount => _farBandCount;
         public int TotalSpawnCount => _totalSpawnCount;
         public int TotalDespawnCount => _totalDespawnCount;
         public float SimulationTime => _simulationTime;
+
+        public bool IsRailCrossingActive()
+        {
+            return railCrossingController != null && railCrossingController.IsCrossingActive;
+        }
 
         private void Awake()
         {
@@ -113,6 +135,7 @@ namespace EcoQuest.CityTraffic
             }
 
             BuildInitialPool();
+            InitializeHighwayAndSpecialVehicles();
             UpdateStageDVisuals(0f, forceRefresh: true);
         }
 
@@ -125,12 +148,14 @@ namespace EcoQuest.CityTraffic
                 return;
             }
             Instance = this;
+            ConfigureTrafficLayerAndMinimap();
         }
 
         private void Start()
         {
             if (!IsInAllowedScene()) return;
             ResolvePlayerAndCamera();
+            ConfigureTrafficLayerAndMinimap();
             PopulateInitialTraffic(ignoreFrustum: false);
         }
 
@@ -199,10 +224,11 @@ namespace EcoQuest.CityTraffic
             int trafficLayer = LayerMask.NameToLayer("Traffic");
             if (trafficLayer >= 0)
             {
+                int layerBit = 1 << trafficLayer;
                 if (Application.isPlaying)
                 {
-                    // Disable Traffic vs Traffic physics collisions at runtime; keep Traffic vs Default (0) and Player enabled
-                    Physics.IgnoreLayerCollision(trafficLayer, trafficLayer, true);
+                    // Enable Traffic vs Traffic collisions; keep Traffic vs Default (0) and Player enabled
+                    Physics.IgnoreLayerCollision(trafficLayer, trafficLayer, false);
                     Physics.IgnoreLayerCollision(trafficLayer, 0, false);
                     int playerLayer = LayerMask.NameToLayer("Player");
                     if (playerLayer >= 0)
@@ -211,14 +237,14 @@ namespace EcoQuest.CityTraffic
                     }
                 }
 
-                // Add Traffic layer to MinimapCamera culling mask if present in City Scene
-                GameObject minimapCamObj = GameObject.Find("MinimapCamera");
-                if (minimapCamObj != null)
+                // Ensure MainCamera and all scene Cameras include the Traffic layer in their cullingMask
+                // (Root cause fix for Step 1: MainCamera had custom mask 0x00000237 which excluded Layer 12!)
+                Camera[] allCams = FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                for (int i = 0; i < allCams.Length; i++)
                 {
-                    Camera miniCam = minimapCamObj.GetComponent<Camera>();
-                    if (miniCam != null)
+                    if (allCams[i] != null && allCams[i].gameObject.scene.IsValid())
                     {
-                        miniCam.cullingMask |= (1 << trafficLayer);
+                        allCams[i].cullingMask |= layerBit;
                     }
                 }
             }
@@ -256,18 +282,17 @@ namespace EcoQuest.CityTraffic
             {
                 Transform v = vehiclesRoot.transform.GetChild(i);
                 if (v == null || !v.gameObject.activeSelf) continue;
-                Vector3 p = v.position;
-                // Ignore Highway (x > 75) and high-altitude planes/balloons
-                if (p.x > 75f || p.y > 1.5f || p.y < -1.0f) continue;
-                string n = v.name;
-                if (n.StartsWith("Plane", StringComparison.OrdinalIgnoreCase) ||
-                    n.StartsWith("Train", StringComparison.OrdinalIgnoreCase) ||
-                    n.StartsWith("AirBalloon", StringComparison.OrdinalIgnoreCase))
+                // Do not suppress any vehicle that already has an active controller
+                if (v.GetComponent<TrafficVehicleController>() != null ||
+                    v.GetComponent<TrafficTrainController>() != null ||
+                    v.GetComponent<TrafficPlaneController>() != null)
                 {
                     continue;
                 }
 
-                // Check if this static vehicle sits within 2.1m of any active graph lane segment
+                Vector3 p = v.position;
+                if (p.x > 75f || p.y > 1.5f || p.y < -1.0f) continue;
+
                 if (IsPositionBlockingAnyGraphLane(p, 2.15f))
                 {
                     v.gameObject.SetActive(false);
@@ -308,12 +333,11 @@ namespace EcoQuest.CityTraffic
 
         public void BuildInitialPool()
         {
-            // Clean up any pre-existing child vehicles
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
                 Transform ch = transform.GetChild(i);
                 var tv = ch.GetComponent<TrafficVehicleController>();
-                if (tv != null)
+                if (tv != null && !tv.isHighwayVehicle)
                 {
                     if (Application.isPlaying) Destroy(ch.gameObject);
                     else DestroyImmediate(ch.gameObject);
@@ -323,9 +347,29 @@ namespace EcoQuest.CityTraffic
             _pool.Clear();
             _activeVehicles.Clear();
 
+            // Prefer using the 32 converted scene city vehicles directly so every converted vehicle in Vehicles/ actively drives
+            if (sceneCityVehicles != null && sceneCityVehicles.Count > 0)
+            {
+                for (int i = 0; i < sceneCityVehicles.Count; i++)
+                {
+                    TrafficVehicleController ctrl = sceneCityVehicles[i];
+                    if (ctrl == null) continue;
+                    ctrl.vehicleId = i + 1;
+                    ctrl.isHighwayVehicle = false;
+                    ctrl.sensorLength = sensorLength;
+                    ctrl.EnsurePhysicsAndWheels();
+                    ctrl.gameObject.SetActive(false);
+                    _pool.Add(ctrl);
+                }
+                if (_pool.Count > 0) return;
+            }
+
             if (fleetPrefabs == null || fleetPrefabs.Count == 0) return;
 
-            int poolCapacity = Mathf.Max(12, activeCarTarget + 2);
+            int nearTarget = Mathf.Clamp(activeCarTarget, 6, 12);
+            int farTarget = Mathf.Clamp(farCarBudget, 8, 24);
+            int poolCapacity = nearTarget + farTarget + 2;
+
             for (int i = 0; i < poolCapacity; i++)
             {
                 GameObject prefab = fleetPrefabs[i % fleetPrefabs.Count];
@@ -346,21 +390,188 @@ namespace EcoQuest.CityTraffic
             }
         }
 
+        public void InitializeHighwayAndSpecialVehicles()
+        {
+            if (graph == null) return;
+
+            // Initialize all highway vehicles on their matched highway lanes
+            for (int i = 0; i < highwayVehicles.Count; i++)
+            {
+                TrafficVehicleController hv = highwayVehicles[i];
+                if (hv == null) continue;
+                hv.gameObject.SetActive(true);
+                int laneIdx = hv.highwayLaneIndex;
+                if (laneIdx < 0 || laneIdx >= graph.highwayLanes.Count)
+                {
+                    laneIdx = FindClosestHighwayLaneIndex(hv.transform.position.x);
+                }
+                float speed = Mathf.Lerp(highwayMinSpeed, highwayMaxSpeed, (i * 0.37f) % 1.0f);
+                hv.InitializeOnHighwayLane(this, graph, laneIdx, hv.transform.position.z, speed);
+            }
+
+            if (trainController == null)
+            {
+                trainController = FindFirstObjectByType<TrafficTrainController>(FindObjectsInactive.Include);
+            }
+            if (trainController != null)
+            {
+                trainController.EnsureSetup();
+            }
+
+            if (railCrossingController == null)
+            {
+                railCrossingController = FindFirstObjectByType<RailCrossingController>(FindObjectsInactive.Include);
+            }
+            if (railCrossingController != null)
+            {
+                railCrossingController.ResolveReferences();
+            }
+
+            if (planeControllers == null || planeControllers.Count == 0)
+            {
+                planeControllers = new List<TrafficPlaneController>(FindObjectsByType<TrafficPlaneController>(FindObjectsInactive.Include, FindObjectsSortMode.None));
+            }
+            for (int i = 0; i < planeControllers.Count; i++)
+            {
+                if (planeControllers[i] != null) planeControllers[i].EnsureSetup();
+            }
+
+            if (balloonController == null)
+            {
+                balloonController = FindFirstObjectByType<TrafficBalloonController>(FindObjectsInactive.Include);
+            }
+            if (balloonController != null)
+            {
+                balloonController.EnsureSetup();
+            }
+        }
+
+        public int FindClosestHighwayLaneIndex(float worldX)
+        {
+            if (graph == null || graph.highwayLanes.Count == 0) return -1;
+            int best = 0;
+            float bestDiff = float.MaxValue;
+            for (int i = 0; i < graph.highwayLanes.Count; i++)
+            {
+                float d = Mathf.Abs(graph.highwayLanes[i].laneX - worldX);
+                if (d < bestDiff)
+                {
+                    bestDiff = d;
+                    best = i;
+                }
+            }
+            return best;
+        }
+
         public void PopulateInitialTraffic(bool ignoreFrustum)
         {
             if (graph == null || graph.edges.Count == 0) return;
             if (_pool.Count == 0) BuildInitialPool();
 
-            int target = Mathf.Clamp(activeCarTarget, 6, 12);
+            int nearTarget = Mathf.Clamp(activeCarTarget, 6, 12);
+            int farTarget = Mathf.Clamp(farCarBudget, 8, 22);
+
+            // 1. Populate Near Band (15m - 80m)
             int attempts = 0;
-            while (_activeVehicles.Count < target && attempts < 60)
+            while (_nearBandCount < nearTarget && attempts < 80)
             {
                 attempts++;
-                if (!TrySpawnOneVehicle(ignoreFrustum))
+                if (TrySpawnVehicleInBand(TrafficSimulationBand.Near, ignoreFrustum: true))
                 {
-                    // Fallback if camera frustum is wide: allow spawning slightly outside strict frustum check on initial fill
-                    if (!ignoreFrustum) TrySpawnOneVehicle(ignoreFrustum: true);
+                    _nearBandCount++;
                 }
+            }
+
+            // 2. Populate Far Band (80m - 260m)
+            attempts = 0;
+            while (_farBandCount < farTarget && attempts < 140)
+            {
+                attempts++;
+                if (TrySpawnVehicleInBand(TrafficSimulationBand.Far, ignoreFrustum: true))
+                {
+                    _farBandCount++;
+                }
+            }
+
+            // Distribute remaining pooled vehicles only onto unoccupied straight city corridors
+            for (int i = 0; i < _pool.Count; i++)
+            {
+                if (_pool[i] != null && !_pool[i].gameObject.activeSelf)
+                {
+                    TrySpawnVehicleAnywhereOnCityCorridors(_pool[i]);
+                }
+            }
+
+            RecountBands();
+        }
+
+        private bool TrySpawnVehicleAnywhereOnCityCorridors(TrafficVehicleController freeCar)
+        {
+            if (freeCar == null || graph == null || graph.edges.Count == 0) return false;
+            ResolvePlayerAndCamera();
+            Vector3 playerPos = _playerTransform != null ? _playerTransform.position : Vector3.zero;
+
+            int edgeCount = graph.edges.Count;
+            int offset = (freeCar.vehicleId * 11) % edgeCount;
+            for (int step = 0; step < edgeCount; step++)
+            {
+                int i = (offset + step) % edgeCount;
+                TrafficEdge edge = graph.edges[i];
+                if (edge.isIntersectionArc || edge.isCurve || edge.length < 18.0f) continue;
+
+                // Check if edge is already occupied by any active vehicle
+                bool edgeOccupied = false;
+                for (int j = 0; j < _activeVehicles.Count; j++)
+                {
+                    var other = _activeVehicles[j];
+                    if (other != null && other.gameObject.activeSelf && other.CurrentEdgeId == i)
+                    {
+                        edgeOccupied = true;
+                        break;
+                    }
+                }
+                if (edgeOccupied) continue;
+
+                float spawnDist = edge.length * 0.45f;
+                edge.SampleAtDistance(spawnDist, out Vector3 spawnPos, out _);
+                spawnPos.y = 0f;
+
+                bool tooClose = false;
+                for (int j = 0; j < _activeVehicles.Count; j++)
+                {
+                    var other = _activeVehicles[j];
+                    if (other != null && other.gameObject.activeSelf &&
+                        (other.transform.position - spawnPos).sqrMagnitude < 324f) // 18m
+                    {
+                        tooClose = true;
+                        break;
+                    }
+                }
+                if (tooClose) continue;
+
+                float playerDist = Vector2.Distance(new Vector2(spawnPos.x, spawnPos.z), new Vector2(playerPos.x, playerPos.z));
+                TrafficSimulationBand band = playerDist <= despawnRadius ? TrafficSimulationBand.Near : TrafficSimulationBand.Far;
+                float speed = Mathf.Lerp(minSpeed, maxSpeed, NextRandom01());
+                freeCar.gameObject.SetActive(true);
+                freeCar.simulationBand = band;
+                freeCar.InitializeOnEdge(this, graph, i, spawnDist, speed, band);
+                _activeVehicles.Add(freeCar);
+                _totalSpawnCount++;
+                return true;
+            }
+            return false;
+        }
+
+        private void RecountBands()
+        {
+            _nearBandCount = 0;
+            _farBandCount = 0;
+            for (int i = 0; i < _activeVehicles.Count; i++)
+            {
+                var v = _activeVehicles[i];
+                if (v == null || !v.gameObject.activeSelf) continue;
+                if (v.simulationBand == TrafficSimulationBand.Near) _nearBandCount++;
+                else _farBandCount++;
             }
             _activeCount = _activeVehicles.Count;
         }
@@ -395,6 +606,7 @@ namespace EcoQuest.CityTraffic
             _perfWatch.Restart();
             _simulationTime += dt;
 
+            // Step City Grid Vehicles (Near + Far)
             for (int i = 0; i < _activeVehicles.Count; i++)
             {
                 var v = _activeVehicles[i];
@@ -402,6 +614,41 @@ namespace EcoQuest.CityTraffic
                 {
                     v.StepSimulation(dt);
                 }
+            }
+
+            // Step Highway Vehicles
+            for (int i = 0; i < highwayVehicles.Count; i++)
+            {
+                var hv = highwayVehicles[i];
+                if (hv != null && hv.gameObject.activeSelf)
+                {
+                    hv.StepSimulation(dt);
+                }
+            }
+
+            // Step Train & Rail Crossing
+            if (trainController != null && trainController.gameObject.activeSelf)
+            {
+                trainController.StepSimulation(dt);
+            }
+            if (railCrossingController != null && railCrossingController.gameObject.activeSelf)
+            {
+                railCrossingController.StepSimulation(dt);
+            }
+
+            // Step Planes
+            for (int i = 0; i < planeControllers.Count; i++)
+            {
+                if (planeControllers[i] != null && planeControllers[i].gameObject.activeSelf)
+                {
+                    planeControllers[i].StepSimulation(dt);
+                }
+            }
+
+            // Step Hot Air Balloon
+            if (balloonController != null && balloonController.gameObject.activeSelf)
+            {
+                balloonController.StepSimulation(dt);
             }
 
             _spawnMaintainTimer -= dt;
@@ -429,8 +676,8 @@ namespace EcoQuest.CityTraffic
                 GeometryUtility.CalculateFrustumPlanes(_mainCamera, _frustumPlanes);
             }
 
-            float despawnSq = despawnRadius * despawnRadius;
-            float farSq = offscreenFarRadius * offscreenFarRadius;
+            float nearSq = despawnRadius * despawnRadius;
+            float maxFarSq = maxFarRadius * maxFarRadius;
 
             for (int i = _activeVehicles.Count - 1; i >= 0; i--)
             {
@@ -445,19 +692,33 @@ namespace EcoQuest.CityTraffic
                 diff.y = 0f;
                 float distSq = diff.sqrMagnitude;
 
-                if (distSq > despawnSq)
+                bool inFrustum = false;
+                if (hasCam)
+                {
+                    Bounds b = new Bounds(v.transform.position + Vector3.up * 0.8f, new Vector3(3.0f, 2.2f, 5.0f));
+                    inFrustum = GeometryUtility.TestPlanesAABB(_frustumPlanes, b);
+                }
+
+                // Despawn only if beyond maxFarRadius (260m) AND not visible in camera
+                if (distSq > maxFarSq && !inFrustum)
                 {
                     DespawnVehicleAt(i);
                     continue;
                 }
 
-                if (hasCam && distSq > farSq)
+                // Seamless Near <-> Far band switching without teleporting or popping
+                if (distSq <= nearSq)
                 {
-                    Bounds b = new Bounds(v.transform.position + Vector3.up * 0.8f, new Vector3(2.5f, 2.0f, 4.5f));
-                    if (!GeometryUtility.TestPlanesAABB(_frustumPlanes, b))
+                    v.simulationBand = TrafficSimulationBand.Near;
+                    v.OffscreenFarTimer = 0f;
+                }
+                else
+                {
+                    v.simulationBand = TrafficSimulationBand.Far;
+                    if (hasCam && !inFrustum)
                     {
                         v.OffscreenFarTimer += checkInterval;
-                        if (v.OffscreenFarTimer >= offscreenDespawnSeconds)
+                        if (v.OffscreenFarTimer >= offscreenDespawnSeconds && _farBandCount > farCarBudget)
                         {
                             DespawnVehicleAt(i);
                             continue;
@@ -468,22 +729,38 @@ namespace EcoQuest.CityTraffic
                         v.OffscreenFarTimer = 0f;
                     }
                 }
-                else
+            }
+
+            RecountBands();
+
+            int nearTarget = Mathf.Clamp(activeCarTarget, 6, 12);
+            int farTarget = Mathf.Clamp(farCarBudget, 8, 20);
+
+            int spawnTries = 0;
+            while (_nearBandCount < nearTarget && spawnTries < 6)
+            {
+                spawnTries++;
+                if (TrySpawnVehicleInBand(TrafficSimulationBand.Near, ignoreFrustum: !hasCam))
                 {
-                    v.OffscreenFarTimer = 0f;
+                    _nearBandCount++;
+                }
+                else if (TrySpawnVehicleInBand(TrafficSimulationBand.Near, ignoreFrustum: true))
+                {
+                    _nearBandCount++;
                 }
             }
 
-            int target = Mathf.Clamp(activeCarTarget, 6, 12);
-            int spawnTries = 0;
-            while (_activeVehicles.Count < target && spawnTries < 8)
+            spawnTries = 0;
+            while (_farBandCount < farTarget && spawnTries < 6)
             {
                 spawnTries++;
-                if (!TrySpawnOneVehicle(ignoreFrustum: !hasCam))
+                if (TrySpawnVehicleInBand(TrafficSimulationBand.Far, ignoreFrustum: true))
                 {
-                    TrySpawnOneVehicle(ignoreFrustum: true);
+                    _farBandCount++;
                 }
             }
+
+            RecountBands();
         }
 
         private void DespawnVehicleAt(int activeListIndex)
@@ -499,6 +776,11 @@ namespace EcoQuest.CityTraffic
         }
 
         public bool TrySpawnOneVehicle(bool ignoreFrustum)
+        {
+            return TrySpawnVehicleInBand(TrafficSimulationBand.Near, ignoreFrustum);
+        }
+
+        public bool TrySpawnVehicleInBand(TrafficSimulationBand band, bool ignoreFrustum)
         {
             if (graph == null || graph.edges.Count == 0) return false;
 
@@ -521,19 +803,20 @@ namespace EcoQuest.CityTraffic
                 GeometryUtility.CalculateFrustumPlanes(_mainCamera, _frustumPlanes);
             }
 
+            float minR = band == TrafficSimulationBand.Near ? minSpawnRadius : despawnRadius;
+            float maxR = band == TrafficSimulationBand.Near ? despawnRadius : maxFarRadius;
+
             _candidateEdges.Clear();
             for (int i = 0; i < graph.edges.Count; i++)
             {
                 TrafficEdge e = graph.edges[i];
-                // Spawn only on straight corridor edges (never inside an intersection arc or turn curve)
                 if (e.isIntersectionArc || e.isCurve || e.length < 10.0f) continue;
 
-                // Sample midpoint of edge
                 e.SampleAtDistance(e.length * 0.45f, out Vector3 midPos, out _);
                 Vector3 toPlayer = midPos - playerPos;
                 toPlayer.y = 0f;
                 float dist = toPlayer.magnitude;
-                if (dist < minSpawnRadius || dist > maxSpawnRadius) continue;
+                if (dist < minR || dist > maxR) continue;
 
                 _candidateEdges.Add(i);
             }
@@ -548,12 +831,15 @@ namespace EcoQuest.CityTraffic
                 int edgeId = _candidateEdges[(startIdx + step) % count];
                 TrafficEdge edge = graph.edges[edgeId];
 
-                // Pick a safe distance along the corridor away from intersection entry/exit & crosswalks
                 float minD = 3.5f;
                 float maxD = Mathf.Max(minD + 0.5f, edge.length - 7.5f);
                 if (edge.stopLineDistanceOnEdge > 0f)
                 {
                     maxD = Mathf.Min(maxD, edge.stopLineDistanceOnEdge - 3.0f);
+                }
+                if (edge.railCrossingStopLineDist > 0f)
+                {
+                    maxD = Mathf.Min(maxD, edge.railCrossingStopLineDist - 4.0f);
                 }
                 if (maxD <= minD) continue;
 
@@ -562,7 +848,7 @@ namespace EcoQuest.CityTraffic
                 spawnPos.y = 0f;
 
                 float playerDist = Vector2.Distance(new Vector2(spawnPos.x, spawnPos.z), new Vector2(playerPos.x, playerPos.z));
-                if (playerDist < minSpawnRadius || playerDist > maxSpawnRadius) continue;
+                if (playerDist < minR || playerDist > maxR) continue;
 
                 if (checkFrustum)
                 {
@@ -570,16 +856,27 @@ namespace EcoQuest.CityTraffic
                     if (GeometryUtility.TestPlanesAABB(_frustumPlanes, b)) continue;
                 }
 
-                // Ensure not inside any crosswalk zone or intersection box
                 if (IsInsideAnyCrosswalkOrIntersection(spawnPos)) continue;
 
-                // Ensure >= 9m clear of any active vehicle
+                // Enforce single occupancy per corridor edge on spawn
+                bool edgeAlreadyOccupied = false;
+                for (int j = 0; j < _activeVehicles.Count; j++)
+                {
+                    var other = _activeVehicles[j];
+                    if (other != null && other.gameObject.activeSelf && other.CurrentEdgeId == edgeId)
+                    {
+                        edgeAlreadyOccupied = true;
+                        break;
+                    }
+                }
+                if (edgeAlreadyOccupied) continue;
+
                 bool tooCloseToOtherCar = false;
                 for (int j = 0; j < _activeVehicles.Count; j++)
                 {
                     var other = _activeVehicles[j];
                     if (other == null || !other.gameObject.activeSelf) continue;
-                    if ((other.transform.position - spawnPos).sqrMagnitude < 81f) // 9m^2
+                    if ((other.transform.position - spawnPos).sqrMagnitude < 324f) // 18m
                     {
                         tooCloseToOtherCar = true;
                         break;
@@ -590,7 +887,7 @@ namespace EcoQuest.CityTraffic
                 float speed = Mathf.Lerp(minSpeed, maxSpeed, NextRandom01());
                 freeCar.sensorLength = sensorLength;
                 freeCar.gameObject.SetActive(true);
-                freeCar.InitializeOnEdge(this, graph, edgeId, spawnDist, speed);
+                freeCar.InitializeOnEdge(this, graph, edgeId, spawnDist, speed, band);
                 _activeVehicles.Add(freeCar);
                 _totalSpawnCount++;
                 return true;
@@ -601,7 +898,6 @@ namespace EcoQuest.CityTraffic
 
         public void UpdateStageDVisuals(float now, bool forceRefresh)
         {
-            // 1. Update Polyperfect traffic light bulbs on central 4-way intersections via MaterialPropertyBlock
             if (graph != null && signalPoles != null && signalPoles.Count > 0)
             {
                 EnsureSignalPropertyBlocks();
@@ -614,14 +910,12 @@ namespace EcoQuest.CityTraffic
                     if (!forceRefresh && binding.lastAppliedState == stateInt) continue;
                     binding.lastAppliedState = stateInt;
 
-                    // Submesh 2 = Green, Submesh 3 = Yellow/Orange, Submesh 4 = Red
                     binding.poleRenderer.SetPropertyBlock(stateInt == 0 ? _mpbGreenLit : _mpbBulbOff, 2);
                     binding.poleRenderer.SetPropertyBlock(stateInt == 1 ? _mpbYellowLit : _mpbBulbOff, 3);
                     binding.poleRenderer.SetPropertyBlock(stateInt == 2 ? _mpbRedLit : _mpbBulbOff, 4);
                 }
             }
 
-            // 2. Update hazard flashers on parked roadside cars (~1.1 Hz)
             if (parkedHazardFlashers != null && parkedHazardFlashers.Count > 0)
             {
                 bool flashOn = Mathf.FloorToInt(now / Mathf.Max(0.15f, hazardBlinkInterval)) % 2 == 0;
@@ -679,6 +973,8 @@ namespace EcoQuest.CityTraffic
                 if ((pos - cw.center).sqrMagnitude < 16.0f)
                     return true;
             }
+            // Avoid spawning directly on the railway tracks around x = 72
+            if (Mathf.Abs(pos.x - 72.0f) < 6.5f) return true;
             return false;
         }
 
@@ -691,20 +987,20 @@ namespace EcoQuest.CityTraffic
                 fontSize = 12,
                 alignment = TextAnchor.UpperLeft
             };
-            Rect rect = new Rect(16f, 16f, 360f, 115f);
+            Rect rect = new Rect(16f, 16f, 390f, 130f);
             string info = $"<b>[City Traffic Debug Overlay]</b>\n" +
-                          $"Active Cars: {_activeVehicles.Count} / {activeCarTarget} (Pool: {_pool.Count})\n" +
+                          $"City Cars: {_activeVehicles.Count} (Near: {_nearBandCount}/{activeCarTarget}, Far: {_farBandCount}/{farCarBudget})\n" +
+                          $"Highway Cars: {highwayVehicles.Count} | Planes: {planeControllers.Count} | Train & Balloon: Active\n" +
                           $"Spawns: {_totalSpawnCount} | Despawns: {_totalDespawnCount}\n" +
-                          $"Manager CPU: {_averageStepTimeMs:F3} ms (Budget < 0.300 ms)\n" +
-                          $"Nodes: {(graph != null ? graph.nodes.Count : 0)} | Edges: {(graph != null ? graph.edges.Count : 0)}";
+                          $"Manager CPU: {_averageStepTimeMs:F3} ms (Budget < 0.500 ms)";
             GUI.Box(rect, info, boxStyle);
         }
 
+#if UNITY_EDITOR
         private void OnDrawGizmos()
         {
             if (!showDebugOverlay || graph == null) return;
 
-            // 1. Draw Directed Lane Edges and Arrows
             for (int i = 0; i < graph.edges.Count; i++)
             {
                 TrafficEdge e = graph.edges[i];
@@ -728,7 +1024,6 @@ namespace EcoQuest.CityTraffic
                     Gizmos.DrawLine(a, b);
                 }
 
-                // Direction chevron at midpoint
                 e.SampleAtDistance(e.length * 0.5f, out Vector3 mid, out Vector3 tan);
                 mid += Vector3.up * 0.28f;
                 Vector3 right = Vector3.Cross(Vector3.up, tan).normalized;
@@ -736,51 +1031,16 @@ namespace EcoQuest.CityTraffic
                 Gizmos.DrawLine(mid, mid - tan * 1.1f - right * 0.45f);
             }
 
-            // 2. Draw Intersection Conflict Zones & Traffic Light Phase
-            for (int i = 0; i < graph.intersections.Count; i++)
+            // Draw Highway Lanes
+            Gizmos.color = new Color(0.2f, 0.9f, 1.0f, 0.85f);
+            for (int i = 0; i < graph.highwayLanes.Count; i++)
             {
-                var inter = graph.intersections[i];
-                int occ = graph.GetActiveOccupantCount(i);
-                Gizmos.color = occ > 0 ? new Color(1f, 0.25f, 0.2f, 0.45f) : new Color(1f, 0.85f, 0.1f, 0.25f);
-                Gizmos.DrawWireCube(inter.center + Vector3.up * 0.5f, new Vector3(12f, 1.0f, 12f));
-
-                if (inter.hasTrafficLight)
-                {
-                    var nsState = graph.GetTrafficLightState(i, 0, _simulationTime);
-                    var ewState = graph.GetTrafficLightState(i, 1, _simulationTime);
-                    Gizmos.color = nsState == TrafficLightPhaseState.Green ? Color.green : (nsState == TrafficLightPhaseState.Yellow ? Color.yellow : Color.red);
-                    Gizmos.DrawSphere(inter.center + new Vector3(0f, 3.8f, 4.5f), 0.55f);
-                    Gizmos.DrawSphere(inter.center + new Vector3(0f, 3.8f, -4.5f), 0.55f);
-                    Gizmos.color = ewState == TrafficLightPhaseState.Green ? Color.green : (ewState == TrafficLightPhaseState.Yellow ? Color.yellow : Color.red);
-                    Gizmos.DrawSphere(inter.center + new Vector3(4.5f, 3.8f, 0f), 0.55f);
-                    Gizmos.DrawSphere(inter.center + new Vector3(-4.5f, 3.8f, 0f), 0.55f);
-                }
-            }
-
-            // 3. Draw Merged Crosswalk Zones & Stop Lines
-            for (int i = 0; i < graph.crosswalkZones.Count; i++)
-            {
-                var cw = graph.crosswalkZones[i];
-                Matrix4x4 oldMat = Gizmos.matrix;
-                Gizmos.matrix = Matrix4x4.TRS(cw.center + Vector3.up * 0.2f, cw.rotation, Vector3.one);
-                Gizmos.color = new Color(0.2f, 0.6f, 1.0f, 0.4f);
-                Gizmos.DrawWireCube(Vector3.zero, cw.halfExtents * 2f);
-                Gizmos.matrix = oldMat;
-
-                Gizmos.color = Color.red;
-                Gizmos.DrawSphere(cw.stopLinePosition + Vector3.up * 0.3f, 0.4f);
-            }
-
-            // 4. Draw Active Vehicle Sensors
-            for (int i = 0; i < _activeVehicles.Count; i++)
-            {
-                var v = _activeVehicles[i];
-                if (v == null || !v.gameObject.activeSelf) continue;
-                Gizmos.color = v.IsBlockedByPlayer ? Color.red : (v.CurrentSpeed < 0.5f ? Color.yellow : Color.cyan);
-                Vector3 start = v.transform.position + Vector3.up * 0.7f + v.transform.forward * (v.bodyLength * 0.5f);
-                Gizmos.DrawLine(start, start + v.transform.forward * v.sensorLength);
-                Gizmos.DrawWireSphere(start + v.transform.forward * v.sensorLength, v.sensorRadius);
+                var hl = graph.highwayLanes[i];
+                Vector3 a = new Vector3(hl.laneX, 0.3f, hl.startZ);
+                Vector3 b = new Vector3(hl.laneX, 0.3f, hl.endZ);
+                Gizmos.DrawLine(a, b);
             }
         }
+#endif
     }
 }

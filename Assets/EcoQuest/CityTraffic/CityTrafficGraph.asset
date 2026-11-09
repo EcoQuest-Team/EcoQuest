@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: CityTrafficGraph
   m_EditorClassIdentifier: Assembly-CSharp::EcoQuest.CityTraffic.CityTrafficGraph
   driveOnRight: 1
+  highwayDriveOnRight: 1
   laneOffset: 1.5
   defaultStraightSpeed: 5.5
   parkDistrictSpeed: 3.5
@@ -1612,7 +1613,7 @@ MonoBehaviour:
     intersectionIndex: 31
     isIntersectionEntry: 1
     isIntersectionExit: 0
-    outgoingEdges: 5c010000
+    outgoingEdges: 5c01000072010000
     incomingEdges: 51000000
   - id: 199
     position: {x: 48, y: 0, z: -52.5}
@@ -1621,14 +1622,14 @@ MonoBehaviour:
     isIntersectionEntry: 0
     isIntersectionExit: 1
     outgoingEdges: 63000000
-    incomingEdges: 5d010000
+    incomingEdges: 5d01000073010000
   - id: 200
     position: {x: 52.5, y: 0, z: -48}
     forward: {x: -0, y: -0, z: -1}
     intersectionIndex: 31
     isIntersectionEntry: 1
     isIntersectionExit: 0
-    outgoingEdges: 5d010000
+    outgoingEdges: 5d01000074010000
     incomingEdges: 66000000
   - id: 201
     position: {x: 55.5, y: 0, z: -48}
@@ -1637,7 +1638,7 @@ MonoBehaviour:
     isIntersectionEntry: 0
     isIntersectionExit: 1
     outgoingEdges: 64000000
-    incomingEdges: 5c010000
+    incomingEdges: 5c01000075010000
   - id: 202
     position: {x: 48, y: 0, z: -19.5}
     forward: {x: 1, y: -0, z: -0}
@@ -1814,6 +1815,38 @@ MonoBehaviour:
     isIntersectionExit: 1
     outgoingEdges: 6f000000
     incomingEdges: 70010000
+  - id: 224
+    position: {x: 60, y: 0, z: -52.5}
+    forward: {x: -1, y: 0, z: 0}
+    intersectionIndex: 31
+    isIntersectionEntry: 1
+    isIntersectionExit: 0
+    outgoingEdges: 7301000075010000
+    incomingEdges: 78010000
+  - id: 225
+    position: {x: 60, y: 0, z: -55.5}
+    forward: {x: 1, y: 0, z: 0}
+    intersectionIndex: 31
+    isIntersectionEntry: 0
+    isIntersectionExit: 1
+    outgoingEdges: 76010000
+    incomingEdges: 7201000074010000
+  - id: 226
+    position: {x: 80.5, y: 0, z: -55.5}
+    forward: {x: 1, y: 0, z: 0}
+    intersectionIndex: -1
+    isIntersectionEntry: 0
+    isIntersectionExit: 0
+    outgoingEdges: 77010000
+    incomingEdges: 76010000
+  - id: 227
+    position: {x: 80.5, y: 0, z: -52.5}
+    forward: {x: -1, y: 0, z: 0}
+    intersectionIndex: -1
+    isIntersectionEntry: 0
+    isIntersectionExit: 0
+    outgoingEdges: 78010000
+    incomingEdges: 77010000
   edges:
   - id: 0
     fromNode: 1
@@ -1835,6 +1868,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 0
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 1
     fromNode: 3
     toNode: 14
@@ -1855,6 +1890,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 1
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 2
     fromNode: 5
     toNode: 0
@@ -1875,6 +1912,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 3
     fromNode: 7
     toNode: 10
@@ -1895,6 +1934,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 4
     fromNode: 9
     toNode: 20
@@ -1915,6 +1956,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 2
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 5
     fromNode: 11
     toNode: 6
@@ -1935,6 +1978,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 3
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 6
     fromNode: 13
     toNode: 28
@@ -1955,6 +2000,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 4
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 7
     fromNode: 15
     toNode: 2
@@ -1975,6 +2022,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 8
     fromNode: 17
     toNode: 22
@@ -1995,6 +2044,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 5
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 9
     fromNode: 19
     toNode: 38
@@ -2015,6 +2066,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 6
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 10
     fromNode: 21
     toNode: 8
@@ -2035,6 +2088,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 7
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 11
     fromNode: 23
     toNode: 16
@@ -2055,6 +2110,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 8
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 12
     fromNode: 25
     toNode: 30
@@ -2075,6 +2132,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 9
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 13
     fromNode: 27
     toNode: 46
@@ -2095,6 +2154,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 10
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 14
     fromNode: 29
     toNode: 12
@@ -2115,6 +2176,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 15
     fromNode: 31
     toNode: 24
@@ -2135,6 +2198,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 11
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 16
     fromNode: 33
     toNode: 54
@@ -2155,6 +2220,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 12
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 17
     fromNode: 35
     toNode: 40
@@ -2175,6 +2242,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 13
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 18
     fromNode: 37
     toNode: 70
@@ -2195,6 +2264,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 14
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 19
     fromNode: 39
     toNode: 18
@@ -2215,6 +2286,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 15
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 20
     fromNode: 41
     toNode: 34
@@ -2235,6 +2308,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 21
     fromNode: 43
     toNode: 48
@@ -2255,6 +2330,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 16
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 22
     fromNode: 45
     toNode: 80
@@ -2275,6 +2352,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 17
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 23
     fromNode: 47
     toNode: 26
@@ -2295,6 +2374,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 18
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 24
     fromNode: 49
     toNode: 42
@@ -2315,6 +2396,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 19
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 25
     fromNode: 51
     toNode: 56
@@ -2335,6 +2418,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 20
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 26
     fromNode: 53
     toNode: 66
@@ -2355,6 +2440,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 27
     fromNode: 55
     toNode: 32
@@ -2375,6 +2462,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 21
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 28
     fromNode: 57
     toNode: 50
@@ -2395,6 +2484,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 22
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 29
     fromNode: 59
     toNode: 62
@@ -2415,6 +2506,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 30
     fromNode: 61
     toNode: 96
@@ -2435,6 +2528,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 23
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 31
     fromNode: 63
     toNode: 58
@@ -2455,6 +2550,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 24
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 32
     fromNode: 65
     toNode: 110
@@ -2475,6 +2572,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 25
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 33
     fromNode: 67
     toNode: 52
@@ -2495,6 +2594,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 34
     fromNode: 69
     toNode: 88
@@ -2515,6 +2616,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 35
     fromNode: 71
     toNode: 36
@@ -2535,6 +2638,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 36
     fromNode: 73
     toNode: 76
@@ -2555,6 +2660,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 37
     fromNode: 75
     toNode: 116
@@ -2575,6 +2682,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 26
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 38
     fromNode: 77
     toNode: 72
@@ -2595,6 +2704,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 39
     fromNode: 79
     toNode: 82
@@ -2615,6 +2726,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 40
     fromNode: 81
     toNode: 44
@@ -2635,6 +2748,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 27
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 41
     fromNode: 83
     toNode: 78
@@ -2655,6 +2770,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 42
     fromNode: 85
     toNode: 90
@@ -2675,6 +2792,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 28
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 43
     fromNode: 87
     toNode: 122
@@ -2695,6 +2814,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 29
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 44
     fromNode: 89
     toNode: 68
@@ -2715,6 +2836,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 45
     fromNode: 91
     toNode: 84
@@ -2735,6 +2858,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 30
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 46
     fromNode: 93
     toNode: 98
@@ -2755,6 +2880,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 31
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 47
     fromNode: 95
     toNode: 130
@@ -2775,6 +2902,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 32
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 48
     fromNode: 97
     toNode: 60
@@ -2795,6 +2924,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 33
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 49
     fromNode: 99
     toNode: 92
@@ -2815,6 +2946,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 34
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 50
     fromNode: 101
     toNode: 104
@@ -2835,6 +2968,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 51
     fromNode: 103
     toNode: 138
@@ -2855,6 +2990,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 35
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 52
     fromNode: 105
     toNode: 100
@@ -2875,6 +3012,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 53
     fromNode: 107
     toNode: 112
@@ -2895,6 +3034,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 54
     fromNode: 109
     toNode: 146
@@ -2915,6 +3056,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 36
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 55
     fromNode: 111
     toNode: 64
@@ -2935,6 +3078,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 56
     fromNode: 113
     toNode: 106
@@ -2955,6 +3100,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 57
     fromNode: 115
     toNode: 152
@@ -2975,6 +3122,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 37
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 58
     fromNode: 117
     toNode: 74
@@ -2995,6 +3144,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 38
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 59
     fromNode: 119
     toNode: 124
@@ -3015,6 +3166,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 39
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 60
     fromNode: 121
     toNode: 158
@@ -3035,6 +3188,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 40
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 61
     fromNode: 123
     toNode: 86
@@ -3055,6 +3210,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 41
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 62
     fromNode: 125
     toNode: 118
@@ -3075,6 +3232,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 42
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 63
     fromNode: 127
     toNode: 132
@@ -3095,6 +3254,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 43
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 64
     fromNode: 129
     toNode: 164
@@ -3115,6 +3276,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 44
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 65
     fromNode: 131
     toNode: 94
@@ -3135,6 +3298,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 45
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 66
     fromNode: 133
     toNode: 126
@@ -3155,6 +3320,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 46
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 67
     fromNode: 135
     toNode: 140
@@ -3175,6 +3342,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 47
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 68
     fromNode: 137
     toNode: 172
@@ -3195,6 +3364,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 48
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 69
     fromNode: 139
     toNode: 102
@@ -3215,6 +3386,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 49
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 70
     fromNode: 141
     toNode: 134
@@ -3235,6 +3408,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 50
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 71
     fromNode: 143
     toNode: 148
@@ -3255,6 +3430,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 72
     fromNode: 145
     toNode: 180
@@ -3275,6 +3452,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 51
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 73
     fromNode: 147
     toNode: 108
@@ -3295,6 +3474,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 52
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 74
     fromNode: 149
     toNode: 142
@@ -3315,6 +3496,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 75
     fromNode: 151
     toNode: 154
@@ -3335,6 +3518,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 76
     fromNode: 153
     toNode: 114
@@ -3355,6 +3540,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 53
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 77
     fromNode: 155
     toNode: 150
@@ -3375,6 +3562,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 78
     fromNode: 157
     toNode: 188
@@ -3395,6 +3584,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 54
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 79
     fromNode: 159
     toNode: 120
@@ -3415,6 +3606,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 55
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 80
     fromNode: 161
     toNode: 166
@@ -3435,6 +3628,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 56
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 81
     fromNode: 163
     toNode: 198
@@ -3455,6 +3650,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 82
     fromNode: 165
     toNode: 128
@@ -3475,6 +3672,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 57
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 83
     fromNode: 167
     toNode: 160
@@ -3495,6 +3694,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 58
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 84
     fromNode: 169
     toNode: 174
@@ -3515,6 +3716,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 59
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 85
     fromNode: 171
     toNode: 194
@@ -3535,6 +3738,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 86
     fromNode: 173
     toNode: 136
@@ -3555,6 +3760,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 60
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 87
     fromNode: 175
     toNode: 168
@@ -3575,6 +3782,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 61
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 88
     fromNode: 177
     toNode: 182
@@ -3595,6 +3804,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 62
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 89
     fromNode: 179
     toNode: 208
@@ -3615,6 +3826,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 63
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 90
     fromNode: 181
     toNode: 144
@@ -3635,6 +3848,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 64
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 91
     fromNode: 183
     toNode: 176
@@ -3655,6 +3870,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 65
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 92
     fromNode: 185
     toNode: 190
@@ -3675,6 +3892,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 66
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 93
     fromNode: 187
     toNode: 214
@@ -3695,6 +3914,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 67
     stopLineDistanceOnEdge: 20
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 94
     fromNode: 189
     toNode: 156
@@ -3715,6 +3936,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 68
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 95
     fromNode: 191
     toNode: 184
@@ -3735,6 +3958,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 69
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 96
     fromNode: 193
     toNode: 220
@@ -3755,6 +3980,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 97
     fromNode: 195
     toNode: 170
@@ -3775,6 +4002,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 98
     fromNode: 197
     toNode: 202
@@ -3795,6 +4024,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 99
     fromNode: 199
     toNode: 162
@@ -3815,6 +4046,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 70
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 100
     fromNode: 201
     toNode: 204
@@ -3835,6 +4068,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 71
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 101
     fromNode: 203
     toNode: 196
@@ -3855,6 +4090,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 102
     fromNode: 205
     toNode: 200
@@ -3875,6 +4112,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 103
     fromNode: 207
     toNode: 210
@@ -3895,6 +4134,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 72
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 104
     fromNode: 209
     toNode: 178
@@ -3915,6 +4156,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 73
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 105
     fromNode: 211
     toNode: 206
@@ -3935,6 +4178,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 74
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 106
     fromNode: 213
     toNode: 216
@@ -3955,6 +4200,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 75
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 107
     fromNode: 215
     toNode: 186
@@ -3975,6 +4222,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 76
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 108
     fromNode: 217
     toNode: 212
@@ -3995,6 +4244,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 77
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 109
     fromNode: 219
     toNode: 222
@@ -4015,6 +4266,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 110
     fromNode: 221
     toNode: 192
@@ -4035,6 +4288,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 78
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 111
     fromNode: 223
     toNode: 218
@@ -4055,6 +4310,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: 79
     stopLineDistanceOnEdge: 20
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 112
     fromNode: 0
     toNode: 3
@@ -4089,6 +4346,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 113
     fromNode: 2
     toNode: 1
@@ -4123,6 +4382,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 114
     fromNode: 4
     toNode: 7
@@ -4143,6 +4404,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 115
     fromNode: 4
     toNode: 9
@@ -4177,6 +4440,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 116
     fromNode: 6
     toNode: 5
@@ -4197,6 +4462,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 117
     fromNode: 6
     toNode: 9
@@ -4231,6 +4498,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 118
     fromNode: 8
     toNode: 5
@@ -4265,6 +4534,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 119
     fromNode: 8
     toNode: 7
@@ -4299,6 +4570,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 120
     fromNode: 10
     toNode: 13
@@ -4333,6 +4606,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 121
     fromNode: 12
     toNode: 11
@@ -4367,6 +4642,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 122
     fromNode: 14
     toNode: 17
@@ -4401,6 +4678,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 123
     fromNode: 14
     toNode: 19
@@ -4421,6 +4700,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 124
     fromNode: 16
     toNode: 15
@@ -4455,6 +4736,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 125
     fromNode: 16
     toNode: 19
@@ -4489,6 +4772,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 126
     fromNode: 18
     toNode: 15
@@ -4509,6 +4794,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 127
     fromNode: 18
     toNode: 17
@@ -4543,6 +4830,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 128
     fromNode: 20
     toNode: 23
@@ -4577,6 +4866,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 129
     fromNode: 20
     toNode: 25
@@ -4611,6 +4902,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 130
     fromNode: 20
     toNode: 27
@@ -4631,6 +4924,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 131
     fromNode: 22
     toNode: 21
@@ -4665,6 +4960,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 132
     fromNode: 22
     toNode: 25
@@ -4685,6 +4982,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 133
     fromNode: 22
     toNode: 27
@@ -4719,6 +5018,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 134
     fromNode: 24
     toNode: 21
@@ -4753,6 +5054,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 135
     fromNode: 24
     toNode: 23
@@ -4773,6 +5076,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 136
     fromNode: 24
     toNode: 27
@@ -4807,6 +5112,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 137
     fromNode: 26
     toNode: 21
@@ -4827,6 +5134,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 138
     fromNode: 26
     toNode: 23
@@ -4861,6 +5170,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 139
     fromNode: 26
     toNode: 25
@@ -4895,6 +5206,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 140
     fromNode: 28
     toNode: 31
@@ -4929,6 +5242,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 141
     fromNode: 28
     toNode: 33
@@ -4949,6 +5264,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 142
     fromNode: 30
     toNode: 29
@@ -4983,6 +5300,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 143
     fromNode: 30
     toNode: 33
@@ -5017,6 +5336,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 144
     fromNode: 32
     toNode: 29
@@ -5037,6 +5358,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 145
     fromNode: 32
     toNode: 31
@@ -5071,6 +5394,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 1
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 146
     fromNode: 34
     toNode: 37
@@ -5105,6 +5430,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 147
     fromNode: 36
     toNode: 35
@@ -5139,6 +5466,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 148
     fromNode: 38
     toNode: 41
@@ -5173,6 +5502,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 149
     fromNode: 38
     toNode: 43
@@ -5207,6 +5538,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 150
     fromNode: 38
     toNode: 45
@@ -5227,6 +5560,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 151
     fromNode: 40
     toNode: 39
@@ -5261,6 +5596,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 152
     fromNode: 40
     toNode: 43
@@ -5281,6 +5618,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 153
     fromNode: 40
     toNode: 45
@@ -5315,6 +5654,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 154
     fromNode: 42
     toNode: 39
@@ -5349,6 +5690,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 155
     fromNode: 42
     toNode: 41
@@ -5369,6 +5712,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 156
     fromNode: 42
     toNode: 45
@@ -5403,6 +5748,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 157
     fromNode: 44
     toNode: 39
@@ -5423,6 +5770,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 158
     fromNode: 44
     toNode: 41
@@ -5457,6 +5806,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 159
     fromNode: 44
     toNode: 43
@@ -5491,6 +5842,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 160
     fromNode: 46
     toNode: 49
@@ -5525,6 +5878,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 161
     fromNode: 46
     toNode: 51
@@ -5559,6 +5914,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 162
     fromNode: 46
     toNode: 53
@@ -5579,6 +5936,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 163
     fromNode: 48
     toNode: 47
@@ -5613,6 +5972,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 164
     fromNode: 48
     toNode: 51
@@ -5633,6 +5994,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 165
     fromNode: 48
     toNode: 53
@@ -5667,6 +6030,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 166
     fromNode: 50
     toNode: 47
@@ -5701,6 +6066,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 167
     fromNode: 50
     toNode: 49
@@ -5721,6 +6088,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 168
     fromNode: 50
     toNode: 53
@@ -5755,6 +6124,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 169
     fromNode: 52
     toNode: 47
@@ -5775,6 +6146,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 170
     fromNode: 52
     toNode: 49
@@ -5809,6 +6182,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 171
     fromNode: 52
     toNode: 51
@@ -5843,6 +6218,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 172
     fromNode: 54
     toNode: 57
@@ -5877,6 +6254,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 173
     fromNode: 54
     toNode: 59
@@ -5911,6 +6290,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 174
     fromNode: 54
     toNode: 61
@@ -5931,6 +6312,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 175
     fromNode: 56
     toNode: 55
@@ -5965,6 +6348,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 176
     fromNode: 56
     toNode: 59
@@ -5985,6 +6370,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 177
     fromNode: 56
     toNode: 61
@@ -6019,6 +6406,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 178
     fromNode: 58
     toNode: 55
@@ -6053,6 +6442,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 179
     fromNode: 58
     toNode: 57
@@ -6073,6 +6464,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 180
     fromNode: 58
     toNode: 61
@@ -6107,6 +6500,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 181
     fromNode: 60
     toNode: 55
@@ -6127,6 +6522,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 182
     fromNode: 60
     toNode: 57
@@ -6161,6 +6558,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 183
     fromNode: 60
     toNode: 59
@@ -6195,6 +6594,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 184
     fromNode: 62
     toNode: 65
@@ -6229,6 +6630,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 185
     fromNode: 64
     toNode: 63
@@ -6263,6 +6666,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 186
     fromNode: 66
     toNode: 69
@@ -6283,6 +6688,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 187
     fromNode: 68
     toNode: 67
@@ -6303,6 +6710,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 188
     fromNode: 70
     toNode: 73
@@ -6337,6 +6746,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 189
     fromNode: 70
     toNode: 75
@@ -6357,6 +6768,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 190
     fromNode: 72
     toNode: 71
@@ -6391,6 +6804,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 191
     fromNode: 72
     toNode: 75
@@ -6425,6 +6840,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 192
     fromNode: 74
     toNode: 71
@@ -6445,6 +6862,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 193
     fromNode: 74
     toNode: 73
@@ -6479,6 +6898,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 194
     fromNode: 76
     toNode: 79
@@ -6499,6 +6920,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 195
     fromNode: 78
     toNode: 77
@@ -6519,6 +6942,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 196
     fromNode: 80
     toNode: 83
@@ -6553,6 +6978,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 197
     fromNode: 80
     toNode: 85
@@ -6587,6 +7014,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 198
     fromNode: 80
     toNode: 87
@@ -6607,6 +7036,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 199
     fromNode: 82
     toNode: 81
@@ -6641,6 +7072,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 200
     fromNode: 82
     toNode: 85
@@ -6661,6 +7094,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 201
     fromNode: 82
     toNode: 87
@@ -6695,6 +7130,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 202
     fromNode: 84
     toNode: 81
@@ -6729,6 +7166,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 203
     fromNode: 84
     toNode: 83
@@ -6749,6 +7188,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 204
     fromNode: 84
     toNode: 87
@@ -6783,6 +7224,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 205
     fromNode: 86
     toNode: 81
@@ -6803,6 +7246,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 206
     fromNode: 86
     toNode: 83
@@ -6837,6 +7282,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 207
     fromNode: 86
     toNode: 85
@@ -6871,6 +7318,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 208
     fromNode: 88
     toNode: 91
@@ -6905,6 +7354,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 209
     fromNode: 88
     toNode: 93
@@ -6939,6 +7390,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 210
     fromNode: 88
     toNode: 95
@@ -6959,6 +7412,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 211
     fromNode: 90
     toNode: 89
@@ -6993,6 +7448,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 212
     fromNode: 90
     toNode: 93
@@ -7013,6 +7470,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 213
     fromNode: 90
     toNode: 95
@@ -7047,6 +7506,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 214
     fromNode: 92
     toNode: 89
@@ -7081,6 +7542,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 215
     fromNode: 92
     toNode: 91
@@ -7101,6 +7564,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 216
     fromNode: 92
     toNode: 95
@@ -7135,6 +7600,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 217
     fromNode: 94
     toNode: 89
@@ -7155,6 +7622,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 218
     fromNode: 94
     toNode: 91
@@ -7189,6 +7658,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 219
     fromNode: 94
     toNode: 93
@@ -7223,6 +7694,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 220
     fromNode: 96
     toNode: 99
@@ -7257,6 +7730,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 221
     fromNode: 96
     toNode: 101
@@ -7291,6 +7766,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 222
     fromNode: 96
     toNode: 103
@@ -7311,6 +7788,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 223
     fromNode: 98
     toNode: 97
@@ -7345,6 +7824,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 224
     fromNode: 98
     toNode: 101
@@ -7365,6 +7846,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 225
     fromNode: 98
     toNode: 103
@@ -7399,6 +7882,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 226
     fromNode: 100
     toNode: 97
@@ -7433,6 +7918,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 227
     fromNode: 100
     toNode: 99
@@ -7453,6 +7940,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 228
     fromNode: 100
     toNode: 103
@@ -7487,6 +7976,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 229
     fromNode: 102
     toNode: 97
@@ -7507,6 +7998,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 230
     fromNode: 102
     toNode: 99
@@ -7541,6 +8034,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 231
     fromNode: 102
     toNode: 101
@@ -7575,6 +8070,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 232
     fromNode: 104
     toNode: 107
@@ -7595,6 +8092,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 233
     fromNode: 104
     toNode: 109
@@ -7629,6 +8128,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 234
     fromNode: 106
     toNode: 105
@@ -7649,6 +8150,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 235
     fromNode: 106
     toNode: 109
@@ -7683,6 +8186,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 236
     fromNode: 108
     toNode: 105
@@ -7717,6 +8222,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 237
     fromNode: 108
     toNode: 107
@@ -7751,6 +8258,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 238
     fromNode: 110
     toNode: 113
@@ -7785,6 +8294,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 239
     fromNode: 110
     toNode: 115
@@ -7805,6 +8316,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 240
     fromNode: 112
     toNode: 111
@@ -7839,6 +8352,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 241
     fromNode: 112
     toNode: 115
@@ -7873,6 +8388,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 242
     fromNode: 114
     toNode: 111
@@ -7893,6 +8410,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 243
     fromNode: 114
     toNode: 113
@@ -7927,6 +8446,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 244
     fromNode: 116
     toNode: 119
@@ -7961,6 +8482,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 245
     fromNode: 116
     toNode: 121
@@ -7981,6 +8504,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 246
     fromNode: 118
     toNode: 117
@@ -8015,6 +8540,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 247
     fromNode: 118
     toNode: 121
@@ -8049,6 +8576,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 248
     fromNode: 120
     toNode: 117
@@ -8069,6 +8598,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 249
     fromNode: 120
     toNode: 119
@@ -8103,6 +8634,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 250
     fromNode: 122
     toNode: 125
@@ -8137,6 +8670,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 251
     fromNode: 122
     toNode: 127
@@ -8171,6 +8706,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 252
     fromNode: 122
     toNode: 129
@@ -8191,6 +8728,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 253
     fromNode: 124
     toNode: 123
@@ -8225,6 +8764,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 254
     fromNode: 124
     toNode: 127
@@ -8245,6 +8786,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 255
     fromNode: 124
     toNode: 129
@@ -8279,6 +8822,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 256
     fromNode: 126
     toNode: 123
@@ -8313,6 +8858,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 257
     fromNode: 126
     toNode: 125
@@ -8333,6 +8880,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 258
     fromNode: 126
     toNode: 129
@@ -8367,6 +8916,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 259
     fromNode: 128
     toNode: 123
@@ -8387,6 +8938,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 260
     fromNode: 128
     toNode: 125
@@ -8421,6 +8974,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 261
     fromNode: 128
     toNode: 127
@@ -8455,6 +9010,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 262
     fromNode: 130
     toNode: 133
@@ -8489,6 +9046,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 263
     fromNode: 130
     toNode: 135
@@ -8523,6 +9082,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 264
     fromNode: 130
     toNode: 137
@@ -8543,6 +9104,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 265
     fromNode: 132
     toNode: 131
@@ -8577,6 +9140,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 266
     fromNode: 132
     toNode: 135
@@ -8597,6 +9162,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 267
     fromNode: 132
     toNode: 137
@@ -8631,6 +9198,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 268
     fromNode: 134
     toNode: 131
@@ -8665,6 +9234,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 269
     fromNode: 134
     toNode: 133
@@ -8685,6 +9256,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 270
     fromNode: 134
     toNode: 137
@@ -8719,6 +9292,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 271
     fromNode: 136
     toNode: 131
@@ -8739,6 +9314,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 272
     fromNode: 136
     toNode: 133
@@ -8773,6 +9350,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 273
     fromNode: 136
     toNode: 135
@@ -8807,6 +9386,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 274
     fromNode: 138
     toNode: 141
@@ -8841,6 +9422,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 275
     fromNode: 138
     toNode: 143
@@ -8875,6 +9458,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 276
     fromNode: 138
     toNode: 145
@@ -8895,6 +9480,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 277
     fromNode: 140
     toNode: 139
@@ -8929,6 +9516,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 278
     fromNode: 140
     toNode: 143
@@ -8949,6 +9538,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 279
     fromNode: 140
     toNode: 145
@@ -8983,6 +9574,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 280
     fromNode: 142
     toNode: 139
@@ -9017,6 +9610,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 281
     fromNode: 142
     toNode: 141
@@ -9037,6 +9632,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 282
     fromNode: 142
     toNode: 145
@@ -9071,6 +9668,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 283
     fromNode: 144
     toNode: 139
@@ -9091,6 +9690,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 284
     fromNode: 144
     toNode: 141
@@ -9125,6 +9726,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 285
     fromNode: 144
     toNode: 143
@@ -9159,6 +9762,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 286
     fromNode: 146
     toNode: 149
@@ -9193,6 +9798,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 287
     fromNode: 146
     toNode: 151
@@ -9227,6 +9834,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 288
     fromNode: 148
     toNode: 147
@@ -9261,6 +9870,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 289
     fromNode: 148
     toNode: 151
@@ -9281,6 +9892,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 290
     fromNode: 150
     toNode: 147
@@ -9315,6 +9928,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 291
     fromNode: 150
     toNode: 149
@@ -9335,6 +9950,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 292
     fromNode: 152
     toNode: 155
@@ -9369,6 +9986,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 293
     fromNode: 152
     toNode: 157
@@ -9389,6 +10008,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 294
     fromNode: 154
     toNode: 153
@@ -9423,6 +10044,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 295
     fromNode: 154
     toNode: 157
@@ -9457,6 +10080,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 296
     fromNode: 156
     toNode: 153
@@ -9477,6 +10102,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 297
     fromNode: 156
     toNode: 155
@@ -9511,6 +10138,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 298
     fromNode: 158
     toNode: 161
@@ -9545,6 +10174,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 299
     fromNode: 158
     toNode: 163
@@ -9565,6 +10196,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 300
     fromNode: 160
     toNode: 159
@@ -9599,6 +10232,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 301
     fromNode: 160
     toNode: 163
@@ -9633,6 +10268,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 302
     fromNode: 162
     toNode: 159
@@ -9653,6 +10290,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 303
     fromNode: 162
     toNode: 161
@@ -9687,6 +10326,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 304
     fromNode: 164
     toNode: 167
@@ -9721,6 +10362,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 305
     fromNode: 164
     toNode: 169
@@ -9755,6 +10398,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 306
     fromNode: 164
     toNode: 171
@@ -9775,6 +10420,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 307
     fromNode: 166
     toNode: 165
@@ -9809,6 +10456,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 308
     fromNode: 166
     toNode: 169
@@ -9829,6 +10478,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 309
     fromNode: 166
     toNode: 171
@@ -9863,6 +10514,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 310
     fromNode: 168
     toNode: 165
@@ -9897,6 +10550,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 311
     fromNode: 168
     toNode: 167
@@ -9917,6 +10572,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 312
     fromNode: 168
     toNode: 171
@@ -9951,6 +10608,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 313
     fromNode: 170
     toNode: 165
@@ -9971,6 +10630,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 314
     fromNode: 170
     toNode: 167
@@ -10005,6 +10666,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 315
     fromNode: 170
     toNode: 169
@@ -10039,6 +10702,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 316
     fromNode: 172
     toNode: 175
@@ -10073,6 +10738,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 317
     fromNode: 172
     toNode: 177
@@ -10107,6 +10774,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 318
     fromNode: 172
     toNode: 179
@@ -10127,6 +10796,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 319
     fromNode: 174
     toNode: 173
@@ -10161,6 +10832,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 320
     fromNode: 174
     toNode: 177
@@ -10181,6 +10854,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 321
     fromNode: 174
     toNode: 179
@@ -10215,6 +10890,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 322
     fromNode: 176
     toNode: 173
@@ -10249,6 +10926,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 323
     fromNode: 176
     toNode: 175
@@ -10269,6 +10948,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 324
     fromNode: 176
     toNode: 179
@@ -10303,6 +10984,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 325
     fromNode: 178
     toNode: 173
@@ -10323,6 +11006,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 326
     fromNode: 178
     toNode: 175
@@ -10357,6 +11042,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 327
     fromNode: 178
     toNode: 177
@@ -10391,6 +11078,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 328
     fromNode: 180
     toNode: 183
@@ -10425,6 +11114,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 329
     fromNode: 180
     toNode: 185
@@ -10459,6 +11150,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 330
     fromNode: 180
     toNode: 187
@@ -10479,6 +11172,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 331
     fromNode: 182
     toNode: 181
@@ -10513,6 +11208,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 332
     fromNode: 182
     toNode: 185
@@ -10533,6 +11230,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 333
     fromNode: 182
     toNode: 187
@@ -10567,6 +11266,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 334
     fromNode: 184
     toNode: 181
@@ -10601,6 +11302,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 335
     fromNode: 184
     toNode: 183
@@ -10621,6 +11324,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 336
     fromNode: 184
     toNode: 187
@@ -10655,6 +11360,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 337
     fromNode: 186
     toNode: 181
@@ -10675,6 +11382,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 338
     fromNode: 186
     toNode: 183
@@ -10709,6 +11418,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 339
     fromNode: 186
     toNode: 185
@@ -10743,6 +11454,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 340
     fromNode: 188
     toNode: 191
@@ -10777,6 +11490,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 341
     fromNode: 188
     toNode: 193
@@ -10797,6 +11512,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 342
     fromNode: 190
     toNode: 189
@@ -10831,6 +11548,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 343
     fromNode: 190
     toNode: 193
@@ -10865,6 +11584,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 344
     fromNode: 192
     toNode: 189
@@ -10885,6 +11606,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 345
     fromNode: 192
     toNode: 191
@@ -10919,6 +11642,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 346
     fromNode: 194
     toNode: 197
@@ -10939,6 +11664,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 347
     fromNode: 196
     toNode: 195
@@ -10959,6 +11686,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 348
     fromNode: 198
     toNode: 201
@@ -10993,6 +11722,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 349
     fromNode: 200
     toNode: 199
@@ -11027,6 +11758,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 350
     fromNode: 202
     toNode: 205
@@ -11061,6 +11794,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 351
     fromNode: 202
     toNode: 207
@@ -11095,6 +11830,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 352
     fromNode: 204
     toNode: 203
@@ -11129,6 +11866,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 353
     fromNode: 204
     toNode: 207
@@ -11149,6 +11888,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 354
     fromNode: 206
     toNode: 203
@@ -11183,6 +11924,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 355
     fromNode: 206
     toNode: 205
@@ -11203,6 +11946,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 356
     fromNode: 208
     toNode: 211
@@ -11237,6 +11982,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 357
     fromNode: 208
     toNode: 213
@@ -11271,6 +12018,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 358
     fromNode: 210
     toNode: 209
@@ -11305,6 +12054,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 359
     fromNode: 210
     toNode: 213
@@ -11325,6 +12076,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 360
     fromNode: 212
     toNode: 209
@@ -11359,6 +12112,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 361
     fromNode: 212
     toNode: 211
@@ -11379,6 +12134,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 362
     fromNode: 214
     toNode: 217
@@ -11413,6 +12170,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 363
     fromNode: 214
     toNode: 219
@@ -11447,6 +12206,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 364
     fromNode: 216
     toNode: 215
@@ -11481,6 +12242,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 365
     fromNode: 216
     toNode: 219
@@ -11501,6 +12264,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 366
     fromNode: 218
     toNode: 215
@@ -11535,6 +12300,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 367
     fromNode: 218
     toNode: 217
@@ -11555,6 +12322,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 368
     fromNode: 220
     toNode: 223
@@ -11589,6 +12358,8 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
   - id: 369
     fromNode: 222
     toNode: 221
@@ -11623,6 +12394,204 @@ MonoBehaviour:
     approachingCrosswalkIndex: -1
     stopLineDistanceOnEdge: -1
     isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
+  - id: 370
+    fromNode: 198
+    toNode: 225
+    waypoints:
+    - {x: 48, y: 0, z: -55.5}
+    - {x: 60, y: 0, z: -55.5}
+    cumulativeLengths:
+    - 0
+    - 12
+    length: 12
+    speedLimit: 5.5
+    isCurve: 0
+    isIntersectionArc: 1
+    intersectionIndex: 31
+    turnType: 0
+    approachDir: 1
+    exitDir: 1
+    approachingCrosswalkIndex: -1
+    stopLineDistanceOnEdge: -1
+    isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
+  - id: 371
+    fromNode: 224
+    toNode: 199
+    waypoints:
+    - {x: 60, y: 0, z: -52.5}
+    - {x: 48, y: 0, z: -52.5}
+    cumulativeLengths:
+    - 0
+    - 12
+    length: 12
+    speedLimit: 5.5
+    isCurve: 0
+    isIntersectionArc: 1
+    intersectionIndex: 31
+    turnType: 0
+    approachDir: 3
+    exitDir: 3
+    approachingCrosswalkIndex: -1
+    stopLineDistanceOnEdge: -1
+    isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
+  - id: 372
+    fromNode: 200
+    toNode: 225
+    waypoints:
+    - {x: 52.5, y: 0, z: -48}
+    - {x: 52.6265, y: 0, z: -49.69263}
+    - {x: 53.000675, y: 0, z: -51.18547}
+    - {x: 53.614548, y: 0, z: -52.470543}
+    - {x: 54.460136, y: 0, z: -53.539864}
+    - {x: 55.529457, y: 0, z: -54.385452}
+    - {x: 56.81453, y: 0, z: -54.999325}
+    - {x: 58.30737, y: 0, z: -55.3735}
+    - {x: 60, y: 0, z: -55.5}
+    cumulativeLengths:
+    - 0
+    - 1.6973512
+    - 3.2363698
+    - 4.6605363
+    - 6.0237923
+    - 7.3870482
+    - 8.811214
+    - 10.350233
+    - 12.047585
+    length: 12.047585
+    speedLimit: 3
+    isCurve: 1
+    isIntersectionArc: 1
+    intersectionIndex: 31
+    turnType: 2
+    approachDir: 2
+    exitDir: 1
+    approachingCrosswalkIndex: -1
+    stopLineDistanceOnEdge: -1
+    isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
+  - id: 373
+    fromNode: 224
+    toNode: 201
+    waypoints:
+    - {x: 60, y: 0, z: -52.5}
+    - {x: 58.98442, y: 0, z: -52.4241}
+    - {x: 58.088715, y: 0, z: -52.199593}
+    - {x: 57.317673, y: 0, z: -51.83127}
+    - {x: 56.676083, y: 0, z: -51.323917}
+    - {x: 56.16873, y: 0, z: -50.682327}
+    - {x: 55.800407, y: 0, z: -49.911285}
+    - {x: 55.575897, y: 0, z: -49.01558}
+    - {x: 55.5, y: 0, z: -48}
+    cumulativeLengths:
+    - 0
+    - 1.0184115
+    - 1.9418252
+    - 2.796324
+    - 3.6142745
+    - 4.4322248
+    - 5.2867236
+    - 6.2101383
+    - 7.2285495
+    length: 7.2285495
+    speedLimit: 3
+    isCurve: 1
+    isIntersectionArc: 1
+    intersectionIndex: 31
+    turnType: 1
+    approachDir: 3
+    exitDir: 0
+    approachingCrosswalkIndex: -1
+    stopLineDistanceOnEdge: -1
+    isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
+  - id: 374
+    fromNode: 225
+    toNode: 226
+    waypoints:
+    - {x: 60, y: 0, z: -55.5}
+    - {x: 80.5, y: 0, z: -55.5}
+    cumulativeLengths:
+    - 0
+    - 20.5
+    length: 20.5
+    speedLimit: 5.5
+    isCurve: 0
+    isIntersectionArc: 0
+    intersectionIndex: -1
+    turnType: 0
+    approachDir: 1
+    exitDir: 1
+    approachingCrosswalkIndex: -1
+    stopLineDistanceOnEdge: -1
+    isParkDistrict: 0
+    isRailCrossingApproach: 1
+    railCrossingStopLineDist: 4.5
+  - id: 375
+    fromNode: 226
+    toNode: 227
+    waypoints:
+    - {x: 80.5, y: 0, z: -55.5}
+    - {x: 80.94297, y: 0, z: -55.371094}
+    - {x: 81.25938, y: 0, z: -55.03125}
+    - {x: 81.44922, y: 0, z: -54.55078}
+    - {x: 81.5125, y: 0, z: -54}
+    - {x: 81.44922, y: 0, z: -53.44922}
+    - {x: 81.25937, y: 0, z: -52.96875}
+    - {x: 80.94297, y: 0, z: -52.628906}
+    - {x: 80.5, y: 0, z: -52.5}
+    cumulativeLengths:
+    - 0
+    - 0.46134531
+    - 0.92568
+    - 1.4422942
+    - 1.9966986
+    - 2.5511029
+    - 3.06772
+    - 3.5320494
+    - 3.9933949
+    length: 3.9933949
+    speedLimit: 3
+    isCurve: 1
+    isIntersectionArc: 0
+    intersectionIndex: -1
+    turnType: 2
+    approachDir: 1
+    exitDir: 3
+    approachingCrosswalkIndex: -1
+    stopLineDistanceOnEdge: -1
+    isParkDistrict: 0
+    isRailCrossingApproach: 0
+    railCrossingStopLineDist: -1
+  - id: 376
+    fromNode: 227
+    toNode: 224
+    waypoints:
+    - {x: 80.5, y: 0, z: -52.5}
+    - {x: 60, y: 0, z: -52.5}
+    cumulativeLengths:
+    - 0
+    - 20.5
+    length: 20.5
+    speedLimit: 5.5
+    isCurve: 0
+    isIntersectionArc: 0
+    intersectionIndex: -1
+    turnType: 0
+    approachDir: 3
+    exitDir: 3
+    approachingCrosswalkIndex: -1
+    stopLineDistanceOnEdge: -1
+    isParkDistrict: 0
+    isRailCrossingApproach: 1
+    railCrossingStopLineDist: 2
   intersections:
   - id: 0
     name: Intersection_00_Road_51_(-162,-18)
@@ -11938,12 +12907,12 @@ MonoBehaviour:
     name: Intersection_31_Road_18 (3)_(54,-54)
     center: {x: 54, y: 0, z: -54}
     size: {x: 12, y: 4, z: 12}
-    armCount: 2
+    armCount: 3
     hasTrafficLight: 0
     signalPhaseOffset: 0
-    entryNodes: c6000000c8000000
-    exitNodes: c7000000c9000000
-    internalEdges: 5c0100005d010000
+    entryNodes: c6000000c8000000e0000000
+    exitNodes: c7000000c9000000e1000000
+    internalEdges: 5c0100005d01000072010000730100007401000075010000
   - id: 32
     name: Intersection_32_Road_18 (2)_(54,-18)
     center: {x: 54, y: 0, z: -18}
@@ -12705,3 +13674,60 @@ MonoBehaviour:
     stopLinePosition: {x: 52.5, y: 0, z: 64}
     approachEdgeId: 111
     stopLineDistAlongEdge: 20
+  highwayLanes:
+  - id: 0
+    name: Highway_Southbound_W1_X82.6
+    laneX: 82.6
+    startZ: 118
+    endZ: -118
+    directionZ: -1
+    defaultSpeed: 9.5
+  - id: 1
+    name: Highway_Southbound_W2_X85.6
+    laneX: 85.6
+    startZ: 118
+    endZ: -118
+    directionZ: -1
+    defaultSpeed: 9.5
+  - id: 2
+    name: Highway_Southbound_W3_X88.5
+    laneX: 88.5
+    startZ: 118
+    endZ: -118
+    directionZ: -1
+    defaultSpeed: 9.5
+  - id: 3
+    name: Highway_Southbound_W4_X91.5
+    laneX: 91.5
+    startZ: 118
+    endZ: -118
+    directionZ: -1
+    defaultSpeed: 9.5
+  - id: 4
+    name: Highway_Northbound_E1_X94.5
+    laneX: 94.5
+    startZ: -118
+    endZ: 118
+    directionZ: 1
+    defaultSpeed: 10
+  - id: 5
+    name: Highway_Northbound_E2_X97.5
+    laneX: 97.5
+    startZ: -118
+    endZ: 118
+    directionZ: 1
+    defaultSpeed: 10
+  - id: 6
+    name: Highway_Northbound_E3_X100.6
+    laneX: 100.55
+    startZ: -118
+    endZ: 118
+    directionZ: 1
+    defaultSpeed: 10
+  - id: 7
+    name: Highway_Northbound_E4_X103.5
+    laneX: 103.5
+    startZ: -118
+    endZ: 118
+    directionZ: 1
+    defaultSpeed: 10

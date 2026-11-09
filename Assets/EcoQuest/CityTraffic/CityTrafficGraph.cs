@@ -50,6 +50,8 @@ namespace EcoQuest.CityTraffic
         public int approachingCrosswalkIndex = -1;
         public float stopLineDistanceOnEdge = -1f;
         public bool isParkDistrict;
+        public bool isRailCrossingApproach;
+        public float railCrossingStopLineDist = -1f;
 
         public void SampleAtDistance(float dist, out Vector3 pos, out Vector3 tangent)
         {
@@ -128,11 +130,24 @@ namespace EcoQuest.CityTraffic
         public float stopLineDistAlongEdge;
     }
 
+    [Serializable]
+    public class HighwayLane
+    {
+        public int id;
+        public string name;
+        public float laneX;
+        public float startZ;
+        public float endZ;
+        public float directionZ; // +1 = Northbound (+Z), -1 = Southbound (-Z)
+        public float defaultSpeed = 9.5f;
+    }
+
     [CreateAssetMenu(fileName = "CityTrafficGraph", menuName = "EcoQuest/Traffic/City Traffic Graph")]
     public class CityTrafficGraph : ScriptableObject
     {
         [Header("Road Graph Settings")]
         public bool driveOnRight = true;
+        public bool highwayDriveOnRight = true;
         public float laneOffset = 1.5f;
         public float defaultStraightSpeed = 5.5f;
         public float parkDistrictSpeed = 3.5f;
@@ -149,6 +164,7 @@ namespace EcoQuest.CityTraffic
         public List<TrafficEdge> edges = new List<TrafficEdge>();
         public List<TrafficIntersection> intersections = new List<TrafficIntersection>();
         public List<TrafficCrosswalkZone> crosswalkZones = new List<TrafficCrosswalkZone>();
+        public List<HighwayLane> highwayLanes = new List<HighwayLane>();
 
         public struct WaiterEntry
         {
@@ -272,10 +288,10 @@ namespace EcoQuest.CityTraffic
                 _activeOccupants[intersectionIdx] = occupants;
             }
 
-            // Expire any stale occupant reservation (> 4.5s inside box) so an intersection can never deadlock
+            // Expire stale occupant reservations only after a generous timeout (> 45s) to prevent rare deadlocks without prematurely dropping stopped vehicles
             for (int i = occupants.Count - 1; i >= 0; i--)
             {
-                if (now - occupants[i].arrivalTime > 4.5f)
+                if (now - occupants[i].arrivalTime > 45.0f)
                 {
                     occupants.RemoveAt(i);
                 }
@@ -318,10 +334,10 @@ namespace EcoQuest.CityTraffic
             }
             if (myIndex < 0) return false;
 
-            // Check if any current occupant conflicts with our path
+            // Check if any current occupant conflicts with our path or is on the same edge arc
             for (int i = 0; i < occupants.Count; i++)
             {
-                if (PathsConflict(me, occupants[i]))
+                if (occupants[i].edgeId == edgeId || PathsConflict(me, occupants[i]))
                 {
                     return false;
                 }

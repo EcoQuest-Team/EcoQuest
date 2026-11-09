@@ -6,6 +6,12 @@ using UnityEngine.SceneManagement;
 
 namespace EcoQuest.CityTraffic
 {
+    public enum TrafficSimulationBand
+    {
+        Near = 0,
+        Far = 1
+    }
+
     [DisallowMultipleComponent]
     public class TrafficVehicleController : MonoBehaviour
     {
@@ -14,6 +20,9 @@ namespace EcoQuest.CityTraffic
         [Header("Identity & Tuning")]
         public int vehicleId;
         public string sourceModelName;
+        public bool isHighwayVehicle;
+        public int highwayLaneIndex = -1;
+        public TrafficSimulationBand simulationBand = TrafficSimulationBand.Near;
         public float baseCruiseSpeed = 5.2f;
         public float acceleration = 2.5f;
         public float brakingDeceleration = 5.0f;
@@ -26,6 +35,7 @@ namespace EcoQuest.CityTraffic
         public float sensorLength = 5.0f;
         public float sensorRadius = 0.8f;
         public float minCarGap = 4.0f;
+        public float highwayMinCarGap = 8.0f;
         public float minPedestrianGap = 3.5f;
         public float honkDelaySeconds = 3.0f;
         public float blockedRerouteSeconds = 20.0f;
@@ -46,6 +56,8 @@ namespace EcoQuest.CityTraffic
         public Transform wheelFR;
         public Transform wheelRL;
         public Transform wheelRR;
+        public Transform wheelRL2;
+        public Transform wheelRR2;
 
         [Header("Runtime State (Read-Only)")]
         [SerializeField] private int _currentEdgeId = -1;
@@ -54,6 +66,7 @@ namespace EcoQuest.CityTraffic
         [SerializeField] private float _currentSpeed;
         [SerializeField] private float _targetSpeed;
         [SerializeField] private string _statusReason = "Cruising";
+        [SerializeField] private float _distanceTraveled;
 
         private CityTrafficManager _manager;
         private CityTrafficGraph _graph;
@@ -69,6 +82,7 @@ namespace EcoQuest.CityTraffic
         private bool _sensorBlockedByPlayer;
         private bool _sensorBlockedByNpc;
         private bool _overlappingPlayer;
+        private bool _overlappingCar;
         private float _obstacleDistance = 999f;
 
         private float _playerBlockTimer;
@@ -94,7 +108,10 @@ namespace EcoQuest.CityTraffic
         public float CurrentSpeed => _currentSpeed;
         public float TargetSpeed => _targetSpeed;
         public string StatusReason => _statusReason;
+        public float DistanceTraveled => _distanceTraveled;
         public bool IsBlockedByPlayer => _sensorBlockedByPlayer || _overlappingPlayer;
+        public bool IsBlockedByCar => _sensorBlockedByCar || _overlappingCar;
+        public bool IsOverlappingCar => _overlappingCar;
         public bool IsBlockedByCrosswalk => _crosswalkBlocked;
         public int HonkCount => _honkCount;
         public float PlayerBlockTimer => _playerBlockTimer;
@@ -165,22 +182,20 @@ namespace EcoQuest.CityTraffic
                 SetLayerRecursively(transform, trafficLayer);
             }
 
-            // Strip any non-convex MeshColliders inherited from the static model and fit ONE BoxCollider
+            // Strip any non-convex MeshColliders immediately before adding Rigidbody so they never coexist during Instantiate()
             MeshCollider[] meshCols = GetComponentsInChildren<MeshCollider>(true);
             for (int i = 0; i < meshCols.Length; i++)
             {
-                if (Application.isPlaying) Destroy(meshCols[i]);
-                else DestroyImmediate(meshCols[i]);
+                if (meshCols[i] != null) DestroyImmediate(meshCols[i]);
             }
 
             // Remove any extra BoxColliders on child objects so there is strictly ONE BoxCollider on root
             BoxCollider[] childBoxes = GetComponentsInChildren<BoxCollider>(true);
             for (int i = 0; i < childBoxes.Length; i++)
             {
-                if (childBoxes[i].gameObject != gameObject)
+                if (childBoxes[i] != null && childBoxes[i].gameObject != gameObject)
                 {
-                    if (Application.isPlaying) Destroy(childBoxes[i]);
-                    else DestroyImmediate(childBoxes[i]);
+                    DestroyImmediate(childBoxes[i]);
                 }
             }
 
@@ -203,11 +218,12 @@ namespace EcoQuest.CityTraffic
 
                 transform.SetPositionAndRotation(savedPos, savedRot);
 
+                float maxLen = isHighwayVehicle ? 10.0f : 5.5f;
                 Vector3 localCenter = new Vector3(b.center.x, Mathf.Max(0.65f, b.center.y), b.center.z);
                 Vector3 localSize = new Vector3(
-                    Mathf.Clamp(b.size.x, 1.5f, 2.4f),
-                    Mathf.Clamp(b.size.y, 1.1f, 2.5f),
-                    Mathf.Clamp(b.size.z, 3.0f, 5.5f));
+                    Mathf.Clamp(b.size.x, 1.5f, 2.6f),
+                    Mathf.Clamp(b.size.y, 1.1f, 3.0f),
+                    Mathf.Clamp(b.size.z, 3.0f, maxLen));
                 _boxCollider.center = localCenter;
                 _boxCollider.size = localSize;
                 _boxCollider.isTrigger = false;
@@ -222,8 +238,8 @@ namespace EcoQuest.CityTraffic
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
             _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
-            // Find 4 wheels if not wired
-            if (wheelFL == null || wheelFR == null || wheelRL == null || wheelRR == null)
+            // Find wheels (supports 2, 4, or 6 wheels)
+            if (wheelFL == null || wheelFR == null)
             {
                 Transform[] children = GetComponentsInChildren<Transform>(true);
                 for (int i = 0; i < children.Length; i++)
@@ -233,8 +249,10 @@ namespace EcoQuest.CityTraffic
                     string n = ch.name;
                     if (n.EndsWith("_FL", StringComparison.OrdinalIgnoreCase)) wheelFL = ch;
                     else if (n.EndsWith("_FR", StringComparison.OrdinalIgnoreCase)) wheelFR = ch;
-                    else if (n.EndsWith("_RL", StringComparison.OrdinalIgnoreCase)) wheelRL = ch;
-                    else if (n.EndsWith("_RR", StringComparison.OrdinalIgnoreCase)) wheelRR = ch;
+                    else if (n.EndsWith("_RL", StringComparison.OrdinalIgnoreCase) || n.EndsWith("_RL01", StringComparison.OrdinalIgnoreCase)) wheelRL = ch;
+                    else if (n.EndsWith("_RR", StringComparison.OrdinalIgnoreCase) || n.EndsWith("_RR01", StringComparison.OrdinalIgnoreCase)) wheelRR = ch;
+                    else if (n.EndsWith("_RL02", StringComparison.OrdinalIgnoreCase)) wheelRL2 = ch;
+                    else if (n.EndsWith("_RR02", StringComparison.OrdinalIgnoreCase)) wheelRR2 = ch;
                 }
             }
 
@@ -399,10 +417,13 @@ namespace EcoQuest.CityTraffic
             }
         }
 
-        public void InitializeOnEdge(CityTrafficManager manager, CityTrafficGraph graph, int edgeId, float distanceAlongEdge, float cruiseSpeed)
+        public void InitializeOnEdge(CityTrafficManager manager, CityTrafficGraph graph, int edgeId, float distanceAlongEdge, float cruiseSpeed, TrafficSimulationBand band = TrafficSimulationBand.Near)
         {
             _manager = manager;
             _graph = graph;
+            isHighwayVehicle = false;
+            highwayLaneIndex = -1;
+            simulationBand = band;
             _currentEdgeId = edgeId;
             _distanceOnEdge = distanceAlongEdge;
             baseCruiseSpeed = cruiseSpeed;
@@ -416,6 +437,7 @@ namespace EcoQuest.CityTraffic
             _crosswalkOccupiedTimer = 0f;
             _crosswalkBlocked = false;
             _offscreenFarTimer = 0f;
+            _distanceTraveled = 0f;
             _sensorTimer = (vehicleId % 8) * 0.01f; // stagger sensor ticks across pool
 
             ReleaseReservations();
@@ -433,7 +455,42 @@ namespace EcoQuest.CityTraffic
                 _rb.rotation = rot;
             }
 
-            RunForwardSensorAndCrosswalkCheck();
+            if (simulationBand == TrafficSimulationBand.Near)
+            {
+                RunForwardSensorAndCrosswalkCheck();
+            }
+            else
+            {
+                RunLightweightFarSensorCheck();
+            }
+        }
+
+        public void InitializeOnHighwayLane(CityTrafficManager manager, CityTrafficGraph graph, int laneIndex, float startZPos, float cruiseSpeed)
+        {
+            _manager = manager;
+            _graph = graph;
+            isHighwayVehicle = true;
+            highwayLaneIndex = laneIndex;
+            simulationBand = TrafficSimulationBand.Far;
+            baseCruiseSpeed = cruiseSpeed;
+            _currentSpeed = cruiseSpeed;
+            _targetSpeed = cruiseSpeed;
+            _distanceTraveled = 0f;
+            _offscreenFarTimer = 0f;
+            EnsurePhysicsAndWheels();
+
+            if (_graph != null && laneIndex >= 0 && laneIndex < _graph.highwayLanes.Count)
+            {
+                HighwayLane lane = _graph.highwayLanes[laneIndex];
+                Vector3 pos = new Vector3(lane.laneX, 0.01f, startZPos);
+                Quaternion rot = Quaternion.Euler(0f, lane.directionZ > 0f ? 0f : 180f, 0f);
+                transform.SetPositionAndRotation(pos, rot);
+                if (_rb != null)
+                {
+                    _rb.position = pos;
+                    _rb.rotation = rot;
+                }
+            }
         }
 
         private void FixedUpdate()
@@ -451,27 +508,54 @@ namespace EcoQuest.CityTraffic
 
         public void StepSimulation(float dt)
         {
+            if (isHighwayVehicle)
+            {
+                StepHighwaySimulation(dt);
+                return;
+            }
+
             if (_graph == null || _currentEdgeId < 0 || _currentEdgeId >= _graph.edges.Count) return;
 
-            _sensorTimer -= dt;
-            if (_sensorTimer <= 0f)
+            if (simulationBand == TrafficSimulationBand.Near)
             {
-                _sensorTimer = _sensorInterval;
-                RunForwardSensorAndCrosswalkCheck();
+                _sensorTimer -= dt;
+                if (_sensorTimer <= 0f)
+                {
+                    _sensorTimer = _sensorInterval;
+                    RunForwardSensorAndCrosswalkCheck();
+                }
+                else if (_crosswalkOccupiedTimer > 0f)
+                {
+                    _crosswalkOccupiedTimer = Mathf.Max(0f, _crosswalkOccupiedTimer - dt);
+                    if (_crosswalkOccupiedTimer <= 0f) _crosswalkBlocked = false;
+                }
             }
-            else if (_crosswalkOccupiedTimer > 0f)
+            else
             {
-                _crosswalkOccupiedTimer = Mathf.Max(0f, _crosswalkOccupiedTimer - dt);
-                if (_crosswalkOccupiedTimer <= 0f) _crosswalkBlocked = false;
+                // Far band lightweight spacing check (no Physics raycasts/overlaps)
+                _sensorTimer -= dt;
+                if (_sensorTimer <= 0f)
+                {
+                    _sensorTimer = 0.12f;
+                    RunLightweightFarSensorCheck();
+                }
             }
 
-            // Immediate freeze if overlapping player
+            // Immediate freeze if overlapping player or overlapping another vehicle
             if (_overlappingPlayer)
             {
                 _currentSpeed = 0f;
                 _targetSpeed = 0f;
                 _statusReason = "Emergency Stop (Player Overlap)";
                 UpdatePlayerBlockAndHonk(dt, true);
+                return;
+            }
+
+            if (_overlappingCar)
+            {
+                _currentSpeed = 0f;
+                _targetSpeed = 0f;
+                _statusReason = "Emergency Stop (Car Overlap)";
                 return;
             }
 
@@ -500,7 +584,7 @@ namespace EcoQuest.CityTraffic
             }
 
             // 1. Crosswalk stop line check (stop 2.5m before crossing zone)
-            if (_crosswalkBlocked && _rerouteClearanceTimer <= 0f && edge.approachingCrosswalkIndex >= 0 && edge.stopLineDistanceOnEdge >= 0f)
+            if (_crosswalkBlocked && edge.approachingCrosswalkIndex >= 0 && edge.stopLineDistanceOnEdge >= 0f)
             {
                 float distToStopLine = edge.stopLineDistanceOnEdge - _distanceOnEdge;
                 if (distToStopLine >= -1.0f && distToStopLine < 18.0f)
@@ -508,6 +592,18 @@ namespace EcoQuest.CityTraffic
                     mustStopAtLine = true;
                     stopDistanceAhead = Mathf.Min(stopDistanceAhead, Mathf.Max(0f, distToStopLine));
                     _statusReason = "Yielding at Crosswalk";
+                }
+            }
+
+            // 1b. Railway Crossing stop line check (when train is within 60m of z = -54 crossing)
+            if (edge.isRailCrossingApproach && edge.railCrossingStopLineDist >= 0f && _manager != null && _manager.IsRailCrossingActive())
+            {
+                float distToRailStop = edge.railCrossingStopLineDist - _distanceOnEdge;
+                if (distToRailStop >= -1.5f && distToRailStop < 25.0f)
+                {
+                    mustStopAtLine = true;
+                    stopDistanceAhead = Mathf.Min(stopDistanceAhead, Mathf.Max(0f, distToRailStop));
+                    _statusReason = "Stopped at Rail Crossing";
                 }
             }
 
@@ -530,7 +626,7 @@ namespace EcoQuest.CityTraffic
                         }
 
                         // Request right-of-way reservation when approaching the intersection stop line (<= 4.5m from entry)
-                        if (distRemainingOnEdge <= 4.5f && !mustStopAtLine && !_sensorBlockedByPlayer && !_sensorBlockedByNpc && (!_sensorBlockedByCar || _rerouteClearanceTimer > 0f))
+                        if (distRemainingOnEdge <= 4.5f && !mustStopAtLine && !_sensorBlockedByPlayer && !_sensorBlockedByNpc && !_sensorBlockedByCar && !_overlappingCar)
                         {
                             bool allowYellow = distRemainingOnEdge <= 3.2f && _currentSpeed > 1.2f;
                             bool granted = _graph.RequestIntersectionEntry(nextEdge.intersectionIndex, vehicleId, _nextEdgeId, simNow, 6.0f, allowYellow);
@@ -538,7 +634,7 @@ namespace EcoQuest.CityTraffic
                             {
                                 _reservedIntersectionIndex = nextEdge.intersectionIndex;
                             }
-                            else if (_rerouteClearanceTimer <= 0f)
+                            else
                             {
                                 float stopPointFromEnd = 0.6f;
                                 float distToIntersectionStop = Mathf.Max(0f, distRemainingOnEdge - stopPointFromEnd);
@@ -559,11 +655,10 @@ namespace EcoQuest.CityTraffic
                 }
             }
 
-            // 3. Forward obstacle (Player, NPC, Car in front)
-            bool blockedByCarEffective = _sensorBlockedByCar && _rerouteClearanceTimer <= 0f;
-            if (_sensorBlockedByPlayer || _sensorBlockedByNpc || blockedByCarEffective)
+            // 3. Forward obstacle (Player, NPC, Car in front) - NEVER bypassed by reroute timers
+            if (_sensorBlockedByPlayer || _sensorBlockedByNpc || _sensorBlockedByCar)
             {
-                float reqGap = blockedByCarEffective ? minCarGap : minPedestrianGap;
+                float reqGap = _sensorBlockedByCar ? minCarGap : minPedestrianGap;
                 float stopDist = Mathf.Max(0f, _obstacleDistance - reqGap);
                 mustStopAtLine = true;
                 stopDistanceAhead = Mathf.Min(stopDistanceAhead, stopDist);
@@ -596,11 +691,11 @@ namespace EcoQuest.CityTraffic
             }
             else
             {
-                float decel = (_sensorBlockedByPlayer || stopDistanceAhead < 0.5f) ? brakingDeceleration * 1.6f : brakingDeceleration;
+                float decel = (_sensorBlockedByPlayer || _sensorBlockedByCar || stopDistanceAhead < 0.5f) ? brakingDeceleration * 1.6f : brakingDeceleration;
                 _currentSpeed = Mathf.MoveTowards(_currentSpeed, _targetSpeed, decel * dt);
             }
 
-            if (mustStopAtLine && stopDistanceAhead <= 0.12f)
+            if (mustStopAtLine && stopDistanceAhead <= 0.15f)
             {
                 _currentSpeed = 0f;
             }
@@ -630,7 +725,30 @@ namespace EcoQuest.CityTraffic
                 moveDist = Mathf.Max(0f, stopDistanceAhead);
             }
 
+            // Hard invariant: never advance within safe gap of vehicle ahead on the same edge
+            if (_manager != null)
+            {
+                float myHalf = bodyLength * 0.5f;
+                List<TrafficVehicleController> activeCars = _manager.ActiveVehicles;
+                for (int i = 0; i < activeCars.Count; i++)
+                {
+                    TrafficVehicleController other = activeCars[i];
+                    if (other == null || other == this || !other.gameObject.activeInHierarchy) continue;
+                    if (other._currentEdgeId == _currentEdgeId && other._distanceOnEdge > _distanceOnEdge)
+                    {
+                        float minSeparation = myHalf + other.bodyLength * 0.5f + 1.2f;
+                        float maxAllowedDist = Mathf.Max(0f, other._distanceOnEdge - minSeparation);
+                        if (_distanceOnEdge + moveDist > maxAllowedDist)
+                        {
+                            moveDist = Mathf.Max(0f, maxAllowedDist - _distanceOnEdge);
+                            _currentSpeed = 0f;
+                        }
+                    }
+                }
+            }
+
             _distanceOnEdge += moveDist;
+            _distanceTraveled += moveDist;
 
             // Transition across edge boundaries
             int safetyLoops = 0;
@@ -645,10 +763,31 @@ namespace EcoQuest.CityTraffic
                     TrafficEdge candidateNext = _graph.edges[_nextEdgeId];
                     if (candidateNext.isIntersectionArc && candidateNext.intersectionIndex >= 0)
                     {
+                        // Also check if any other vehicle currently occupies the target intersection arc
+                        bool arcOccupied = false;
+                        if (_manager != null)
+                        {
+                            List<TrafficVehicleController> activeCars = _manager.ActiveVehicles;
+                            for (int a = 0; a < activeCars.Count; a++)
+                            {
+                                if (activeCars[a] != null && activeCars[a] != this && activeCars[a].gameObject.activeInHierarchy && activeCars[a]._currentEdgeId == _nextEdgeId)
+                                {
+                                    arcOccupied = true;
+                                    break;
+                                }
+                            }
+                        }
+
                         float simNow = _manager != null ? _manager.SimulationTime : Time.time;
-                        if (!_graph.RequestIntersectionEntry(candidateNext.intersectionIndex, vehicleId, _nextEdgeId, simNow, 6.0f, true))
+                        if (arcOccupied || !_graph.RequestIntersectionEntry(candidateNext.intersectionIndex, vehicleId, _nextEdgeId, simNow, 6.0f, true))
                         {
                             _distanceOnEdge = Mathf.Max(0f, edge.length - 0.5f);
+                            _currentSpeed = 0f;
+                            break;
+                        }
+                        _reservedIntersectionIndex = candidateNext.intersectionIndex;
+                    }
+                }
                             _currentSpeed = 0f;
                             break;
                         }
@@ -724,7 +863,144 @@ namespace EcoQuest.CityTraffic
                 _rb.MoveRotation(smoothedRot);
             }
 
-            AnimateWheels(dt, signedTurnAngle);
+            AnimateWheels(dt, simulationBand == TrafficSimulationBand.Near ? signedTurnAngle : 0f);
+            UpdateEngineAudioAndExhaust();
+        }
+
+        private void StepHighwaySimulation(float dt)
+        {
+            if (_graph == null || highwayLaneIndex < 0 || highwayLaneIndex >= _graph.highwayLanes.Count) return;
+
+            HighwayLane lane = _graph.highwayLanes[highwayLaneIndex];
+            float dirZ = lane.directionZ >= 0f ? 1f : -1f;
+            float myZ = transform.position.z;
+            float halfLen = bodyLength * 0.5f;
+
+            // Forward car-only sensor along the same highway lane (8m minimum following distance, no lane changes)
+            float minGapAhead = 999f;
+            bool highwayOverlap = false;
+            if (_manager != null)
+            {
+                List<TrafficVehicleController> hwyCars = _manager.HighwayVehicles;
+                for (int i = 0; i < hwyCars.Count; i++)
+                {
+                    TrafficVehicleController other = hwyCars[i];
+                    if (other == null || other == this || !other.gameObject.activeInHierarchy) continue;
+                    if (other.highwayLaneIndex != highwayLaneIndex) continue;
+
+                    float dz = (other.transform.position.z - myZ) * dirZ;
+                    float combinedHalf = halfLen + other.bodyLength * 0.5f;
+                    if (Mathf.Abs(dz) < combinedHalf + 0.25f)
+                    {
+                        if (dz >= -0.2f)
+                        {
+                            highwayOverlap = true;
+                            minGapAhead = 0f;
+                        }
+                    }
+                    else if (dz > 0f)
+                    {
+                        float gap = dz - combinedHalf;
+                        if (gap < minGapAhead) minGapAhead = gap;
+                    }
+                }
+            }
+
+            if (highwayOverlap)
+            {
+                _currentSpeed = 0f;
+                _targetSpeed = 0f;
+                _statusReason = "Emergency Stop (Highway Overlap)";
+                return;
+            }
+
+            float desiredSpeed = baseCruiseSpeed;
+            if (minGapAhead < highwayMinCarGap + 10.0f)
+            {
+                float stopDist = Mathf.Max(0f, minGapAhead - highwayMinCarGap);
+                if (stopDist <= 0.25f)
+                {
+                    desiredSpeed = 0f;
+                    _statusReason = "Highway Following Stop";
+                }
+                else
+                {
+                    float safeSpeed = Mathf.Sqrt(2f * brakingDeceleration * stopDist);
+                    desiredSpeed = Mathf.Min(desiredSpeed, safeSpeed);
+                    _statusReason = "Highway Following";
+                }
+            }
+            else
+            {
+                _statusReason = "Highway Cruising";
+            }
+
+            _targetSpeed = desiredSpeed;
+            if (_currentSpeed < _targetSpeed)
+                _currentSpeed = Mathf.MoveTowards(_currentSpeed, _targetSpeed, (acceleration * 1.4f) * dt);
+            else
+                _currentSpeed = Mathf.MoveTowards(_currentSpeed, _targetSpeed, (brakingDeceleration * 1.4f) * dt);
+
+            float moveDist = _currentSpeed * dt;
+            _distanceTraveled += moveDist;
+            float nextZ = myZ + dirZ * moveDist;
+
+            // Hard clamp so we never advance into the car ahead on the highway
+            if (_manager != null)
+            {
+                List<TrafficVehicleController> hwyCars = _manager.HighwayVehicles;
+                for (int i = 0; i < hwyCars.Count; i++)
+                {
+                    TrafficVehicleController other = hwyCars[i];
+                    if (other == null || other == this || !other.gameObject.activeInHierarchy) continue;
+                    if (other.highwayLaneIndex != highwayLaneIndex) continue;
+                    float dz = (other.transform.position.z - myZ) * dirZ;
+                    if (dz > 0f)
+                    {
+                        float minZDist = halfLen + other.bodyLength * 0.5f + 1.2f;
+                        float maxAllowedZ = other.transform.position.z - dirZ * minZDist;
+                        if ((nextZ - maxAllowedZ) * dirZ > 0f)
+                        {
+                            nextZ = maxAllowedZ;
+                            _currentSpeed = 0f;
+                        }
+                    }
+                }
+            }
+
+            // End-to-end tunnel wrap when reaching far end inside Tunel_03 (z = +/-118m)
+            bool reachedEnd = (dirZ > 0f && nextZ >= lane.endZ) || (dirZ < 0f && nextZ <= lane.endZ);
+            if (reachedEnd)
+            {
+                float wrapZ = lane.startZ;
+                // Ensure we don't wrap directly on top of another car at the tunnel entrance
+                if (_manager != null)
+                {
+                    List<TrafficVehicleController> hwyCars = _manager.HighwayVehicles;
+                    for (int i = 0; i < hwyCars.Count; i++)
+                    {
+                        TrafficVehicleController other = hwyCars[i];
+                        if (other == null || other == this || other.highwayLaneIndex != highwayLaneIndex) continue;
+                        float dz = (other.transform.position.z - wrapZ) * dirZ;
+                        if (dz >= -6f && dz < (highwayMinCarGap + bodyLength))
+                        {
+                            wrapZ -= dirZ * (highwayMinCarGap + bodyLength - dz);
+                        }
+                    }
+                }
+                nextZ = wrapZ;
+            }
+
+            Vector3 nextPos = new Vector3(lane.laneX, 0.01f, nextZ);
+            Quaternion rot = Quaternion.Euler(0f, dirZ > 0f ? 0f : 180f, 0f);
+            transform.SetPositionAndRotation(nextPos, rot);
+            if (_rb != null && Application.isPlaying)
+            {
+                _rb.MovePosition(nextPos);
+                _rb.MoveRotation(rot);
+            }
+
+            AnimateWheels(dt, 0f);
             UpdateEngineAudioAndExhaust();
         }
 
@@ -732,13 +1008,21 @@ namespace EcoQuest.CityTraffic
         {
             if (engineAudioSource != null && Application.isPlaying)
             {
-                if (!engineAudioSource.isPlaying && engineAudioSource.isActiveAndEnabled && Time.timeScale > 0.001f)
+                bool shouldPlayAudio = (simulationBand == TrafficSimulationBand.Near || isHighwayVehicle) && Time.timeScale > 0.001f;
+                if (shouldPlayAudio)
                 {
-                    engineAudioSource.Play();
+                    if (!engineAudioSource.isPlaying && engineAudioSource.isActiveAndEnabled)
+                    {
+                        engineAudioSource.Play();
+                    }
+                    float speedRatio = Mathf.Clamp01(_currentSpeed / 8.5f);
+                    engineAudioSource.pitch = Mathf.Lerp(0.82f, 1.28f, speedRatio);
+                    engineAudioSource.volume = Mathf.Lerp(0.08f, 0.14f, speedRatio);
                 }
-                float speedRatio = Mathf.Clamp01(_currentSpeed / 6.5f);
-                engineAudioSource.pitch = Mathf.Lerp(0.82f, 1.25f, speedRatio);
-                engineAudioSource.volume = Mathf.Lerp(0.08f, 0.14f, speedRatio);
+                else if (engineAudioSource.isPlaying)
+                {
+                    engineAudioSource.Pause();
+                }
             }
 
             if (isOldCar && exhaustParticles != null)
@@ -766,6 +1050,66 @@ namespace EcoQuest.CityTraffic
             if (wheelFR != null) wheelFR.localRotation = frontRot;
             if (wheelRL != null) wheelRL.localRotation = rearRot;
             if (wheelRR != null) wheelRR.localRotation = rearRot;
+            if (wheelRL2 != null) wheelRL2.localRotation = rearRot;
+            if (wheelRR2 != null) wheelRR2.localRotation = rearRot;
+        }
+
+        private void RunLightweightFarSensorCheck()
+        {
+            _sensorBlockedByCar = false;
+            _sensorBlockedByPlayer = false;
+            _sensorBlockedByNpc = false;
+            _overlappingPlayer = false;
+            _overlappingCar = false;
+            _crosswalkBlocked = false;
+            _obstacleDistance = 999f;
+
+            if (_manager == null || _graph == null || _currentEdgeId < 0) return;
+
+            float halfLen = bodyLength * 0.5f;
+            List<TrafficVehicleController> activeCars = _manager.ActiveVehicles;
+            for (int i = 0; i < activeCars.Count; i++)
+            {
+                TrafficVehicleController other = activeCars[i];
+                if (other == null || other == this || !other.gameObject.activeInHierarchy) continue;
+
+                float otherHalfLen = other.bodyLength * 0.5f;
+                float combinedHalfLen = halfLen + otherHalfLen;
+                if (other._currentEdgeId == _currentEdgeId)
+                {
+                    if (other._distanceOnEdge > _distanceOnEdge)
+                    {
+                        float gap = (other._distanceOnEdge - _distanceOnEdge) - combinedHalfLen;
+                        if (gap <= sensorLength + minCarGap)
+                        {
+                            _sensorBlockedByCar = true;
+                            _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
+                        }
+                    }
+                    else if (Mathf.Abs(_distanceOnEdge - other._distanceOnEdge) < combinedHalfLen + 0.25f)
+                    {
+                        _overlappingCar = true;
+                        _sensorBlockedByCar = true;
+                        _obstacleDistance = 0f;
+                    }
+                }
+                else if (_nextEdgeId >= 0 && other._currentEdgeId == _nextEdgeId)
+                {
+                    float myRem = _graph.edges[_currentEdgeId].length - _distanceOnEdge;
+                    float gap = (myRem + other._distanceOnEdge) - combinedHalfLen;
+                    if (gap <= sensorLength + minCarGap)
+                    {
+                        _sensorBlockedByCar = true;
+                        _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
+                    }
+                }
+                else if (_nextEdgeId >= 0 && _graph.edges[_nextEdgeId].isIntersectionArc && other._currentEdgeId == _nextEdgeId)
+                {
+                    float myRem = Mathf.Max(0f, _graph.edges[_currentEdgeId].length - _distanceOnEdge);
+                    _sensorBlockedByCar = true;
+                    _obstacleDistance = Mathf.Min(_obstacleDistance, myRem);
+                }
+            }
         }
 
         private void UpdatePlayerBlockAndHonk(float dt, bool blockedByPlayerNow)
@@ -845,6 +1189,7 @@ namespace EcoQuest.CityTraffic
             _sensorBlockedByPlayer = false;
             _sensorBlockedByNpc = false;
             _overlappingPlayer = false;
+            _overlappingCar = false;
             _obstacleDistance = 999f;
 
             Vector3 myPos = (Application.isPlaying && _rb != null) ? _rb.position : transform.position;
@@ -880,7 +1225,7 @@ namespace EcoQuest.CityTraffic
                 }
             }
 
-            // 2. Graph-aware & spatial car-ahead check across active pool (handles curves & intersections cleanly)
+            // 2. Multi-car spatial & graph-aware sensor check across all active vehicles
             if (_manager != null)
             {
                 List<TrafficVehicleController> activeCars = _manager.ActiveVehicles;
@@ -890,42 +1235,69 @@ namespace EcoQuest.CityTraffic
                     if (other == null || other == this || !other.gameObject.activeInHierarchy) continue;
 
                     float otherHalfLen = other.bodyLength * 0.5f;
-                    // Same edge ahead
-                    if (other._currentEdgeId == _currentEdgeId && other._distanceOnEdge > _distanceOnEdge)
+                    float combinedHalfLen = halfLen + otherHalfLen;
+                    float combinedHalfWidth = Mathf.Max(bodyWidth * 0.5f, other.bodyWidth * 0.5f) + 0.25f;
+
+                    Vector3 toOther = other.transform.position - myPos;
+                    toOther.y = 0f;
+                    float localZ = Vector3.Dot(toOther, fwd);
+                    float localX = Mathf.Abs(Vector3.Dot(toOther, myRot * Vector3.right));
+
+                    // Immediate bounding box overlap check (360-degree close-proximity collision guard)
+                    if (Mathf.Abs(localZ) < (combinedHalfLen + 0.20f) && localX < combinedHalfWidth)
                     {
-                        float gap = (other._distanceOnEdge - _distanceOnEdge) - (halfLen + otherHalfLen);
-                        if (gap <= sensorLength + minCarGap)
-                        {
-                            _sensorBlockedByCar = true;
-                            _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
-                        }
+                        _overlappingCar = true;
+                        _sensorBlockedByCar = true;
+                        _obstacleDistance = 0f;
                     }
-                    // Next edge ahead
-                    else if (_nextEdgeId >= 0 && other._currentEdgeId == _nextEdgeId && _currentEdgeId >= 0)
+
+                    // Forward corridor check (detects any vehicle ahead across any angle: straight, turning, or crossing)
+                    float corridorWidth = combinedHalfWidth + 0.45f;
+                    float forwardDist = localZ - combinedHalfLen;
+                    if (localZ > -0.2f && forwardDist <= (sensorLength + minCarGap) && localX <= corridorWidth)
                     {
-                        float myRem = _graph.edges[_currentEdgeId].length - _distanceOnEdge;
-                        float gap = (myRem + other._distanceOnEdge) - (halfLen + otherHalfLen);
-                        if (gap <= sensorLength + minCarGap)
-                        {
-                            _sensorBlockedByCar = true;
-                            _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
-                        }
+                        _sensorBlockedByCar = true;
+                        _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, forwardDist));
                     }
-                    else
+
+                    // Same edge check
+                    if (other._currentEdgeId == _currentEdgeId)
                     {
-                        // World-space forward corridor check (same direction & same lane only)
-                        if (Vector3.Dot(other.transform.forward, fwd) > 0.5f)
+                        if (other._distanceOnEdge > _distanceOnEdge)
                         {
-                            Vector3 toOther = other.transform.position - myPos;
-                            toOther.y = 0f;
-                            float projZ = Vector3.Dot(toOther, fwd);
-                            float projX = Mathf.Abs(Vector3.Dot(toOther, myRot * Vector3.right));
-                            if (projZ > 0f && projZ <= (halfLen + otherHalfLen + sensorLength + minCarGap) && projX < 1.1f)
+                            float gap = (other._distanceOnEdge - _distanceOnEdge) - combinedHalfLen;
+                            if (gap <= sensorLength + minCarGap)
                             {
-                                float gap = projZ - (halfLen + otherHalfLen);
                                 _sensorBlockedByCar = true;
                                 _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
                             }
+                        }
+                        else if (Mathf.Abs(_distanceOnEdge - other._distanceOnEdge) < combinedHalfLen + 0.25f)
+                        {
+                            _overlappingCar = true;
+                            _sensorBlockedByCar = true;
+                            _obstacleDistance = 0f;
+                        }
+                    }
+                    // Next edge check
+                    else if (_nextEdgeId >= 0 && other._currentEdgeId == _nextEdgeId && _currentEdgeId >= 0)
+                    {
+                        float myRem = _graph.edges[_currentEdgeId].length - _distanceOnEdge;
+                        float gap = (myRem + other._distanceOnEdge) - combinedHalfLen;
+                        if (gap <= sensorLength + minCarGap)
+                        {
+                            _sensorBlockedByCar = true;
+                            _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
+                        }
+                    }
+                    // Next edge is intersection arc: hold before entering if another vehicle is already inside the arc
+                    if (_nextEdgeId >= 0 && _graph != null && _nextEdgeId < _graph.edges.Count && _graph.edges[_nextEdgeId].isIntersectionArc)
+                    {
+                        if (other._currentEdgeId == _nextEdgeId)
+                        {
+                            float myRem = Mathf.Max(0f, _graph.edges[_currentEdgeId].length - _distanceOnEdge);
+                            _sensorBlockedByCar = true;
+                            _obstacleDistance = Mathf.Min(_obstacleDistance, myRem);
                         }
                     }
                 }
@@ -956,7 +1328,7 @@ namespace EcoQuest.CityTraffic
                 else
                 {
                     var otherCar = col.GetComponentInParent<TrafficVehicleController>();
-                    if (otherCar != null && otherCar != this && Vector3.Dot(otherCar.transform.forward, fwd) > 0.4f)
+                    if (otherCar != null && otherCar != this)
                     {
                         _sensorBlockedByCar = true;
                         _obstacleDistance = Mathf.Min(_obstacleDistance, hitDist);
@@ -1093,7 +1465,7 @@ namespace EcoQuest.CityTraffic
                 _reservedIntersectionIndex = -1;
             }
             ChooseNextEdge(forceAlternative: true);
-            if (!_sensorBlockedByPlayer && !_overlappingPlayer)
+            if (!_sensorBlockedByPlayer && !_overlappingPlayer && !_sensorBlockedByCar && !_overlappingCar)
             {
                 _rerouteClearanceTimer = 2.5f;
             }
