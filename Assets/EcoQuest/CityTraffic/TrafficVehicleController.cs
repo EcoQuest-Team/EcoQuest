@@ -79,6 +79,7 @@ namespace EcoQuest.CityTraffic
         private float _sensorInterval = 0.08f; // ~12.5 Hz
 
         private bool _sensorBlockedByCar;
+        private bool _carAheadOnPath;
         private bool _sensorBlockedByPlayer;
         private bool _sensorBlockedByNpc;
         private bool _overlappingPlayer;
@@ -625,10 +626,22 @@ namespace EcoQuest.CityTraffic
                             desiredSpeed = Mathf.Min(desiredSpeed, 2.2f);
                         }
 
-                        // Request right-of-way reservation when approaching the intersection stop line (<= 4.5m from entry)
-                        if (distRemainingOnEdge <= 4.5f && !mustStopAtLine && !_sensorBlockedByPlayer && !_sensorBlockedByNpc && !_sensorBlockedByCar && !_overlappingCar)
+                        // Calculate proper stop line setback behind crosswalk/intersection entrance
+                        float stopSetback = 3.5f;
+                        if (edge.stopLineDistanceOnEdge > 0f)
                         {
-                            bool allowYellow = distRemainingOnEdge <= 3.2f && _currentSpeed > 1.2f;
+                            stopSetback = Mathf.Max(3.2f, edge.length - edge.stopLineDistanceOnEdge);
+                        }
+                        else
+                        {
+                            stopSetback = Mathf.Max(3.5f, bodyLength * 0.5f + 1.2f);
+                        }
+
+                        // Request right-of-way reservation when approaching the intersection stop line
+                        float requestDist = Mathf.Max(7.5f, stopSetback + 3.0f);
+                        if (distRemainingOnEdge <= requestDist && !mustStopAtLine && !_sensorBlockedByPlayer && !_sensorBlockedByNpc && !_sensorBlockedByCar && !_overlappingCar)
+                        {
+                            bool allowYellow = distRemainingOnEdge <= (stopSetback + 0.5f) && _currentSpeed > 1.2f;
                             bool granted = _graph.RequestIntersectionEntry(nextEdge.intersectionIndex, vehicleId, _nextEdgeId, simNow, 6.0f, allowYellow);
                             if (granted)
                             {
@@ -636,8 +649,26 @@ namespace EcoQuest.CityTraffic
                             }
                             else
                             {
-                                float stopPointFromEnd = 0.6f;
-                                float distToIntersectionStop = Mathf.Max(0f, distRemainingOnEdge - stopPointFromEnd);
+                                float distToIntersectionStop = Mathf.Max(0f, distRemainingOnEdge - stopSetback);
+                                mustStopAtLine = true;
+                                stopDistanceAhead = Mathf.Min(stopDistanceAhead, distToIntersectionStop);
+                                if (inter.hasTrafficLight && _graph.GetTrafficLightState(nextEdge.intersectionIndex, nextEdge.approachDir, simNow) != TrafficLightPhaseState.Green)
+                                {
+                                    heldByTrafficSignal = true;
+                                    _statusReason = "Stopped at Red Light";
+                                }
+                                else
+                                {
+                                    _statusReason = "Yielding at Intersection";
+                                }
+                            }
+                        }
+                        else if (!mustStopAtLine && _reservedIntersectionIndex != nextEdge.intersectionIndex)
+                        {
+                            // If approaching stop line without a granted reservation, hold at stop line
+                            if (distRemainingOnEdge <= stopSetback + 0.5f)
+                            {
+                                float distToIntersectionStop = Mathf.Max(0f, distRemainingOnEdge - stopSetback);
                                 mustStopAtLine = true;
                                 stopDistanceAhead = Mathf.Min(stopDistanceAhead, distToIntersectionStop);
                                 if (inter.hasTrafficLight && _graph.GetTrafficLightState(nextEdge.intersectionIndex, nextEdge.approachDir, simNow) != TrafficLightPhaseState.Green)
@@ -658,13 +689,28 @@ namespace EcoQuest.CityTraffic
             // 3. Forward obstacle (Player, NPC, Car in front) - NEVER bypassed by reroute timers
             if (_sensorBlockedByPlayer || _sensorBlockedByNpc || _sensorBlockedByCar)
             {
-                float reqGap = _sensorBlockedByCar ? minCarGap : minPedestrianGap;
-                float stopDist = Mathf.Max(0f, _obstacleDistance - reqGap);
-                mustStopAtLine = true;
-                stopDistanceAhead = Mathf.Min(stopDistanceAhead, stopDist);
-                if (_sensorBlockedByPlayer) _statusReason = "Stopped for Player";
-                else if (_sensorBlockedByNpc) _statusReason = "Stopped for Pedestrian";
-                else _statusReason = "Following Vehicle";
+                // Intersection Clearing Priority:
+                // Once inside an intersection arc, a vehicle has right-of-way and MUST clear the intersection.
+                // It only stops for Player, NPC on the street, direct physical overlap, or a car ahead on its own path.
+                bool shouldStopForObstacle = true;
+                if (edge.isIntersectionArc)
+                {
+                    if (!_sensorBlockedByPlayer && !_sensorBlockedByNpc && !_overlappingCar && !_carAheadOnPath)
+                    {
+                        shouldStopForObstacle = false;
+                    }
+                }
+
+                if (shouldStopForObstacle)
+                {
+                    float reqGap = _sensorBlockedByCar ? minCarGap : minPedestrianGap;
+                    float stopDist = Mathf.Max(0f, _obstacleDistance - reqGap);
+                    mustStopAtLine = true;
+                    stopDistanceAhead = Mathf.Min(stopDistanceAhead, stopDist);
+                    if (_sensorBlockedByPlayer) _statusReason = "Stopped for Player";
+                    else if (_sensorBlockedByNpc) _statusReason = "Stopped for Pedestrian";
+                    else _statusReason = "Following Vehicle";
+                }
             }
 
             if (mustStopAtLine)
@@ -1056,6 +1102,7 @@ namespace EcoQuest.CityTraffic
             _overlappingPlayer = false;
             _overlappingCar = false;
             _crosswalkBlocked = false;
+            _carAheadOnPath = false;
             _obstacleDistance = 999f;
 
             if (_manager == null || _graph == null || _currentEdgeId < 0) return;
@@ -1076,6 +1123,7 @@ namespace EcoQuest.CityTraffic
                         float gap = (other._distanceOnEdge - _distanceOnEdge) - combinedHalfLen;
                         if (gap <= sensorLength + minCarGap)
                         {
+                            _carAheadOnPath = true;
                             _sensorBlockedByCar = true;
                             _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
                         }
@@ -1093,6 +1141,7 @@ namespace EcoQuest.CityTraffic
                     float gap = (myRem + other._distanceOnEdge) - combinedHalfLen;
                     if (gap <= sensorLength + minCarGap)
                     {
+                        _carAheadOnPath = true;
                         _sensorBlockedByCar = true;
                         _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
                     }
@@ -1100,6 +1149,7 @@ namespace EcoQuest.CityTraffic
                 else if (_nextEdgeId >= 0 && _graph.edges[_nextEdgeId].isIntersectionArc && other._currentEdgeId == _nextEdgeId)
                 {
                     float myRem = Mathf.Max(0f, _graph.edges[_currentEdgeId].length - _distanceOnEdge);
+                    _carAheadOnPath = true;
                     _sensorBlockedByCar = true;
                     _obstacleDistance = Mathf.Min(_obstacleDistance, myRem);
                 }
@@ -1184,6 +1234,7 @@ namespace EcoQuest.CityTraffic
             _sensorBlockedByNpc = false;
             _overlappingPlayer = false;
             _overlappingCar = false;
+            _carAheadOnPath = false;
             _obstacleDistance = 999f;
 
             Vector3 myPos = (Application.isPlaying && _rb != null) ? _rb.position : transform.position;
@@ -1191,6 +1242,10 @@ namespace EcoQuest.CityTraffic
             Vector3 fwd = myRot * Vector3.forward;
             float halfLen = bodyLength * 0.5f;
             Vector3 frontBumper = myPos + fwd * halfLen + Vector3.up * 0.65f;
+
+            TrafficEdge currentEdge = (_graph != null && _currentEdgeId >= 0 && _currentEdgeId < _graph.edges.Count) ? _graph.edges[_currentEdgeId] : null;
+            bool inIntersectionArc = currentEdge != null && currentEdge.isIntersectionArc;
+            bool onCurve = currentEdge != null && currentEdge.isCurve;
 
             // 1. Direct player proximity & forward cone check (100% deterministic even if CharacterController isn't stepped)
             Transform playerTr = _manager != null ? _manager.GetPlayerTransform() : null;
@@ -1245,23 +1300,16 @@ namespace EcoQuest.CityTraffic
                         _obstacleDistance = 0f;
                     }
 
-                    // Forward corridor check (detects any vehicle ahead across any angle: straight, turning, or crossing)
-                    float corridorWidth = combinedHalfWidth + 0.45f;
-                    float forwardDist = localZ - combinedHalfLen;
-                    if (localZ > -0.2f && forwardDist <= (sensorLength + minCarGap) && localX <= corridorWidth)
-                    {
-                        _sensorBlockedByCar = true;
-                        _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, forwardDist));
-                    }
-
-                    // Same edge check
-                    if (other._currentEdgeId == _currentEdgeId)
+                    // Path-based car sensing: exact longitudinal gap along lane splines
+                    // A. Same edge ahead
+                    if (other._currentEdgeId == _currentEdgeId && _currentEdgeId >= 0)
                     {
                         if (other._distanceOnEdge > _distanceOnEdge)
                         {
                             float gap = (other._distanceOnEdge - _distanceOnEdge) - combinedHalfLen;
                             if (gap <= sensorLength + minCarGap)
                             {
+                                _carAheadOnPath = true;
                                 _sensorBlockedByCar = true;
                                 _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
                             }
@@ -1273,25 +1321,45 @@ namespace EcoQuest.CityTraffic
                             _obstacleDistance = 0f;
                         }
                     }
-                    // Next edge check
-                    else if (_nextEdgeId >= 0 && other._currentEdgeId == _nextEdgeId && _currentEdgeId >= 0)
+                    // B. Next edge ahead along route
+                    else if (_nextEdgeId >= 0 && other._currentEdgeId == _nextEdgeId && _currentEdgeId >= 0 && currentEdge != null)
                     {
-                        float myRem = _graph.edges[_currentEdgeId].length - _distanceOnEdge;
+                        float myRem = currentEdge.length - _distanceOnEdge;
                         float gap = (myRem + other._distanceOnEdge) - combinedHalfLen;
                         if (gap <= sensorLength + minCarGap)
                         {
+                            _carAheadOnPath = true;
                             _sensorBlockedByCar = true;
                             _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, gap));
                         }
                     }
-                    // Next edge is intersection arc: hold before entering if another vehicle is already inside the arc
-                    if (_nextEdgeId >= 0 && _graph != null && _nextEdgeId < _graph.edges.Count && _graph.edges[_nextEdgeId].isIntersectionArc)
+                    // C. Next edge is an intersection arc, and another vehicle is inside that arc
+                    else if (_nextEdgeId >= 0 && _graph != null && _nextEdgeId < _graph.edges.Count && _graph.edges[_nextEdgeId].isIntersectionArc && currentEdge != null)
                     {
                         if (other._currentEdgeId == _nextEdgeId)
                         {
-                            float myRem = Mathf.Max(0f, _graph.edges[_currentEdgeId].length - _distanceOnEdge);
+                            float myRem = Mathf.Max(0f, currentEdge.length - _distanceOnEdge);
+                            _carAheadOnPath = true;
                             _sensorBlockedByCar = true;
                             _obstacleDistance = Mathf.Min(_obstacleDistance, myRem);
+                        }
+                    }
+
+                    // Geometric forward corridor check:
+                    // STRICTLY for straight non-intersection roads (!inIntersectionArc && !onCurve)
+                    // Requires matching heading direction (Vector3.Dot > 0.65f)
+                    // Confined strictly to own lane (localX <= 0.85m)
+                    if (!inIntersectionArc && !onCurve)
+                    {
+                        float fwdAlignment = Vector3.Dot(other.transform.forward, fwd);
+                        if (fwdAlignment > 0.65f)
+                        {
+                            float forwardDist = localZ - combinedHalfLen;
+                            if (localZ > 0.1f && forwardDist <= (sensorLength + minCarGap) && localX <= 0.85f)
+                            {
+                                _sensorBlockedByCar = true;
+                                _obstacleDistance = Mathf.Min(_obstacleDistance, Mathf.Max(0f, forwardDist));
+                            }
                         }
                     }
                 }
@@ -1321,19 +1389,26 @@ namespace EcoQuest.CityTraffic
                 }
                 else
                 {
-                    var otherCar = col.GetComponentInParent<TrafficVehicleController>();
-                    if (otherCar != null && otherCar != this)
+                    // For vehicles: only consider if NOT in an intersection arc, and either on our path or physically imminent
+                    if (!inIntersectionArc)
                     {
-                        _sensorBlockedByCar = true;
-                        _obstacleDistance = Mathf.Min(_obstacleDistance, hitDist);
+                        var otherCar = col.GetComponentInParent<TrafficVehicleController>();
+                        if (otherCar != null && otherCar != this)
+                        {
+                            if (otherCar.CurrentEdgeId == _currentEdgeId || otherCar.CurrentEdgeId == _nextEdgeId || hitDist < 0.8f)
+                            {
+                                _sensorBlockedByCar = true;
+                                _obstacleDistance = Mathf.Min(_obstacleDistance, hitDist);
+                            }
+                        }
                     }
                 }
             }
 
             // 4. Merged Crosswalk Zone Check (Stage B.5)
-            if (_graph != null && _currentEdgeId >= 0 && _currentEdgeId < _graph.edges.Count)
+            if (currentEdge != null)
             {
-                TrafficEdge edge = _graph.edges[_currentEdgeId];
+                TrafficEdge edge = currentEdge;
                 if (edge.approachingCrosswalkIndex >= 0 && edge.approachingCrosswalkIndex < _graph.crosswalkZones.Count)
                 {
                     TrafficCrosswalkZone zone = _graph.crosswalkZones[edge.approachingCrosswalkIndex];

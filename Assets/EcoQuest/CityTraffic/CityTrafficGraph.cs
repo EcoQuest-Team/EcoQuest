@@ -288,10 +288,10 @@ namespace EcoQuest.CityTraffic
                 _activeOccupants[intersectionIdx] = occupants;
             }
 
-            // Expire stale occupant reservations only after a generous timeout (> 45s) to prevent rare deadlocks without prematurely dropping stopped vehicles
+            // Expire stale occupant reservations after a safe timeout (> 20s) to prevent deadlocks without prematurely dropping stopped vehicles
             for (int i = occupants.Count - 1; i >= 0; i--)
             {
-                if (now - occupants[i].arrivalTime > 45.0f)
+                if (now - occupants[i].arrivalTime > 20.0f)
                 {
                     occupants.RemoveAt(i);
                 }
