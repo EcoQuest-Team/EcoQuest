@@ -803,16 +803,16 @@ ModelImporter:
     - boneName: Bip001 L Forearm
       humanName: LeftLowerArm
       limit:
-        min: {x: 0, y: 0, z: 0}
-        max: {x: 0, y: 0, z: 0}
+        min: {x: -75, y: -80, z: 0}
+        max: {x: 80, y: 80, z: 0}
         value: {x: 0, y: 0, z: 0}
         length: 0
         modified: 0
     - boneName: Bip001 R Forearm
       humanName: RightLowerArm
       limit:
-        min: {x: 0, y: 0, z: 0}
-        max: {x: 0, y: 0, z: 0}
+        min: {x: -75, y: -80, z: 0}
+        max: {x: 80, y: 80, z: 0}
         value: {x: 0, y: 0, z: 0}
         length: 0
         modified: 0
@@ -1422,12 +1422,12 @@ ModelImporter:
       position: {x: -0.000000002146091, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
-    armTwist: 0.5
-    foreArmTwist: 0.5
+    armTwist: 0.4
+    foreArmTwist: 0.4
     upperLegTwist: 0.5
     legTwist: 0.5
-    armStretch: 0.05
-    legStretch: 0.05
+    armStretch: 0.01
+    legStretch: 0.02
     feetSpacing: 0
     globalScale: 0.1
     rootMotionBoneName: 

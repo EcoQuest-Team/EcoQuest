@@ -113,10 +113,45 @@ namespace EcoQuest.Editor
             {
                 importer.animationType = ModelImporterAnimationType.Human;
                 importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
-                needsReimport = true;
             }
 
-            // First reimport once if needed so defaultClipAnimations reflects latest FBX actions
+            // Reset HumanDescription so Unity regenerates skeleton & T-pose cleanly from the current FBX bone rolls
+            HumanDescription hd = new HumanDescription();
+            hd.armStretch = 0.01f;
+            hd.legStretch = 0.02f;
+            hd.upperArmTwist = 0.40f;
+            hd.lowerArmTwist = 0.40f;
+            importer.humanDescription = hd;
+            importer.SaveAndReimport();
+
+            // Ensure Chest is mapped in the regenerated HumanDescription
+            hd = importer.humanDescription;
+            hd.armStretch = 0.01f;
+            hd.legStretch = 0.02f;
+            hd.upperArmTwist = 0.40f;
+            hd.lowerArmTwist = 0.40f;
+            List<HumanBone> hBones = new List<HumanBone>(hd.human ?? Array.Empty<HumanBone>());
+            bool hasChest = false;
+            for (int i = 0; i < hBones.Count; i++)
+            {
+                if (hBones[i].humanName == "Chest")
+                {
+                    hasChest = true;
+                    break;
+                }
+            }
+            if (!hasChest)
+            {
+                HumanBone chestBone = new HumanBone
+                {
+                    boneName = "Chest",
+                    humanName = "Chest"
+                };
+                chestBone.limit.useDefaultValues = true;
+                hBones.Add(chestBone);
+            }
+            hd.human = hBones.ToArray();
+            importer.humanDescription = hd;
             importer.SaveAndReimport();
 
             ModelImporterClipAnimation[] sourceClips = importer.defaultClipAnimations;
