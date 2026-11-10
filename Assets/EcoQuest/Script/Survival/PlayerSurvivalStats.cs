@@ -40,6 +40,14 @@ public class PlayerSurvivalStats : MonoBehaviour
     [SerializeField] private bool _isExhausted;
     [SerializeField] private float _timeSinceLastSprint;
 
+    [Header("Active Timed Buffs")]
+    [SerializeField] private float _staminaBuffRemaining = 0f;
+    [SerializeField] private float _staminaBuffDuration = 0f;
+    [SerializeField] private float _staminaBuffPercent = 0f;
+    [SerializeField] private float _speedBuffRemaining = 0f;
+    [SerializeField] private float _speedBuffDuration = 0f;
+    [SerializeField] private float _speedBuffPercent = 0f;
+
     // Events for UI and gameplay audio/effects
     public event Action<float, float> OnHungerChanged;
     public event Action<float, float> OnStaminaChanged;
@@ -53,6 +61,32 @@ public class PlayerSurvivalStats : MonoBehaviour
     public float CurrentStamina => currentStamina;
     public float HungerNormalized => maxHunger > 0f ? Mathf.Clamp01(currentHunger / maxHunger) : 0f;
     public float StaminaNormalized => maxStamina > 0f ? Mathf.Clamp01(currentStamina / maxStamina) : 0f;
+
+    public bool HasActiveStaminaBuff => _staminaBuffRemaining > 0.01f;
+    public float StaminaBuffRemaining => _staminaBuffRemaining;
+    public float StaminaBuffDuration => _staminaBuffDuration;
+    public float StaminaBuffPercent => _staminaBuffPercent;
+    public float StaminaBuffNormalized => _staminaBuffDuration > 0.01f ? Mathf.Clamp01(_staminaBuffRemaining / _staminaBuffDuration) : 0f;
+
+    public bool HasActiveSpeedBuff => _speedBuffRemaining > 0.01f;
+    public float SpeedBuffRemaining => _speedBuffRemaining;
+    public float SpeedBuffDuration => _speedBuffDuration;
+    public float SpeedBuffPercent => _speedBuffPercent;
+    public float SpeedBuffNormalized => _speedBuffDuration > 0.01f ? Mathf.Clamp01(_speedBuffRemaining / _speedBuffDuration) : 0f;
+
+    /// <summary>
+    /// Balanced kid-friendly movement speed multiplier while Speed Boost is active.
+    /// A 5%/15% tier-1 boost grants 1.18x speed, and a 10%/25% tier-2 boost grants 1.30x speed so players clearly feel faster!
+    /// </summary>
+    public float SpeedMultiplier
+    {
+        get
+        {
+            if (!HasActiveSpeedBuff) return 1f;
+            float effectiveBonus = _speedBuffPercent >= 10f ? Mathf.Max(0.25f, _speedBuffPercent * 0.01f) : Mathf.Max(0.16f, _speedBuffPercent * 0.01f);
+            return 1f + Mathf.Clamp(effectiveBonus, 0.15f, 0.40f);
+        }
+    }
 
     private void Awake()
     {
@@ -77,8 +111,33 @@ public class PlayerSurvivalStats : MonoBehaviour
 
     private void Update()
     {
-        UpdateHunger(Time.deltaTime);
-        UpdateStamina(Time.deltaTime);
+        float dt = Time.deltaTime;
+        UpdateActiveBuffs(dt);
+        UpdateHunger(dt);
+        UpdateStamina(dt);
+    }
+
+    private void UpdateActiveBuffs(float dt)
+    {
+        if (_staminaBuffRemaining > 0f)
+        {
+            _staminaBuffRemaining = Mathf.Max(0f, _staminaBuffRemaining - dt);
+            if (_staminaBuffRemaining <= 0f)
+            {
+                _staminaBuffPercent = 0f;
+                _staminaBuffDuration = 0f;
+            }
+        }
+
+        if (_speedBuffRemaining > 0f)
+        {
+            _speedBuffRemaining = Mathf.Max(0f, _speedBuffRemaining - dt);
+            if (_speedBuffRemaining <= 0f)
+            {
+                _speedBuffPercent = 0f;
+                _speedBuffDuration = 0f;
+            }
+        }
     }
 
     private void UpdateHunger(float dt)
@@ -102,12 +161,27 @@ public class PlayerSurvivalStats : MonoBehaviour
 
     private void UpdateStamina(float dt)
     {
+        // When Stamina Recovery buff is active:
+        // - Stamina drain while sprinting is reduced by 30% (Tier 1) to 50% (Tier 2)
+        // - Stamina recovery rate is boosted by +40% (Tier 1) to +75% (Tier 2) with near-instant regen delay
+        float drainMultiplier = 1f;
+        float regenMultiplier = 1f;
+        float effectiveRegenDelay = regenDelay;
+
+        if (HasActiveStaminaBuff)
+        {
+            bool isTier2 = _staminaBuffPercent >= 10f;
+            drainMultiplier = isTier2 ? 0.50f : 0.68f;
+            regenMultiplier = isTier2 ? 1.75f : 1.45f;
+            effectiveRegenDelay = 0.12f;
+        }
+
         if (_isSprinting)
         {
             _timeSinceLastSprint = 0f;
             if (currentStamina > 0f)
             {
-                currentStamina = Mathf.Max(0f, currentStamina - staminaDrainPerSec * dt);
+                currentStamina = Mathf.Max(0f, currentStamina - (staminaDrainPerSec * drainMultiplier) * dt);
                 OnStaminaChanged?.Invoke(currentStamina, maxStamina);
 
                 if (currentStamina <= 0f && !_isExhausted)
@@ -121,9 +195,9 @@ public class PlayerSurvivalStats : MonoBehaviour
         else
         {
             _timeSinceLastSprint += dt;
-            if (_timeSinceLastSprint >= regenDelay && currentStamina < maxStamina)
+            if (_timeSinceLastSprint >= effectiveRegenDelay && currentStamina < maxStamina)
             {
-                currentStamina = Mathf.Min(maxStamina, currentStamina + staminaRegenPerSec * dt);
+                currentStamina = Mathf.Min(maxStamina, currentStamina + (staminaRegenPerSec * regenMultiplier) * dt);
                 OnStaminaChanged?.Invoke(currentStamina, maxStamina);
 
                 if (_isExhausted && currentStamina >= exhaustionThreshold)
@@ -169,5 +243,30 @@ public class PlayerSurvivalStats : MonoBehaviour
             OnExhaustionRecovered?.Invoke();
         }
         OnStaminaChanged?.Invoke(currentStamina, maxStamina);
+    }
+
+    /// <summary>
+    /// Activates or refreshes a timed Stamina Recovery buff (e.g., 5% for 2 mins or 10% for 5 mins)
+    /// and optionally restores an immediate stamina boost so players feel instant relief.
+    /// </summary>
+    public void ApplyStaminaBuff(float boostPercent, float durationSeconds, float instantRestore = 25f)
+    {
+        if (instantRestore > 0f)
+        {
+            AddStamina(instantRestore);
+        }
+        _staminaBuffPercent = Mathf.Max(_staminaBuffPercent, boostPercent);
+        _staminaBuffDuration = Mathf.Max(1f, durationSeconds);
+        _staminaBuffRemaining = Mathf.Max(_staminaBuffRemaining, durationSeconds);
+    }
+
+    /// <summary>
+    /// Activates or refreshes a timed Speed Boost buff (e.g., 5% for 2 mins or 10% for 5 mins).
+    /// </summary>
+    public void ApplySpeedBuff(float boostPercent, float durationSeconds)
+    {
+        _speedBuffPercent = Mathf.Max(_speedBuffPercent, boostPercent);
+        _speedBuffDuration = Mathf.Max(1f, durationSeconds);
+        _speedBuffRemaining = Mathf.Max(_speedBuffRemaining, durationSeconds);
     }
 }

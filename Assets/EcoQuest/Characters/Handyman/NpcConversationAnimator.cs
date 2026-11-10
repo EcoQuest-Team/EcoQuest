@@ -51,6 +51,20 @@ namespace EcoQuest.Characters.Handyman
         [SerializeField] private float blinkDuration = 0.15f;
         [SerializeField] private Vector2 idleVariationIntervalRange = new Vector2(8f, 15f);
 
+        [Header("Player Interaction & Seller Dialogue")]
+        [SerializeField] private bool enableInteraction = true;
+        [SerializeField] private float interactRadius = 3.5f;
+        [SerializeField] private string npcDisplayName = "Handyman";
+        [TextArea(2, 4)]
+        [SerializeField] private string[] shopPreviewDialogue = new string[]
+        {
+            "Hey there, Explorer! Welcome to the city square! I'm currently setting up my shop with supplies and consumables for your journey.",
+            "My store will open soon. Keep up the great work cleaning up litter around the city!"
+        };
+
+        private Transform playerTransform;
+        private float interactionCooldown = 0f;
+
         // Shape key indices
         private int blinkIdx = -1;
         private int jawIdx = -1;
@@ -171,6 +185,139 @@ namespace EcoQuest.Characters.Handyman
             UpdateBlinking();
             UpdateSpeechLipSync();
             UpdateIdleVariations();
+            UpdatePlayerInteraction();
+        }
+
+        private void UpdatePlayerInteraction()
+        {
+            if (!enableInteraction) return;
+
+            if (interactionCooldown > 0f)
+            {
+                interactionCooldown -= Time.unscaledDeltaTime;
+            }
+
+            if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
+            {
+                var fpc = FindFirstObjectByType<StarterAssets.FirstPersonController>();
+                if (fpc != null) playerTransform = fpc.transform;
+                else
+                {
+                    var cc = FindFirstObjectByType<CharacterController>();
+                    if (cc != null) playerTransform = cc.transform;
+                    else
+                    {
+                        GameObject pc = GameObject.Find("PlayerCapsule");
+                        if (pc != null) playerTransform = pc.transform;
+                        else
+                        {
+                            GameObject p = GameObject.FindGameObjectWithTag("Player");
+                            if (p != null)
+                            {
+                                var childCc = p.GetComponentInChildren<CharacterController>();
+                                playerTransform = childCc != null ? childCc.transform : p.transform;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (playerTransform == null) return;
+
+            float dist = Vector3.Distance(transform.position, playerTransform.position);
+            bool inRange = dist <= interactRadius;
+
+            if (inRange && !inConversation)
+            {
+                bool isShopOpen = EcoQuest.Inventory.UI_EcoShop.Instance != null && EcoQuest.Inventory.UI_EcoShop.Instance.IsOpen;
+                bool canPrompt = (ModalManager.Instance == null || !ModalManager.Instance.IsAnyModalActuallyVisible())
+                                 && (DialoguePresenter.Instance == null || !DialoguePresenter.Instance.IsInDialogue)
+                                 && !isShopOpen;
+
+                if (canPrompt && WorldInteractionPrompt.Instance != null)
+                {
+                    WorldInteractionPrompt.Instance.ShowPrompt(transform, npcDisplayName, "Eco Shop", "E");
+                }
+
+                bool ePressed = Input.GetKeyDown(KeyCode.E);
+#if ENABLE_INPUT_SYSTEM
+                var kb = UnityEngine.InputSystem.Keyboard.current;
+                if (!ePressed && kb != null && kb.eKey.wasPressedThisFrame) ePressed = true;
+#endif
+                if (ePressed && canPrompt && interactionCooldown <= 0f)
+                {
+                    StartHandymanDialogue();
+                }
+            }
+            else if (!inRange && WorldInteractionPrompt.Instance != null)
+            {
+                WorldInteractionPrompt.Instance.HidePromptIfTarget(transform);
+            }
+        }
+
+        public void StartHandymanDialogue()
+        {
+            if (inConversation) return;
+            interactionCooldown = 0.5f;
+            WorldInteractionPrompt.Instance?.HidePromptIfTarget(transform);
+            BeginConversation(playerTransform);
+
+            var ecoShop = EcoQuest.Inventory.UI_EcoShop.Instance;
+            if (ecoShop != null)
+            {
+                Action onClose = null;
+                onClose = () =>
+                {
+                    ecoShop.OnShopClosed -= onClose;
+                    EndHandymanDialogue();
+                };
+                ecoShop.OnShopClosed += onClose;
+                ecoShop.OpenShop();
+                return;
+            }
+
+            SetPlayerFrozen(true);
+            UIOrchestrator.Instance?.EnterCinematicProfile("Handyman");
+
+            if (DialoguePresenter.Instance != null)
+            {
+                DialoguePresenter.Instance.ShowDialogue(
+                    npcDisplayName,
+                    shopPreviewDialogue,
+                    showChoicesAtEnd: false,
+                    acceptLabel: "OK",
+                    declineLabel: "Close",
+                    onAccept: null,
+                    onDecline: null,
+                    onComplete: EndHandymanDialogue
+                );
+            }
+            else
+            {
+                EndHandymanDialogue();
+            }
+        }
+
+        private void EndHandymanDialogue()
+        {
+            SetPlayerFrozen(false);
+            UIOrchestrator.Instance?.ExitCinematicProfile("Handyman");
+            EndConversation();
+            interactionCooldown = 1.0f;
+        }
+
+        private void SetPlayerFrozen(bool frozen)
+        {
+            var fpc = FindFirstObjectByType<StarterAssets.FirstPersonController>();
+            if (fpc != null) fpc.enabled = !frozen;
+            var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
+            if (inputs != null)
+            {
+                inputs.move = Vector2.zero;
+                inputs.look = Vector2.zero;
+                inputs.sprint = false;
+                inputs.jump = false;
+            }
         }
 
         private void UpdateLocomotion()

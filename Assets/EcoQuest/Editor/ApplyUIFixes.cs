@@ -131,6 +131,16 @@ public static class ApplyUIFixes
             isSceneDirty = true;
         }
 
+        // 5. Inventory UI Layout, Prefabs, Database & Scene Instances (Forest & City)
+        if (scene.name != "Main Menu" && !scene.name.Contains("MainMenu"))
+        {
+            EcoQuest.Inventory.Editor.InventoryPrefabBuilder.BuildPrefabs();
+            if (EcoQuest.Inventory.Editor.InventoryEditorTools.SyncSceneInventoryInstances())
+            {
+                isSceneDirty = true;
+            }
+        }
+
         if (isSceneDirty && !Application.isPlaying)
         {
             EditorSceneManager.MarkSceneDirty(scene);
@@ -249,8 +259,12 @@ public static class ApplyUIFixes
         bool item15 = File.Exists(Application.dataPath + "/EcoQuest/Script/Shared/UIOrchestrator.cs");
         LogItem(15, "Forest and City share UI components", item15, "Components consolidated in Assets/EcoQuest/Script/Shared/");
 
+        // 16. Inventory Check Suite
+        bool item16 = EcoQuest.Inventory.Editor.InventoryEditorTools.RunInventoryCheck();
+        LogItem(16, "Inventory UI layout, scroll, blur, cursor, Esc/B close, consumables & tutorial gate", item16, "Verified by InventoryEditorTools.RunInventoryCheck (9/9 subchecks)");
+
         report.AppendLine();
-        report.AppendLine($"SUMMARY: Total Checks: 15 | PASS: {passCount} | FAIL: {failCount}");
+        report.AppendLine($"SUMMARY: Total Checks: 16 | PASS: {passCount} | FAIL: {failCount}");
         report.AppendLine("================================================================================");
 
         string dir = @"C:\EcoQuest.gg\Reports";

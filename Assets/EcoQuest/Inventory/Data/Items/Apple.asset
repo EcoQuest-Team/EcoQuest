@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3ddd3b06bb7b3e4cac62e3e4b7bda18, type: 3}
+  m_Name: Apple
+  m_EditorClassIdentifier: Assembly-CSharp::EcoQuest.Inventory.ItemData
+  id: food_apple
+  displayName: Apple
+  description: A crisp, sweet wild apple gathered from the orchard trees.
+  effectText: Restores 10% Hunger
+  icon: {fileID: 21300000, guid: a0285fd61b4d66541aa6e5866574ba45, type: 3}
+  itemType: 3
+  stackable: 1
+  value: 10
+  restoreHunger: 10
+  restoreStamina: 0
+  boostPercent: 0
+  durationSeconds: 0
+  tier: 1
+  maxStack: 10
+  sortOrder: 1
+  price: 0
+  isTestItem: 0

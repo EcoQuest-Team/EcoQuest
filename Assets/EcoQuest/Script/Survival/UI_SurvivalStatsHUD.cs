@@ -28,6 +28,16 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     [SerializeField] private string _hungerTextPrefix = "HUNGER ";
     [SerializeField] private string _staminaTextPrefix = "STAMINA ";
 
+    [Header("Active Buffs & Timers HUD (Optional / Auto-Generated)")]
+    [SerializeField] private GameObject _buffsContainerGo;
+    [SerializeField] private GameObject _speedBuffPillGo;
+    [SerializeField] private TextMeshProUGUI _speedBuffTimerText;
+    [SerializeField] private Image _speedBuffIcon;
+    [SerializeField] private GameObject _staminaBuffPillGo;
+    [SerializeField] private TextMeshProUGUI _staminaBuffTimerText;
+    [SerializeField] private Image _staminaBuffIcon;
+    [SerializeField] private TextMeshProUGUI _buffsHeaderTitleText;
+
     [Header("Animation Settings")]
     [SerializeField] private float _fillLerpSpeed = 10f;
     [SerializeField] private float _criticalThreshold = 0.20f;
@@ -123,6 +133,175 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
                 _staminaBadge.localScale = _staminaBadgeBaseScale;
             }
         }
+
+        UpdateBuffsHud(stats);
+    }
+
+    private void UpdateBuffsHud(PlayerSurvivalStats stats)
+    {
+        EnsureBuffsHudSetup();
+        if (_buffsContainerGo == null) return;
+
+        bool hasSpeed = stats.HasActiveSpeedBuff;
+        bool hasStamina = stats.HasActiveStaminaBuff;
+
+        if (!hasSpeed && !hasStamina)
+        {
+            if (_buffsContainerGo.activeSelf) _buffsContainerGo.SetActive(false);
+            return;
+        }
+
+        if (!_buffsContainerGo.activeSelf) _buffsContainerGo.SetActive(true);
+
+        // Update Speed Buff Pill
+        if (_speedBuffPillGo != null)
+        {
+            if (hasSpeed)
+            {
+                if (!_speedBuffPillGo.activeSelf) _speedBuffPillGo.SetActive(true);
+                int sec = Mathf.CeilToInt(stats.SpeedBuffRemaining);
+                if (_speedBuffTimerText != null)
+                    _speedBuffTimerText.text = $"{sec / 60}:{sec % 60:00}";
+            }
+            else if (_speedBuffPillGo.activeSelf)
+            {
+                _speedBuffPillGo.SetActive(false);
+            }
+        }
+
+        // Update Stamina Buff Pill
+        if (_staminaBuffPillGo != null)
+        {
+            if (hasStamina)
+            {
+                if (!_staminaBuffPillGo.activeSelf) _staminaBuffPillGo.SetActive(true);
+                int sec = Mathf.CeilToInt(stats.StaminaBuffRemaining);
+                if (_staminaBuffTimerText != null)
+                    _staminaBuffTimerText.text = $"{sec / 60}:{sec % 60:00}";
+            }
+            else if (_staminaBuffPillGo.activeSelf)
+            {
+                _staminaBuffPillGo.SetActive(false);
+            }
+        }
+    }
+
+    private void EnsureBuffsHudSetup()
+    {
+        if (_buffsContainerGo != null) return;
+
+        Transform existing = transform.Find("ActiveBuffsContainer");
+        if (existing != null)
+        {
+            _buffsContainerGo = existing.gameObject;
+            var speedPill = existing.Find("SpeedBuffPill");
+            if (speedPill != null)
+            {
+                _speedBuffPillGo = speedPill.gameObject;
+                _speedBuffTimerText = speedPill.GetComponentInChildren<TextMeshProUGUI>(true);
+                var img = speedPill.Find("Icon");
+                if (img != null) _speedBuffIcon = img.GetComponent<Image>();
+            }
+            var stamPill = existing.Find("StaminaBuffPill");
+            if (stamPill != null)
+            {
+                _staminaBuffPillGo = stamPill.gameObject;
+                _staminaBuffTimerText = stamPill.GetComponentInChildren<TextMeshProUGUI>(true);
+                var img = stamPill.Find("Icon");
+                if (img != null) _staminaBuffIcon = img.GetComponent<Image>();
+            }
+            var title = existing.Find("TitleText");
+            if (title != null) _buffsHeaderTitleText = title.GetComponent<TextMeshProUGUI>();
+            return;
+        }
+
+        var containerGo = new GameObject("ActiveBuffsContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        containerGo.transform.SetParent(transform, false);
+        var crt = containerGo.GetComponent<RectTransform>();
+        crt.anchorMin = new Vector2(0f, 1f);
+        crt.anchorMax = new Vector2(0f, 1f);
+        crt.pivot = new Vector2(0f, 1f);
+        crt.anchoredPosition = new Vector2(340f, -6f);
+        crt.sizeDelta = new Vector2(400f, 44f);
+
+        var hlg = containerGo.GetComponent<HorizontalLayoutGroup>();
+        hlg.spacing = 10f;
+        hlg.childAlignment = TextAnchor.MiddleLeft;
+        hlg.childControlWidth = false;
+        hlg.childControlHeight = false;
+        hlg.childForceExpandWidth = false;
+        hlg.childForceExpandHeight = false;
+
+        _buffsContainerGo = containerGo;
+
+        _speedBuffPillGo = CreateBuffPill(containerGo.transform, "SpeedBuffPill", "icon_buff_speed", new Color(0.12f, 0.48f, 0.65f, 0.95f), out _speedBuffTimerText, out _speedBuffIcon);
+        _staminaBuffPillGo = CreateBuffPill(containerGo.transform, "StaminaBuffPill", "icon_energy_drink", new Color(0.14f, 0.52f, 0.36f, 0.95f), out _staminaBuffTimerText, out _staminaBuffIcon);
+
+        var titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        titleGo.transform.SetParent(containerGo.transform, false);
+        var trt = titleGo.GetComponent<RectTransform>();
+        trt.sizeDelta = new Vector2(180f, 32f);
+        _buffsHeaderTitleText = titleGo.GetComponent<TextMeshProUGUI>();
+        if (_hungerText != null && _hungerText.font != null) _buffsHeaderTitleText.font = _hungerText.font;
+        _buffsHeaderTitleText.text = "ACTIVE BUFFS & TIMERS";
+        _buffsHeaderTitleText.fontSize = 13f;
+        _buffsHeaderTitleText.fontStyle = FontStyles.Bold;
+        _buffsHeaderTitleText.characterSpacing = 3f;
+        _buffsHeaderTitleText.color = new Color(0.95f, 0.95f, 0.95f, 0.95f);
+        _buffsHeaderTitleText.alignment = TextAlignmentOptions.MidlineLeft;
+
+        _buffsContainerGo.SetActive(false);
+    }
+
+    private GameObject CreateBuffPill(Transform parent, string name, string iconSpriteName, Color accent, out TextMeshProUGUI timerTxt, out Image iconImg)
+    {
+        var pillGo = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Outline), typeof(HorizontalLayoutGroup));
+        pillGo.transform.SetParent(parent, false);
+        var prt = pillGo.GetComponent<RectTransform>();
+        prt.sizeDelta = new Vector2(96f, 36f);
+
+        var bg = pillGo.GetComponent<Image>();
+        bg.color = new Color(0.04f, 0.12f, 0.08f, 0.92f);
+
+        var outl = pillGo.GetComponent<Outline>();
+        outl.effectColor = accent;
+        outl.effectDistance = new Vector2(1.5f, -1.5f);
+
+        var hlg = pillGo.GetComponent<HorizontalLayoutGroup>();
+        hlg.padding = new RectOffset(6, 8, 4, 4);
+        hlg.spacing = 6f;
+        hlg.childAlignment = TextAnchor.MiddleCenter;
+        hlg.childControlWidth = false;
+        hlg.childControlHeight = false;
+
+        var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        iconGo.transform.SetParent(pillGo.transform, false);
+        var irt = iconGo.GetComponent<RectTransform>();
+        irt.sizeDelta = new Vector2(26f, 26f);
+        iconImg = iconGo.GetComponent<Image>();
+        iconImg.preserveAspect = true;
+
+#if UNITY_EDITOR
+        string path = $"Assets/EcoQuest/Inventory/Sprites/UI/{iconSpriteName}.png";
+        var sp = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (sp == null) sp = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/EcoQuest/Inventory/Sprites/{iconSpriteName}.png");
+        if (sp != null) iconImg.sprite = sp;
+#endif
+
+        var txtGo = new GameObject("TimerText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        txtGo.transform.SetParent(pillGo.transform, false);
+        var trt = txtGo.GetComponent<RectTransform>();
+        trt.sizeDelta = new Vector2(50f, 26f);
+        timerTxt = txtGo.GetComponent<TextMeshProUGUI>();
+        if (_hungerText != null && _hungerText.font != null) timerTxt.font = _hungerText.font;
+        timerTxt.text = "0:00";
+        timerTxt.fontSize = 17f;
+        timerTxt.fontStyle = FontStyles.Bold;
+        timerTxt.alignment = TextAlignmentOptions.Center;
+        timerTxt.color = Color.white;
+
+        pillGo.SetActive(false);
+        return pillGo;
     }
 
     public void SetupReferences(
@@ -139,5 +318,62 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
         if (_hungerBadge != null) _hungerBadgeBaseScale = _hungerBadge.localScale;
         if (_staminaBadge != null) _staminaBadgeBaseScale = _staminaBadge.localScale;
+    }
+
+    public void ShowFloatingGain(bool isHunger, float amount)
+    {
+        RectTransform targetBar = isHunger
+            ? (_hungerFillImage != null ? _hungerFillImage.rectTransform : _hungerBadge)
+            : (_staminaFillImage != null ? _staminaFillImage.rectTransform : _staminaBadge);
+        Transform parent = targetBar != null && targetBar.parent != null ? targetBar.parent : transform;
+
+        string statName = isHunger ? "Hunger" : "Stamina";
+        string text = $"+{Mathf.RoundToInt(amount)} {statName}";
+        Color color = isHunger ? new Color(1f, 0.72f, 0.22f, 1f) : new Color(0.43f, 0.95f, 0.50f, 1f);
+
+        if (isActiveAndEnabled && Application.isPlaying)
+        {
+            StartCoroutine(FloatingGainRoutine(parent, text, color));
+        }
+    }
+
+    private System.Collections.IEnumerator FloatingGainRoutine(Transform parent, string text, Color color)
+    {
+        var go = new GameObject("FloatingStatGain", typeof(RectTransform), typeof(CanvasGroup), typeof(TextMeshProUGUI));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(1f, 0.5f);
+        rt.anchorMax = new Vector2(1f, 0.5f);
+        rt.pivot = new Vector2(0f, 0.5f);
+        Vector2 startPos = new Vector2(12f, 0f);
+        rt.anchoredPosition = startPos;
+        rt.sizeDelta = new Vector2(200f, 36f);
+
+        var cg = go.GetComponent<CanvasGroup>();
+        cg.blocksRaycasts = false;
+        cg.interactable = false;
+
+        var tmp = go.GetComponent<TextMeshProUGUI>();
+        if (_hungerText != null && _hungerText.font != null) tmp.font = _hungerText.font;
+        tmp.text = text;
+        tmp.fontSize = 22f;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color = color;
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        tmp.textWrappingMode = TextWrappingModes.NoWrap;
+        tmp.raycastTarget = false;
+
+        float duration = 0.9f;
+        float elapsed = 0f;
+        while (elapsed < duration && go != null)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            rt.anchoredPosition = startPos + new Vector2(0f, t * 24f);
+            cg.alpha = t < 0.2f ? (t / 0.2f) : (1f - (t - 0.2f) / 0.8f);
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
     }
 }

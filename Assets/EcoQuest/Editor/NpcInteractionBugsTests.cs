@@ -221,6 +221,7 @@ public class NpcInteractionBugsTests
                 }
                 else
                 {
+                    typeof(NPCInteraction).GetField("hasAcceptedQuest", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(guardianInt, true);
                     guardianInt.StartDialogue();
                     bool gearExpectedHidden = UIOrchestrator.Instance != null && !UIOrchestrator.Instance.GetExpectedVisibility(UIOrchestrator.UIElement.Gear);
                     UIOrchestrator.Instance?.ApplyCurrentProfile(0f);
@@ -329,6 +330,82 @@ public class NpcInteractionBugsTests
                 t5Details = "Exception: " + ex.Message;
             }
             report.Add(new TestReportItem { TestName = "5. Rapid Dialogue Interrupt: Zero Overlay Leak & Restored Gear", Passed = t5Pass, Details = t5Details });
+
+            // TEST 6: Player Prefab Hierarchy & Tag Isolation
+            bool t6Pass = false;
+            string t6Details = "";
+            try
+            {
+                var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/EcoQuest/Prefabs/Player.prefab");
+                if (playerPrefab == null)
+                {
+                    t6Details = "Missing Assets/EcoQuest/Prefabs/Player.prefab";
+                }
+                else
+                {
+                    bool rootUntagged = playerPrefab.tag == "Untagged";
+                    var capsule = playerPrefab.transform.Find("PlayerCapsule");
+                    bool capsuleTaggedPlayer = capsule != null && capsule.CompareTag("Player");
+                    bool capsuleHasController = capsule != null && capsule.GetComponent<CharacterController>() != null;
+
+                    t6Pass = rootUntagged && capsuleTaggedPlayer && capsuleHasController;
+                    t6Details = $"RootTag='{playerPrefab.tag}' (expected Untagged), CapsuleTag='{(capsule != null ? capsule.tag : "null")}' (expected Player), HasCC={capsuleHasController}";
+                }
+            }
+            catch (Exception ex)
+            {
+                t6Details = "Exception: " + ex.Message;
+            }
+            report.Add(new TestReportItem { TestName = "6. Player Prefab: Root Untagged & Capsule Tagged Player", Passed = t6Pass, Details = t6Details });
+
+            // TEST 7: Forest Scene NPC Interaction Player Resolution
+            bool t7Pass = false;
+            string t7Details = "";
+            try
+            {
+                var fGuardian = GameObject.Find("GuardianNPC");
+                var fExp = GameObject.Find("Explorer_Var1");
+                var fPlayer = GameObject.FindGameObjectWithTag("Player");
+
+                bool playerIsCapsule = fPlayer != null && fPlayer.name == "PlayerCapsule";
+                bool guardianHasComp = fGuardian != null && fGuardian.GetComponent<NPCInteraction>() != null;
+                var expGate = fExp != null ? fExp.GetComponent<ExplorerGateController>() : null;
+                bool expGateOk = expGate != null;
+
+                t7Pass = playerIsCapsule && guardianHasComp && expGateOk;
+                t7Details = $"ResolvedPlayer='{(fPlayer != null ? fPlayer.name : "null")}', GuardianOk={guardianHasComp}, ExplorerGateOk={expGateOk}";
+            }
+            catch (Exception ex)
+            {
+                t7Details = "Exception: " + ex.Message;
+            }
+            report.Add(new TestReportItem { TestName = "7. Forest NPCs: PlayerCapsule Target & Interaction Range", Passed = t7Pass, Details = t7Details });
+
+            // TEST 8: City Scene NPC Interaction Triggers (Robin & Handyman)
+            bool t8Pass = false;
+            string t8Details = "";
+            try
+            {
+                EditorSceneManager.OpenScene(CityScenePath, OpenSceneMode.Single);
+                var cRobin = GameObject.Find("Explorer_Var2");
+                var cHandyman = GameObject.Find("NPC_Handyman_Green");
+                var ctdm = UnityEngine.Object.FindFirstObjectByType<EcoQuest.CityQuest.CityTrashDetectiveManager>();
+                var cPlayer = GameObject.FindGameObjectWithTag("Player");
+
+                bool cPlayerIsCapsule = cPlayer != null && cPlayer.name == "PlayerCapsule";
+                bool robinFound = cRobin != null && ctdm != null;
+                var hAnim = cHandyman != null ? cHandyman.GetComponent<EcoQuest.Characters.Handyman.NpcConversationAnimator>() : null;
+                bool handymanOk = hAnim != null;
+                bool ctdmRangeOk = ctdm != null && ctdm.npcInteractRange >= 3.8f;
+
+                t8Pass = cPlayerIsCapsule && robinFound && handymanOk && ctdmRangeOk;
+                t8Details = $"ResolvedPlayer='{(cPlayer != null ? cPlayer.name : "null")}', RobinFound={robinFound}, HandymanOk={handymanOk}, CTDMRange={(ctdm != null ? ctdm.npcInteractRange.ToString("F1") : "null")}";
+            }
+            catch (Exception ex)
+            {
+                t8Details = "Exception: " + ex.Message;
+            }
+            report.Add(new TestReportItem { TestName = "8. City NPCs: Robin & Handyman Proximity Range & Capsule Target", Passed = t8Pass, Details = t8Details });
         }
         finally
         {

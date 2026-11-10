@@ -10,16 +10,27 @@ using UnityEngine.Rendering.Universal;
 /// </summary>
 public static class UIBackgroundBlur
 {
+    public enum BlurMode
+    {
+        None = 0,
+        DialogueFocus = 1,
+        FullScene = 2
+    }
+
     private static Volume blurVolume;
     private static DepthOfField dofComponent;
     private static UniversalAdditionalCameraData cameraData;
     private static readonly HashSet<string> activeDialogueOwners = new HashSet<string>();
+    private static readonly HashSet<string> activeFullSceneOwners = new HashSet<string>();
     private static Transform activeFocusTarget;
     private static Vector3 activeFocusOffset = new Vector3(0f, 1.58f, 0f);
     private static float currentFocusDistance = 2.5f;
 
+    public static BlurMode CurrentMode { get; private set; } = BlurMode.None;
     public static int ActiveDialogueOwnerCount => activeDialogueOwners.Count;
+    public static int ActiveFullSceneOwnerCount => activeFullSceneOwners.Count;
     public static bool IsDialogueDofActive => activeDialogueOwners.Count > 0;
+    public static bool IsFullSceneBlurActive => activeFullSceneOwners.Count > 0;
     public static float CurrentFocusDistance => dofComponent != null ? dofComponent.focusDistance.value : currentFocusDistance;
     public static DepthOfField DofComponent => dofComponent;
 
@@ -158,10 +169,28 @@ public static class UIBackgroundBlur
         dofComponent.gaussianStart.Override(dist + 0.75f);
         dofComponent.gaussianEnd.Override(dist + 6.5f);
         dofComponent.gaussianMaxRadius.Override(1.5f);
+        CurrentMode = BlurMode.DialogueFocus;
+    }
+
+    public static void AcquireFullSceneBlur(string ownerId)
+    {
+        if (string.IsNullOrEmpty(ownerId)) ownerId = "Modal";
+        activeFullSceneOwners.Add(ownerId);
+        ConfigureFullModalBlur();
+    }
+
+    public static void ReleaseFullSceneBlur(string ownerId)
+    {
+        if (string.IsNullOrEmpty(ownerId)) ownerId = "Modal";
+        activeFullSceneOwners.Remove(ownerId);
+        if (activeFullSceneOwners.Count == 0 && !IsDialogueDofActive)
+        {
+            CurrentMode = BlurMode.None;
+        }
     }
 
     /// <summary>
-    /// Configures full-screen blur for non-dialogue modals (Pause, Quiz, Results).
+    /// Configures full-screen blur for non-dialogue modals (Pause, Quiz, Results, Inventory).
     /// </summary>
     public static void ConfigureFullModalBlur()
     {
@@ -175,9 +204,10 @@ public static class UIBackgroundBlur
         if (dofComponent == null) return;
 
         dofComponent.mode.Override(DepthOfFieldMode.Gaussian);
-        dofComponent.gaussianStart.Override(0.05f);
-        dofComponent.gaussianEnd.Override(1.0f);
-        dofComponent.gaussianMaxRadius.Override(2.0f);
+        dofComponent.gaussianStart.Override(0f);
+        dofComponent.gaussianEnd.Override(0.5f);
+        dofComponent.gaussianMaxRadius.Override(1.5f);
+        CurrentMode = BlurMode.FullScene;
     }
 
     public static float GetWeight()
@@ -204,6 +234,10 @@ public static class UIBackgroundBlur
             {
                 vol.gameObject.SetActive(false);
             }
+            if (!IsDialogueDofActive && !IsFullSceneBlurActive)
+            {
+                CurrentMode = BlurMode.None;
+            }
         }
         else
         {
@@ -221,7 +255,9 @@ public static class UIBackgroundBlur
     public static void Cleanup()
     {
         activeDialogueOwners.Clear();
+        activeFullSceneOwners.Clear();
         activeFocusTarget = null;
+        CurrentMode = BlurMode.None;
         if (blurVolume != null && blurVolume.gameObject != null)
         {
             blurVolume.weight = 0f;

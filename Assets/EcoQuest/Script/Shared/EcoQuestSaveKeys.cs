@@ -26,6 +26,10 @@ public static class EcoQuestSaveKeys
     public const string CityBonusTaken = "EcoQuest_City_BonusTaken";
     public const string CityLastSeed = "EcoQuest_City_LastSeed";
 
+    // Inventory Keys
+    public const string InventorySlots = "EcoQuest_Inventory_Slots";
+    public const string InventorySeenNew = "EcoQuest_Inventory_SeenNew";
+
     /// <summary>
     /// Complete array of all persistent keys related to tutorial and quest progress.
     /// Settings (volume, resolution, graphics) are excluded so player preferences remain intact.
@@ -45,7 +49,9 @@ public static class EcoQuestSaveKeys
         CityBestTime,
         CityBonusPending,
         CityBonusTaken,
-        CityLastSeed
+        CityLastSeed,
+        InventorySlots,
+        InventorySeenNew
     };
 
     /// <summary>

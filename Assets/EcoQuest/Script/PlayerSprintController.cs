@@ -28,6 +28,7 @@ public class PlayerSprintController : MonoBehaviour
     private Camera mainCamera;
     private Unity.Cinemachine.CinemachineVirtualCamera vcam;
     private float baseFOV = 40f;
+    private float baseMoveSpeed = -1f;
     private float currentSprintTime = 0f;
     private bool hasCompletedSprintStep = false;
 
@@ -125,6 +126,9 @@ public class PlayerSprintController : MonoBehaviour
         if (fpc == null) fpc = GetComponent<FirstPersonController>();
         if (fpc != null)
         {
+            if (baseMoveSpeed < 0f) baseMoveSpeed = fpc.MoveSpeed;
+            float speedMult = PlayerSurvivalStats.Instance != null ? PlayerSurvivalStats.Instance.SpeedMultiplier : 1f;
+            fpc.MoveSpeed = baseMoveSpeed * speedMult;
             fpc.SprintSpeed = fpc.MoveSpeed * sprintSpeedMultiplier;
         }
     }

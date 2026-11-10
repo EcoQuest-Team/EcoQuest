@@ -1232,6 +1232,26 @@ public class LitterbugQuestManager : MonoBehaviour
         nextAllowedInputTime = Time.unscaledTime + cooldownSeconds;
     }
 
+    public bool IsOnGuardianCooldown(out TimeSpan remaining)
+    {
+        remaining = TimeSpan.Zero;
+        string saved = PlayerPrefs.GetString("EcoQuest_GuardianCooldownUntil", string.Empty);
+        if (!string.IsNullOrEmpty(saved) && long.TryParse(saved, out long bin))
+        {
+            try
+            {
+                DateTime until = DateTime.FromBinary(bin);
+                if (DateTime.UtcNow < until)
+                {
+                    remaining = until - DateTime.UtcNow;
+                    return true;
+                }
+            }
+            catch { }
+        }
+        return false;
+    }
+
     public void OpenQuestGiverDialogue()
     {
         if (Time.unscaledTime < npcInteractCooldownUntil) return;
@@ -1254,6 +1274,19 @@ public class LitterbugQuestManager : MonoBehaviour
 
         if (questState == LitterbugQuestState.Available)
         {
+            if (IsOnGuardianCooldown(out TimeSpan cooldownRemaining))
+            {
+                int mm = (int)cooldownRemaining.TotalMinutes;
+                int ss = cooldownRemaining.Seconds;
+                string cooldownLine = $"Thank you for keeping our city clean, Explorer! The plaza is currently peaceful and well-monitored. Please check back in {mm:00}:{ss:00} for the next patrol assignment!";
+                string[] cdLines = new string[] { cooldownLine };
+                string[] cdSpeakers = new string[] { "Guardian" };
+
+                StartDialogueSession(DialogueMode.QuestGiverConflict, -1, questGiverTransform, cdSpeakers, cdLines);
+                if (questGiverAnimator != null) questGiverAnimator.SetBool("IsTalking", true);
+                return;
+            }
+
             List<string> offerLines = DialogueData.GetCityOffer(TargetCount);
             string[] lines = offerLines.ToArray();
             string[] speakers = new string[lines.Length];
@@ -1751,7 +1784,12 @@ public class LitterbugQuestManager : MonoBehaviour
         if (panelAnimCoroutine != null) StopCoroutine(panelAnimCoroutine);
         panelAnimCoroutine = StartCoroutine(CompleteHoldAndFadeOutPanelRoutine());
 
-        // Immediately transition Completed -> Available so Guide offers "Another round?" with no long cooldown
+        // Set 10-minute cooldown on repeat quest to balance game economy
+        DateTime guardianCooldownUntil = DateTime.UtcNow.AddMinutes(10);
+        PlayerPrefs.SetString("EcoQuest_GuardianCooldownUntil", guardianCooldownUntil.ToBinary().ToString());
+        PlayerPrefs.Save();
+
+        // Immediately transition Completed -> Available so Guide checks cooldown when talked to
         questState = LitterbugQuestState.Available;
         if (minimapTracker != null)
         {

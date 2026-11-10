@@ -411,6 +411,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         if (activePages.Count == 0) return;
 
         IsInDialogue = true;
+        isSuspended = false;
         currentPageIndex = 0;
         hasChoicesAtEnd = showChoicesAtEnd;
         onAcceptCallback = onAccept;

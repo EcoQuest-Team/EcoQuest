@@ -46,7 +46,8 @@ public class UIOrchestrator : MonoBehaviour
         ForestExploring = 1,
         BinSorting = 2,
         CityLitterbug = 3,
-        CityScavenger = 4
+        CityScavenger = 4,
+        Inventory = 5
     }
 
     // Optional City Trash Detective (CityScavenger) additive hooks (default null outside City Scene)
@@ -719,7 +720,7 @@ public class UIOrchestrator : MonoBehaviour
             SnapElement(questPanelGroup, false);
         }
 
-        bool minimapExpected = (step != FlowStep.ExplorerTravel);
+        bool minimapExpected = (step != FlowStep.ExplorerTravel) && !(EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen);
         bool minimapActual = minimapGroup == null || (minimapGroup.gameObject.activeInHierarchy && minimapGroup.alpha > 0.5f);
         if (minimapExpected && !minimapActual && minimapGroup != null)
         {
@@ -770,6 +771,15 @@ public class UIOrchestrator : MonoBehaviour
     /// </summary>
     public bool GetExpectedVisibility(UIElement element)
     {
+        if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen)
+        {
+            if (element == UIElement.Coins)
+            {
+                return EcoQuest.Inventory.InventoryController.Instance.KeepVitalsVisible;
+            }
+            return false;
+        }
+
         // Step 7: ExplorerTravel (Cinematic HUD profile hides all gameplay elements during dialogue and travel)
         if (currentFlowStep == FlowStep.ExplorerTravel)
         {

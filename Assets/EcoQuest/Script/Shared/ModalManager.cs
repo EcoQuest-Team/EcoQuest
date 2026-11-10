@@ -34,7 +34,8 @@ public class ModalManager : MonoBehaviour
         InfoCard = 3,
         Warning = 4,
         Reward = 5,
-        Results = 6
+        Results = 6,
+        Inventory = 7
     }
 
     public class ModalRequest
@@ -220,6 +221,11 @@ public class ModalManager : MonoBehaviour
             return true;
         }
 
+        if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen)
+        {
+            return true;
+        }
+
         return false;
     }
 
@@ -354,7 +360,7 @@ public class ModalManager : MonoBehaviour
         while (true)
         {
             yield return new WaitForSecondsRealtime(0.5f);
-            if (!IsAnyModalOpen && !isBlurTweening && !UIBackgroundBlur.IsDialogueDofActive)
+            if (!IsAnyModalOpen && !isBlurTweening && !UIBackgroundBlur.IsDialogueDofActive && !UIBackgroundBlur.IsFullSceneBlurActive)
             {
                 if (blurVolume != null && (blurVolume.weight > 0.01f || blurVolume.gameObject.activeSelf))
                 {
@@ -368,7 +374,7 @@ public class ModalManager : MonoBehaviour
     public void BlurFailsafeReset()
     {
         isBlurTweening = false;
-        if (!UIBackgroundBlur.IsDialogueDofActive)
+        if (!UIBackgroundBlur.IsDialogueDofActive && !UIBackgroundBlur.IsFullSceneBlurActive)
         {
             if (blurVolume != null)
             {
@@ -806,11 +812,14 @@ public class ModalManager : MonoBehaviour
     private IEnumerator FadeBackdropAndHudRoutine(bool showModal)
     {
         bool isDialogueModal = (activeModal != null && activeModal.type == ModalType.Dialogue) || UIBackgroundBlur.IsDialogueDofActive;
-        float duration = showModal ? (isDialogueModal ? 0.40f : hudFadeDuration) : (isDialogueModal ? 0.30f : hudFadeDuration);
+        bool isInventoryModal = (activeModal != null && activeModal.type == ModalType.Inventory) || UIBackgroundBlur.IsFullSceneBlurActive;
+        float duration = showModal
+            ? (isDialogueModal ? 0.40f : (isInventoryModal ? 0.25f : hudFadeDuration))
+            : (isDialogueModal ? 0.30f : (isInventoryModal ? 0.20f : hudFadeDuration));
         float elapsed = 0f;
         float startBackdropAlpha = backdropCanvasGroup != null ? backdropCanvasGroup.alpha : 0f;
-        // Never darken the 3D scene with the black ModalBackdrop during NPC dialogue
-        float targetBackdropAlpha = (showModal && !isDialogueModal) ? 1f : 0f;
+        // Never darken the 3D scene with the black ModalBackdrop during NPC dialogue or Inventory (Inventory uses its own lighter backdrop)
+        float targetBackdropAlpha = (showModal && !isDialogueModal && !isInventoryModal) ? 1f : 0f;
 
         if (blurVolume == null) blurVolume = UIBackgroundBlur.EnsureVolume();
         if (showModal)
@@ -820,13 +829,13 @@ public class ModalManager : MonoBehaviour
         }
 
         float startBlurWeight = blurVolume != null ? blurVolume.weight : 0f;
-        float targetBlurWeight = showModal ? (isDialogueModal ? 1.0f : 0.60f) : 0f;
+        float targetBlurWeight = showModal ? ((isDialogueModal || isInventoryModal) ? 1.0f : 0.60f) : 0f;
 
         if (showModal && blurVolume != null) blurVolume.gameObject.SetActive(true);
         if (backdropCanvasGroup != null)
         {
-            backdropCanvasGroup.blocksRaycasts = showModal && !isDialogueModal;
-            backdropCanvasGroup.interactable = showModal && !isDialogueModal;
+            backdropCanvasGroup.blocksRaycasts = showModal && !isDialogueModal && !isInventoryModal;
+            backdropCanvasGroup.interactable = showModal && !isDialogueModal && !isInventoryModal;
         }
 
         if (showModal)

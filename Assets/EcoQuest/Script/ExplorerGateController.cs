@@ -30,6 +30,7 @@ public class ExplorerGateController : MonoBehaviour
     private bool isPlayerInRadius = false;
     private bool isInDialogue = false;
     public bool IsInDialogue => isInDialogue;
+    public float InteractRadius => interactRadius;
     private float interactionCooldown = 0f;
 
     private void Awake()
@@ -98,14 +99,33 @@ public class ExplorerGateController : MonoBehaviour
 
     private void FindPlayer()
     {
-        if (playerTransform == null)
+        if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
         {
-            GameObject p = GameObject.FindGameObjectWithTag("Player");
-            if (p != null) playerTransform = p.transform;
+            var fpc = FindFirstObjectByType<StarterAssets.FirstPersonController>();
+            if (fpc != null) playerTransform = fpc.transform;
             else
             {
-                Camera cam = Camera.main;
-                if (cam != null) playerTransform = cam.transform;
+                var cc = FindFirstObjectByType<CharacterController>();
+                if (cc != null) playerTransform = cc.transform;
+                else
+                {
+                    GameObject pc = GameObject.Find("PlayerCapsule");
+                    if (pc != null) playerTransform = pc.transform;
+                    else
+                    {
+                        GameObject p = GameObject.FindGameObjectWithTag("Player");
+                        if (p != null)
+                        {
+                            var childCc = p.GetComponentInChildren<CharacterController>();
+                            playerTransform = childCc != null ? childCc.transform : p.transform;
+                        }
+                        else
+                        {
+                            Camera cam = Camera.main;
+                            if (cam != null) playerTransform = cam.transform;
+                        }
+                    }
+                }
             }
         }
     }
@@ -160,7 +180,12 @@ public class ExplorerGateController : MonoBehaviour
         // Listen for E interaction key
         if (isPlayerInRadius && !isInDialogue && interactionCooldown <= 0f)
         {
-            if (Input.GetKeyDown(interactKey))
+            bool keyPressed = Input.GetKeyDown(interactKey);
+#if ENABLE_INPUT_SYSTEM
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (!keyPressed && kb != null && kb.eKey.wasPressedThisFrame) keyPressed = true;
+#endif
+            if (keyPressed)
             {
                 bool canStart = (ModalManager.Instance == null || !ModalManager.Instance.IsAnyModalActuallyVisible())
                                 && (DialoguePresenter.Instance == null || !DialoguePresenter.Instance.IsInDialogue);

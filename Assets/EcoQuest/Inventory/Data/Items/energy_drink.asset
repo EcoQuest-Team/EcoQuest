@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: energy_drink
+  m_EditorClassIdentifier: Assembly-CSharp:EcoQuest.Inventory:ItemData
+  id: energy_drink
+  displayName: Energy Drink
+  description: A refreshing herbal citrus energy drink that accelerates stamina recovery.
+  effectText: +5% Stamina Recovery (2 mins)
+  icon: {fileID: 21300000, guid: 4bf691b89d2321e4c84ee2a343fdbe0b, type: 3}
+  itemType: 4
+  stackable: 1
+  value: 25
+  restoreHunger: 0
+  restoreStamina: 25
+  boostPercent: 5
+  durationSeconds: 120
+  tier: 1
+  maxStack: 10
+  sortOrder: 4
+  price: 25
+  isTestItem: 0

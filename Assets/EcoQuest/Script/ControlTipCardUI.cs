@@ -617,8 +617,32 @@ public class ControlTipCardUI : MonoBehaviour
         activeCardRoutine = null;
     }
 
+    private bool suppressedByModal = false;
+
     private void Update()
     {
+        if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen)
+        {
+            if (cardCanvasGroup != null && cardCanvasGroup.alpha > 0.01f)
+            {
+                suppressedByModal = true;
+                cardCanvasGroup.alpha = 0f;
+                cardCanvasGroup.blocksRaycasts = false;
+                cardCanvasGroup.interactable = false;
+            }
+            return;
+        }
+        else if (suppressedByModal)
+        {
+            suppressedByModal = false;
+            if (CurrentState == BannerState.Visible && cardCanvasGroup != null)
+            {
+                cardCanvasGroup.alpha = 1f;
+                cardCanvasGroup.blocksRaycasts = true;
+                cardCanvasGroup.interactable = true;
+            }
+        }
+
         // Gentle breathing pulse while idle
         if (isIdlePulsing && cardRect != null)
         {

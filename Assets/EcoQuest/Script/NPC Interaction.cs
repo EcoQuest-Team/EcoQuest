@@ -204,14 +204,44 @@ public class NPCInteraction : MonoBehaviour
         EnsureUIReferences();
     }
 
+    private Transform ResolvePlayerTransform()
+    {
+        var fpc = FindFirstObjectByType<StarterAssets.FirstPersonController>();
+        if (fpc != null) return fpc.transform;
+
+        var cc = FindFirstObjectByType<CharacterController>();
+        if (cc != null) return cc.transform;
+
+        GameObject pc = GameObject.Find("PlayerCapsule");
+        if (pc != null) return pc.transform;
+
+        GameObject p = GameObject.FindGameObjectWithTag("Player");
+        if (p != null)
+        {
+            var childCc = p.GetComponentInChildren<CharacterController>();
+            return childCc != null ? childCc.transform : p.transform;
+        }
+
+        return null;
+    }
+
+    private static bool IsInteractKeyPressed()
+    {
+        if (Input.GetKeyDown(KeyCode.E)) return true;
+#if ENABLE_INPUT_SYSTEM
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        if (kb != null && kb.eKey.wasPressedThisFrame) return true;
+#endif
+        return false;
+    }
+
     private void Update()
     {
         AnimateOverheadMarker();
 
-        if (playerTransform == null)
+        if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
         {
-            GameObject p = GameObject.FindGameObjectWithTag("Player");
-            if (p != null) playerTransform = p.transform;
+            playerTransform = ResolvePlayerTransform();
         }
 
         float playerDist = playerTransform != null ? Vector3.Distance(transform.position, playerTransform.position) : 999f;
@@ -247,7 +277,7 @@ public class NPCInteraction : MonoBehaviour
 
         HandleInteractionPrompt(isQuestActive || isModalBlocking || isHoldingTrash || playerDist > interactDistance || Time.unscaledTime < globalNpcInteractCooldownUntil);
 
-        if (isPlayerNearby && !isTalking && !isQuestActive && !isModalBlocking && !isHoldingTrash && playerDist <= interactDistance && Time.unscaledTime >= globalNpcInteractCooldownUntil && Input.GetKeyDown(KeyCode.E))
+        if (isPlayerNearby && !isTalking && !isQuestActive && !isModalBlocking && !isHoldingTrash && playerDist <= interactDistance && Time.unscaledTime >= globalNpcInteractCooldownUntil && IsInteractKeyPressed())
         {
             if (IsTutorialLocked())
             {
@@ -275,7 +305,7 @@ public class NPCInteraction : MonoBehaviour
                 return;
             }
 
-            if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
+            if (Input.GetMouseButtonDown(0) || IsInteractKeyPressed() || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
             {
                 if (isTyping)
                 {
@@ -283,7 +313,7 @@ public class NPCInteraction : MonoBehaviour
                 }
                 else if (isLastLine)
                 {
-                    if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Space))
+                    if (IsInteractKeyPressed() || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Space))
                     {
                         AcceptMission();
                     }
@@ -1797,6 +1827,7 @@ public class NPCInteraction : MonoBehaviour
         IsAnyGuardianFlowRunning = false;
         CurrentFlowStep = "Idle";
         OnFlowCompleted = null;
+        globalNpcInteractCooldownUntil = 0f;
     }
 
 #if UNITY_EDITOR

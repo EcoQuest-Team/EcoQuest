@@ -558,8 +558,8 @@ namespace EcoQuest.CityQuest
                 idCardCanvasGroup.interactable = false;
                 idCardCanvasGroup.blocksRaycasts = false;
 
-                Vector2 shownPos = new Vector2(-24f, 24f);
-                Vector2 hiddenPos = new Vector2(390f, 24f);
+                Vector2 shownPos = new Vector2(-24f, 140f);
+                Vector2 hiddenPos = new Vector2(390f, 140f);
 
                 // Slide in (0.22s)
                 float t = 0f;

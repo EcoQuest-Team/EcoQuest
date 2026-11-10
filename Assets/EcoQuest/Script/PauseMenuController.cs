@@ -225,6 +225,7 @@ public class PauseMenuController : MonoBehaviour
         {
             ResumeGame();
         }
+        else if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen) { EcoQuest.Inventory.InventoryController.Instance.CloseInventory(true); }
         else if (CanOpenPauseMenu())
         {
             PauseGame();
@@ -254,6 +255,7 @@ public class PauseMenuController : MonoBehaviour
             }
             ResumeGame();
         }
+        else if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen) { EcoQuest.Inventory.InventoryController.Instance.CloseInventory(true); }
         else if (CanOpenPauseMenu())
         {
             PauseGame();
@@ -270,6 +272,9 @@ public class PauseMenuController : MonoBehaviour
             return false;
 
         if (MinimapController.Instance != null && MinimapController.Instance.IsFullMapOpen)
+            return false;
+
+        if (EcoQuest.Inventory.InventoryController.Instance != null && (EcoQuest.Inventory.InventoryController.Instance.IsOpen || EcoQuest.Inventory.InventoryController.Instance.IsInCloseLockout))
             return false;
 
         // Block during Pre-Test, Post-Test, or Results Screen

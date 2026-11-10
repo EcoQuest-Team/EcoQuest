@@ -28,7 +28,16 @@ namespace EcoQuest.CityQuest
     [DisallowMultipleComponent]
     public class CityTrashDetectiveManager : MonoBehaviour
     {
-        public static CityTrashDetectiveManager Instance { get; private set; }
+        private static CityTrashDetectiveManager _instance;
+        public static CityTrashDetectiveManager Instance
+        {
+            get
+            {
+                if (_instance == null) _instance = FindFirstObjectByType<CityTrashDetectiveManager>();
+                return _instance;
+            }
+            private set => _instance = value;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStaticState()
@@ -63,7 +72,7 @@ namespace EcoQuest.CityQuest
         public Transform rangerRobinTransform;
         public NpcExplorerController rangerRobinController;
         public string npcDisplayName = "Ranger Robin";
-        public float npcInteractRange = 3.0f;
+        public float npcInteractRange = 3.8f;
 
         [Header("Cinematic & Dialogue Camera")]
         public Transform dialogueCameraPoint;
@@ -210,12 +219,42 @@ namespace EcoQuest.CityQuest
             UpdateRobinMarkerVisibility();
         }
 
+        private Transform ResolvePlayerTransform()
+        {
+            var fpc = FindFirstObjectByType<StarterAssets.FirstPersonController>();
+            if (fpc != null) return fpc.transform;
+
+            var cc = FindFirstObjectByType<CharacterController>();
+            if (cc != null) return cc.transform;
+
+            GameObject pc = GameObject.Find("PlayerCapsule");
+            if (pc != null) return pc.transform;
+
+            GameObject p = GameObject.FindGameObjectWithTag("Player");
+            if (p != null)
+            {
+                var childCc = p.GetComponentInChildren<CharacterController>();
+                return childCc != null ? childCc.transform : p.transform;
+            }
+
+            return null;
+        }
+
+        private bool IsInteractKeyPressed()
+        {
+            if (Input.GetKeyDown(KeyCode.E)) return true;
+#if ENABLE_INPUT_SYSTEM
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null && kb.eKey.wasPressedThisFrame) return true;
+#endif
+            return false;
+        }
+
         private void FindSceneReferences()
         {
-            if (playerTransform == null)
+            if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
             {
-                GameObject p = GameObject.FindGameObjectWithTag("Player");
-                if (p != null) playerTransform = p.transform;
+                playerTransform = ResolvePlayerTransform();
             }
             if (mainCam == null) mainCam = Camera.main;
 
@@ -367,10 +406,9 @@ namespace EcoQuest.CityQuest
         {
             if (!CityDistrictVolume.IsInAllowedCityScene()) return;
 
-            if (playerTransform == null)
+            if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
             {
-                GameObject p = GameObject.FindGameObjectWithTag("Player");
-                if (p != null) playerTransform = p.transform;
+                playerTransform = ResolvePlayerTransform();
             }
             if (mainCam == null) mainCam = Camera.main;
 
@@ -588,7 +626,7 @@ namespace EcoQuest.CityQuest
                         "Collect",
                         "E");
 
-                    if (modalCloseCooldownTimer <= 0f && Input.GetKeyDown(KeyCode.E))
+                    if (modalCloseCooldownTimer <= 0f && IsInteractKeyPressed())
                     {
                         CollectChecklistSlot(bestSlot);
                     }
@@ -602,7 +640,8 @@ namespace EcoQuest.CityQuest
                 Vector3 toRobin = rangerRobinTransform.position - pPos;
                 toRobin.y = 0f;
                 float distSq = toRobin.sqrMagnitude;
-                if (distSq <= npcInteractRange * npcInteractRange)
+                float effectiveRange = Mathf.Max(npcInteractRange, 3.8f);
+                if (distSq <= effectiveRange * effectiveRange)
                 {
                     WorldInteractionPrompt.Instance?.ShowPrompt(
                         rangerRobinTransform,
@@ -610,7 +649,7 @@ namespace EcoQuest.CityQuest
                         "Talk",
                         "E");
 
-                    if (modalCloseCooldownTimer <= 0f && Input.GetKeyDown(KeyCode.E))
+                    if (modalCloseCooldownTimer <= 0f && IsInteractKeyPressed())
                     {
                         OpenRangerRobinDialogue();
                     }
@@ -644,6 +683,26 @@ namespace EcoQuest.CityQuest
         // =====================================================================
         // RANGER ROBIN DIALOGUE FLOWS (Unified with DialoguePresenter & Guardian Look)
         // =====================================================================
+
+        public bool IsOnRobinCooldown(out TimeSpan remaining)
+        {
+            remaining = TimeSpan.Zero;
+            string saved = PlayerPrefs.GetString("EcoQuest_RobinCooldownUntil", string.Empty);
+            if (!string.IsNullOrEmpty(saved) && long.TryParse(saved, out long bin))
+            {
+                try
+                {
+                    DateTime until = DateTime.FromBinary(bin);
+                    if (DateTime.UtcNow < until)
+                    {
+                        remaining = until - DateTime.UtcNow;
+                        return true;
+                    }
+                }
+                catch { }
+            }
+            return false;
+        }
 
         public void OpenRangerRobinDialogue()
         {
@@ -777,33 +836,51 @@ namespace EcoQuest.CityQuest
                 }
                 else // Completed
                 {
-                    int bestStars = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBestStars, 0);
-                    int bestSec = Mathf.RoundToInt(PlayerPrefs.GetFloat(EcoQuestSaveKeys.CityBestTime, 0f));
-                    bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
-
-                    if (hasPendingQuiz)
+                    if (IsOnRobinCooldown(out TimeSpan cooldownRemaining))
                     {
+                        int mm = (int)cooldownRemaining.TotalMinutes;
+                        int ss = cooldownRemaining.Seconds;
                         lines = new string[]
                         {
-                            completedDialogue,
-                            $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). You have an unclaimed Bonus Quiz waiting!"
+                            $"Great work on your last investigation, Detective! I'm currently reviewing field reports and preparing the next Field Checklist.",
+                            $"Please check back in {mm:00}:{ss:00} for new assignments!"
                         };
-                        acceptLabel = "Take Bonus Quiz";
-                        declineLabel = "Play Again";
-                        onAccept = () => LaunchBonusQuiz();
-                        onDecline = () => StartNewAttempt();
+                        showChoices = false;
+                        acceptLabel = "OK";
+                        declineLabel = "Close";
+                        onAccept = null;
+                        onDecline = null;
                     }
                     else
                     {
-                        lines = new string[]
+                        int bestStars = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBestStars, 0);
+                        int bestSec = Mathf.RoundToInt(PlayerPrefs.GetFloat(EcoQuestSaveKeys.CityBestTime, 0f));
+                        bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
+
+                        if (hasPendingQuiz)
                         {
-                            completedDialogue,
-                            $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). Ready for a brand-new Field Checklist?"
-                        };
-                        acceptLabel = "Accept";
-                        declineLabel = "Close";
-                        onAccept = () => StartNewAttempt();
-                        onDecline = null;
+                            lines = new string[]
+                            {
+                                completedDialogue,
+                                $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). You have an unclaimed Bonus Quiz waiting!"
+                            };
+                            acceptLabel = "Take Bonus Quiz";
+                            declineLabel = "Play Again";
+                            onAccept = () => LaunchBonusQuiz();
+                            onDecline = () => StartNewAttempt();
+                        }
+                        else
+                        {
+                            lines = new string[]
+                            {
+                                completedDialogue,
+                                $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). Ready for a brand-new Field Checklist?"
+                            };
+                            acceptLabel = "Accept";
+                            declineLabel = "Close";
+                            onAccept = () => StartNewAttempt();
+                            onDecline = null;
+                        }
                     }
                 }
 
@@ -1458,6 +1535,9 @@ namespace EcoQuest.CityQuest
             if (canTakeBonusQuiz)
             {
                 PlayerPrefs.SetInt(EcoQuestSaveKeys.CityBonusPending, 1);
+                // Set 5-minute cooldown before repeat attempt to balance game economy
+                DateTime robinCooldownUntil = DateTime.UtcNow.AddMinutes(5);
+                PlayerPrefs.SetString("EcoQuest_RobinCooldownUntil", robinCooldownUntil.ToBinary().ToString());
             }
             PlayerPrefs.Save();
 

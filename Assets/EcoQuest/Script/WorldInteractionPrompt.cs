@@ -11,7 +11,16 @@ using TMPro;
 /// </summary>
 public class WorldInteractionPrompt : MonoBehaviour
 {
-    public static WorldInteractionPrompt Instance { get; private set; }
+    private static WorldInteractionPrompt _instance;
+    public static WorldInteractionPrompt Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = FindFirstObjectByType<WorldInteractionPrompt>();
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("UI References")]
     [SerializeField] private CanvasGroup canvasGroup;
