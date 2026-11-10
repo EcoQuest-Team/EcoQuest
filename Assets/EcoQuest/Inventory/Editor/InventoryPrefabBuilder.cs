@@ -62,9 +62,44 @@ namespace EcoQuest.Inventory.Editor
                         importer.spriteBorder = new Vector4(30, 16, 30, 16);
                         changed = true;
                     }
+                    else if (fname == "scrollbar_handle_glow.png" && importer.spriteBorder != new Vector4(10, 16, 10, 16))
+                    {
+                        importer.spriteBorder = new Vector4(10, 16, 10, 16);
+                        changed = true;
+                    }
+                    else if (fname == "scrollbar_track_recessed.png" && importer.spriteBorder != new Vector4(8, 12, 8, 12))
+                    {
+                        importer.spriteBorder = new Vector4(8, 12, 8, 12);
+                        changed = true;
+                    }
                     else if (fname.StartsWith("scrollbar_") && importer.spriteBorder != new Vector4(6, 12, 6, 12))
                     {
                         importer.spriteBorder = new Vector4(6, 12, 6, 12);
+                        changed = true;
+                    }
+                    else if (fname == "eco_shop_panel_bg.png" && importer.spriteBorder != new Vector4(28, 28, 28, 28))
+                    {
+                        importer.spriteBorder = new Vector4(28, 28, 28, 28);
+                        changed = true;
+                    }
+                    else if (fname == "eco_shop_well_bg.png" && importer.spriteBorder != new Vector4(20, 20, 20, 20))
+                    {
+                        importer.spriteBorder = new Vector4(20, 20, 20, 20);
+                        changed = true;
+                    }
+                    else if ((fname == "eco_shop_card_bg.png" || fname == "eco_shop_card_hover.png") && importer.spriteBorder != new Vector4(20, 20, 20, 20))
+                    {
+                        importer.spriteBorder = new Vector4(20, 20, 20, 20);
+                        changed = true;
+                    }
+                    else if (fname.StartsWith("btn_buy_") && importer.spriteBorder != new Vector4(20, 16, 20, 16))
+                    {
+                        importer.spriteBorder = new Vector4(20, 16, 20, 16);
+                        changed = true;
+                    }
+                    else if (fname == "coin_counter_pill_bg.png" && importer.spriteBorder != new Vector4(28, 24, 28, 24))
+                    {
+                        importer.spriteBorder = new Vector4(28, 24, 28, 24);
                         changed = true;
                     }
 
@@ -864,26 +899,52 @@ namespace EcoQuest.Inventory.Editor
             ConfigureTextureImporters();
             TMP_FontAsset fredoka = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/Fredoka SDF.asset");
             TMP_FontAsset nunito = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/Nunito SDF.asset");
-            UITheme theme = UITheme.Instance;
-            Sprite themePanelSprite = theme != null ? theme.panelBackgroundSprite : null;
-            Sprite panelBg = themePanelSprite != null ? themePanelSprite : AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/panel_bg.png");
-            Sprite detailsBg = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/details_box_bg.png");
-            Sprite btnNorm = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/btn_pill_normal.png");
-            Sprite closeX = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/close_x_icon.png");
-            Sprite padlockSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{SpritesFolder}/icon_padlock.png");
+
+            Sprite panelBg = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_panel_bg.png");
+            if (panelBg == null) panelBg = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/panel_bg.png");
+
+            Sprite wellBg = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_well_bg.png");
+            if (wellBg == null) wellBg = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/details_box_bg.png");
+
+            Sprite cardBg = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_card_bg.png");
+            Sprite cardHover = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_card_hover.png");
+            Sprite btnBuyAvail = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/btn_buy_available.png");
+            Sprite btnBuyDis = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/btn_buy_disabled.png");
+            Sprite closeX = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/close_x_white.png");
+            if (closeX == null) closeX = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/close_x_icon.png");
+
+            Sprite padlockSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/icon_padlock_mossy.png");
+            if (padlockSprite == null) padlockSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{SpritesFolder}/icon_padlock.png");
+
             Sprite coinSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/icon_shop_coin.png");
-            Sprite bannerSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_header_banner.png");
+            Sprite bannerSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_header_banner_v2.png");
+            if (bannerSprite == null) bannerSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_header_banner.png");
+
+            Sprite sbTrack = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/scrollbar_track_recessed.png");
+            Sprite sbHandle = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/scrollbar_handle_glow.png");
+            Sprite vignetteSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/ui_vignette_gradient.png");
+            Sprite coinPillBg = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/coin_counter_pill_bg.png");
+
             InventoryItemDatabase db = AssetDatabase.LoadAssetAtPath<InventoryItemDatabase>("Assets/EcoQuest/Inventory/Data/InventoryItemDatabase.asset");
 
-            BuildEcoShopPrefabInternal(fredoka, nunito, panelBg, detailsBg, btnNorm, closeX, padlockSprite, coinSprite, bannerSprite, db);
+            BuildEcoShopPrefabInternal(
+                fredoka, nunito,
+                panelBg, wellBg, cardBg, cardHover,
+                btnBuyAvail, btnBuyDis, closeX,
+                padlockSprite, coinSprite, bannerSprite,
+                sbTrack, sbHandle, vignetteSprite, coinPillBg,
+                db);
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
 
         private static void BuildEcoShopPrefabInternal(
             TMP_FontAsset fredoka, TMP_FontAsset nunito,
-            Sprite panelBg, Sprite detailsBg, Sprite btnNorm, Sprite closeX,
+            Sprite panelBg, Sprite wellBg, Sprite cardBg, Sprite cardHover,
+            Sprite btnBuyAvail, Sprite btnBuyDis, Sprite closeX,
             Sprite padlockSprite, Sprite coinSprite, Sprite bannerSprite,
+            Sprite sbTrack, Sprite sbHandle, Sprite vignetteSprite, Sprite coinPillBg,
             InventoryItemDatabase db)
         {
             GameObject rootGo = new GameObject("UI_EcoShop",
@@ -907,6 +968,7 @@ namespace EcoQuest.Inventory.Editor
 
             UI_EcoShop ecoShop = rootGo.GetComponent<UI_EcoShop>();
 
+            // 1. Backdrop + Vignette
             GameObject backdropGo = new GameObject("Backdrop", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
             backdropGo.transform.SetParent(rootGo.transform, false);
             RectTransform bdRt = backdropGo.GetComponent<RectTransform>();
@@ -915,139 +977,239 @@ namespace EcoQuest.Inventory.Editor
             bdRt.offsetMin = Vector2.zero;
             bdRt.offsetMax = Vector2.zero;
             Image bdImg = backdropGo.GetComponent<Image>();
-            bdImg.color = new Color(0.02f, 0.06f, 0.04f, 0.28f);
+            if (vignetteSprite != null)
+            {
+                bdImg.sprite = vignetteSprite;
+                bdImg.type = Image.Type.Simple;
+                bdImg.color = new Color(0.01f, 0.05f, 0.03f, 0.60f);
+            }
+            else
+            {
+                bdImg.color = new Color(0.02f, 0.06f, 0.04f, 0.28f);
+            }
+            bdImg.raycastTarget = false;
             CanvasGroup bdCg = backdropGo.GetComponent<CanvasGroup>();
             bdCg.alpha = 0f;
             bdCg.blocksRaycasts = false;
             bdCg.interactable = false;
             backdropGo.SetActive(false);
 
+            // 2. Main Shop Panel (Double border rounded rect with soft outer glow)
             GameObject panelGo = new GameObject("ShopPanel",
-                typeof(RectTransform), typeof(CanvasGroup), typeof(Image), typeof(Outline));
+                typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
             panelGo.transform.SetParent(rootGo.transform, false);
             RectTransform pRt = panelGo.GetComponent<RectTransform>();
             pRt.anchorMin = new Vector2(0.5f, 0.5f);
             pRt.anchorMax = new Vector2(0.5f, 0.5f);
             pRt.pivot = new Vector2(0.5f, 0.5f);
             pRt.anchoredPosition = new Vector2(0f, -12f);
-            pRt.sizeDelta = new Vector2(960f, 560f);
+            pRt.sizeDelta = new Vector2(1226f, 834f);
 
             Image pImg = panelGo.GetComponent<Image>();
             pImg.sprite = panelBg;
             pImg.type = Image.Type.Sliced;
-            pImg.color = new Color(0.043f, 0.141f, 0.098f, 0.97f);
-
-            Outline pOutline = panelGo.GetComponent<Outline>();
-            pOutline.effectColor = new Color(0.427f, 0.745f, 0.427f, 1f);
-            pOutline.effectDistance = new Vector2(3f, -3f);
+            pImg.color = Color.white;
+            pImg.raycastTarget = true;
 
             CanvasGroup pCg = panelGo.GetComponent<CanvasGroup>();
             pCg.alpha = 0f;
             pCg.interactable = false;
             pCg.blocksRaycasts = false;
 
+            // 3. Header Banner (Plaque with autumn leaves & vines)
             GameObject bannerGo = new GameObject("HeaderBanner", typeof(RectTransform), typeof(Image));
             bannerGo.transform.SetParent(panelGo.transform, false);
             RectTransform bnRt = bannerGo.GetComponent<RectTransform>();
             bnRt.anchorMin = new Vector2(0.5f, 1f);
             bnRt.anchorMax = new Vector2(0.5f, 1f);
             bnRt.pivot = new Vector2(0.5f, 0.5f);
-            bnRt.anchoredPosition = new Vector2(0f, 8f);
-            bnRt.sizeDelta = new Vector2(540f, 135f);
+            bnRt.anchoredPosition = new Vector2(0f, -18f);
+            bnRt.sizeDelta = new Vector2(940f, 198f);
             Image bnImg = bannerGo.GetComponent<Image>();
             bnImg.sprite = bannerSprite;
             bnImg.preserveAspect = true;
+            bnImg.raycastTarget = false;
 
+            // Plaque Title Text (disabled so it never overlaps or duplicates the crisp hand-drawn title in bannerSprite)
             GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
             titleGo.transform.SetParent(bannerGo.transform, false);
             RectTransform tRt = titleGo.GetComponent<RectTransform>();
             tRt.anchorMin = Vector2.zero;
             tRt.anchorMax = Vector2.one;
-            tRt.offsetMin = new Vector2(60f, 10f);
-            tRt.offsetMax = new Vector2(-60f, -10f);
+            tRt.offsetMin = new Vector2(180f, 18f);
+            tRt.offsetMax = new Vector2(-180f, -18f);
             TextMeshProUGUI titleTmp = titleGo.GetComponent<TextMeshProUGUI>();
             titleTmp.font = fredoka;
-            titleTmp.text = "ECO SHOP";
-            titleTmp.fontSize = 38f;
-            titleTmp.characterSpacing = 6f;
-            titleTmp.fontStyle = FontStyles.Bold;
-            titleTmp.alignment = TextAlignmentOptions.Center;
-            titleTmp.color = Color.white;
+            titleTmp.text = "";
+            titleTmp.enabled = false;
+            titleTmp.raycastTarget = false;
+            titleGo.SetActive(false);
 
+            // 4. Crisp White Close Button (X)
             GameObject closeGo = new GameObject("CloseButton", typeof(RectTransform), typeof(Button), typeof(Image));
             closeGo.transform.SetParent(panelGo.transform, false);
             RectTransform closeRt = closeGo.GetComponent<RectTransform>();
             closeRt.anchorMin = new Vector2(1f, 1f);
             closeRt.anchorMax = new Vector2(1f, 1f);
-            closeRt.pivot = new Vector2(1f, 1f);
-            closeRt.anchoredPosition = new Vector2(-22f, -22f);
-            closeRt.sizeDelta = new Vector2(40f, 40f);
+            closeRt.pivot = new Vector2(0.5f, 0.5f);
+            closeRt.anchoredPosition = new Vector2(-64f, -56f);
+            closeRt.sizeDelta = new Vector2(34f, 34f);
             Image closeImg = closeGo.GetComponent<Image>();
             closeImg.sprite = closeX;
             closeImg.preserveAspect = true;
             closeImg.color = Color.white;
+            closeImg.raycastTarget = true;
             Button closeBtn = closeGo.GetComponent<Button>();
 
-            GameObject innerGo = new GameObject("InnerFrame", typeof(RectTransform), typeof(Image), typeof(Outline), typeof(GridLayoutGroup));
-            innerGo.transform.SetParent(panelGo.transform, false);
-            RectTransform inRt = innerGo.GetComponent<RectTransform>();
-            inRt.anchorMin = new Vector2(0.5f, 0.5f);
-            inRt.anchorMax = new Vector2(0.5f, 0.5f);
-            inRt.pivot = new Vector2(0.5f, 0.5f);
-            inRt.anchoredPosition = new Vector2(0f, -32f);
-            inRt.sizeDelta = new Vector2(900f, 420f);
+            // 5. Recessed Content Well
+            GameObject wellGo = new GameObject("ContentWell", typeof(RectTransform), typeof(Image));
+            wellGo.transform.SetParent(panelGo.transform, false);
+            RectTransform wellRt = wellGo.GetComponent<RectTransform>();
+            wellRt.anchorMin = new Vector2(0.5f, 0.5f);
+            wellRt.anchorMax = new Vector2(0.5f, 0.5f);
+            wellRt.pivot = new Vector2(0.5f, 0.5f);
+            wellRt.anchoredPosition = new Vector2(0f, -36f);
+            wellRt.sizeDelta = new Vector2(1140f, 668f);
+            Image wellImg = wellGo.GetComponent<Image>();
+            wellImg.sprite = wellBg;
+            wellImg.type = Image.Type.Sliced;
+            wellImg.color = Color.white;
+            wellImg.raycastTarget = false;
 
-            Image inImg = innerGo.GetComponent<Image>();
-            inImg.sprite = detailsBg;
-            inImg.type = Image.Type.Sliced;
-            inImg.color = new Color(0.03f, 0.10f, 0.07f, 0.92f);
+            // 6. ScrollRect Container inside Content Well
+            GameObject scrollGo = new GameObject("ScrollRect", typeof(RectTransform), typeof(ScrollRect));
+            scrollGo.transform.SetParent(wellGo.transform, false);
+            RectTransform scrollRt = scrollGo.GetComponent<RectTransform>();
+            scrollRt.anchorMin = Vector2.zero;
+            scrollRt.anchorMax = Vector2.one;
+            scrollRt.offsetMin = new Vector2(16f, 16f);
+            scrollRt.offsetMax = new Vector2(-48f, -16f);
 
-            Outline inOutline = innerGo.GetComponent<Outline>();
-            inOutline.effectColor = new Color(0.32f, 0.62f, 0.42f, 0.65f);
-            inOutline.effectDistance = new Vector2(2f, -2f);
+            ScrollRect sr = scrollGo.GetComponent<ScrollRect>();
+            sr.horizontal = false;
+            sr.vertical = true;
+            sr.movementType = ScrollRect.MovementType.Clamped;
+            sr.inertia = true;
+            sr.decelerationRate = 0.135f;
+            sr.scrollSensitivity = 30f;
 
-            GridLayoutGroup glg = innerGo.GetComponent<GridLayoutGroup>();
+            // Viewport with RectMask2D
+            GameObject vpGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
+            vpGo.transform.SetParent(scrollGo.transform, false);
+            RectTransform vpRt = vpGo.GetComponent<RectTransform>();
+            vpRt.anchorMin = Vector2.zero;
+            vpRt.anchorMax = Vector2.one;
+            vpRt.offsetMin = Vector2.zero;
+            vpRt.offsetMax = Vector2.zero;
+            Image vpImg = vpGo.GetComponent<Image>();
+            vpImg.color = new Color(0f, 0f, 0f, 0.005f);
+            vpImg.raycastTarget = true;
+            sr.viewport = vpRt;
+
+            // Content (4 columns fixed GridLayoutGroup + ContentSizeFitter)
+            GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(GridLayoutGroup), typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(vpGo.transform, false);
+            RectTransform contentRt = contentGo.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = Vector2.zero;
+
+            GridLayoutGroup glg = contentGo.GetComponent<GridLayoutGroup>();
             glg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             glg.constraintCount = 4;
-            glg.padding = new RectOffset(20, 20, 16, 16);
-            glg.spacing = new Vector2(18f, 16f);
-            glg.cellSize = new Vector2(198f, 178f);
-            glg.childAlignment = TextAnchor.MiddleCenter;
+            glg.padding = new RectOffset(16, 16, 16, 16);
+            glg.spacing = new Vector2(24f, 24f);
+            glg.cellSize = new Vector2(244f, 266f);
+            glg.childAlignment = TextAnchor.UpperCenter;
 
+            ContentSizeFitter contentCsf = contentGo.GetComponent<ContentSizeFitter>();
+            contentCsf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            contentCsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            sr.content = contentRt;
+
+            // 7. Draggable Glowing Scrollbar on the right edge of Content Well
+            GameObject sbGo = new GameObject("VerticalScrollbar", typeof(RectTransform), typeof(Scrollbar), typeof(Image));
+            sbGo.transform.SetParent(wellGo.transform, false);
+            RectTransform sbRt = sbGo.GetComponent<RectTransform>();
+            sbRt.anchorMin = new Vector2(1f, 0f);
+            sbRt.anchorMax = new Vector2(1f, 1f);
+            sbRt.pivot = new Vector2(1f, 0.5f);
+            sbRt.anchoredPosition = new Vector2(-14f, 0f);
+            sbRt.sizeDelta = new Vector2(28f, -32f);
+
+            Image sbImg = sbGo.GetComponent<Image>();
+            sbImg.sprite = sbTrack;
+            sbImg.type = Image.Type.Sliced;
+            sbImg.color = Color.white;
+
+            Scrollbar sb = sbGo.GetComponent<Scrollbar>();
+            sb.direction = Scrollbar.Direction.BottomToTop;
+
+            GameObject slidingAreaGo = new GameObject("Sliding Area", typeof(RectTransform));
+            slidingAreaGo.transform.SetParent(sbGo.transform, false);
+            RectTransform saRt = slidingAreaGo.GetComponent<RectTransform>();
+            saRt.anchorMin = Vector2.zero;
+            saRt.anchorMax = Vector2.one;
+            saRt.offsetMin = new Vector2(0f, 14f);
+            saRt.offsetMax = new Vector2(0f, -14f);
+
+            GameObject handleGo = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            handleGo.transform.SetParent(slidingAreaGo.transform, false);
+            RectTransform handleRt = handleGo.GetComponent<RectTransform>();
+            handleRt.anchorMin = Vector2.zero;
+            handleRt.anchorMax = Vector2.one;
+            handleRt.offsetMin = Vector2.zero;
+            handleRt.offsetMax = Vector2.zero;
+            Image handleImg = handleGo.GetComponent<Image>();
+            handleImg.sprite = sbHandle;
+            handleImg.type = Image.Type.Sliced;
+            handleImg.color = Color.white;
+
+            sb.targetGraphic = handleImg;
+            sb.handleRect = handleRt;
+            sr.verticalScrollbar = sb;
+            sr.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+
+            // 8. 16 Pooled Card Slots
             List<UI_EcoShopSlot> slotList = new List<UI_EcoShopSlot>();
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 16; i++)
             {
                 var cardGo = new GameObject($"Card_{i:00}", typeof(RectTransform), typeof(Image), typeof(Outline), typeof(UI_EcoShopSlot));
-                cardGo.transform.SetParent(innerGo.transform, false);
+                cardGo.transform.SetParent(contentGo.transform, false);
                 var crdRt = cardGo.GetComponent<RectTransform>();
-                crdRt.sizeDelta = new Vector2(198f, 178f);
+                crdRt.sizeDelta = new Vector2(244f, 266f);
 
                 var crdImg = cardGo.GetComponent<Image>();
-                crdImg.sprite = detailsBg;
+                crdImg.sprite = cardBg;
                 crdImg.type = Image.Type.Sliced;
-                crdImg.color = new Color(0.14f, 0.22f, 0.18f, 0.95f);
+                crdImg.color = Color.white;
 
                 var crdOutl = cardGo.GetComponent<Outline>();
-                crdOutl.effectColor = new Color(0.28f, 0.42f, 0.34f, 0.85f);
+                crdOutl.effectColor = new Color(0.25f, 0.40f, 0.30f, 0.45f);
                 crdOutl.effectDistance = new Vector2(1.5f, -1.5f);
 
                 var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
                 iconGo.transform.SetParent(cardGo.transform, false);
                 var iconRt = iconGo.GetComponent<RectTransform>();
-                iconRt.anchorMin = new Vector2(0.5f, 0.66f);
-                iconRt.anchorMax = new Vector2(0.5f, 0.66f);
+                iconRt.anchorMin = new Vector2(0.5f, 0.5f);
+                iconRt.anchorMax = new Vector2(0.5f, 0.5f);
                 iconRt.pivot = new Vector2(0.5f, 0.5f);
-                iconRt.sizeDelta = new Vector2(84f, 84f);
+                iconRt.anchoredPosition = new Vector2(0f, 42f);
+                iconRt.sizeDelta = new Vector2(110f, 110f);
                 var iconImg = iconGo.GetComponent<Image>();
+                iconImg.sprite = padlockSprite;
                 iconImg.preserveAspect = true;
 
                 var priceRowGo = new GameObject("PriceRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
                 priceRowGo.transform.SetParent(cardGo.transform, false);
                 var prRt = priceRowGo.GetComponent<RectTransform>();
-                prRt.anchorMin = new Vector2(0.5f, 0.31f);
-                prRt.anchorMax = new Vector2(0.5f, 0.31f);
+                prRt.anchorMin = new Vector2(0.5f, 0.5f);
+                prRt.anchorMax = new Vector2(0.5f, 0.5f);
                 prRt.pivot = new Vector2(0.5f, 0.5f);
-                prRt.sizeDelta = new Vector2(110f, 24f);
+                prRt.anchoredPosition = new Vector2(0f, -32f);
+                prRt.sizeDelta = new Vector2(130f, 28f);
 
                 var prHlg = priceRowGo.GetComponent<HorizontalLayoutGroup>();
                 prHlg.spacing = 6f;
@@ -1058,7 +1220,7 @@ namespace EcoQuest.Inventory.Editor
                 var cGo = new GameObject("CoinIcon", typeof(RectTransform), typeof(Image));
                 cGo.transform.SetParent(priceRowGo.transform, false);
                 var cRt = cGo.GetComponent<RectTransform>();
-                cRt.sizeDelta = new Vector2(20f, 20f);
+                cRt.sizeDelta = new Vector2(24f, 24f);
                 var cImg = cGo.GetComponent<Image>();
                 cImg.sprite = coinSprite;
                 cImg.preserveAspect = true;
@@ -1066,29 +1228,30 @@ namespace EcoQuest.Inventory.Editor
                 var pTxtGo = new GameObject("PriceText", typeof(RectTransform), typeof(TextMeshProUGUI));
                 pTxtGo.transform.SetParent(priceRowGo.transform, false);
                 var ptRt = pTxtGo.GetComponent<RectTransform>();
-                ptRt.sizeDelta = new Vector2(50f, 22f);
+                ptRt.sizeDelta = new Vector2(60f, 26f);
                 var ptTmp = pTxtGo.GetComponent<TextMeshProUGUI>();
                 ptTmp.font = fredoka;
-                ptTmp.fontSize = 19f;
+                ptTmp.fontSize = 24f;
                 ptTmp.fontStyle = FontStyles.Bold;
                 ptTmp.alignment = TextAlignmentOptions.MidlineLeft;
-                ptTmp.color = new Color(1.0f, 0.92f, 0.55f, 1f);
+                ptTmp.color = new Color(0.98f, 0.88f, 0.46f, 1f);
 
                 var buyGo = new GameObject("BuyButton", typeof(RectTransform), typeof(Button), typeof(Image), typeof(Outline));
                 buyGo.transform.SetParent(cardGo.transform, false);
                 var buyRt = buyGo.GetComponent<RectTransform>();
-                buyRt.anchorMin = new Vector2(0.5f, 0.12f);
-                buyRt.anchorMax = new Vector2(0.5f, 0.12f);
+                buyRt.anchorMin = new Vector2(0.5f, 0.5f);
+                buyRt.anchorMax = new Vector2(0.5f, 0.5f);
                 buyRt.pivot = new Vector2(0.5f, 0.5f);
-                buyRt.sizeDelta = new Vector2(120f, 32f);
+                buyRt.anchoredPosition = new Vector2(0f, -82f);
+                buyRt.sizeDelta = new Vector2(154f, 44f);
 
                 var buyImg = buyGo.GetComponent<Image>();
-                buyImg.sprite = btnNorm;
+                buyImg.sprite = btnBuyDis;
                 buyImg.type = Image.Type.Sliced;
-                buyImg.color = new Color(0.18f, 0.48f, 0.32f, 1f);
+                buyImg.color = Color.white;
 
                 var buyOutl = buyGo.GetComponent<Outline>();
-                buyOutl.effectColor = new Color(0.42f, 0.78f, 0.52f, 1f);
+                buyOutl.effectColor = new Color(0.42f, 0.78f, 0.52f, 0.6f);
                 buyOutl.effectDistance = new Vector2(1.5f, -1.5f);
 
                 var buyBtn = buyGo.GetComponent<Button>();
@@ -1103,23 +1266,74 @@ namespace EcoQuest.Inventory.Editor
                 var btTmp = bTxtGo.GetComponent<TextMeshProUGUI>();
                 btTmp.font = fredoka;
                 btTmp.text = "BUY";
-                btTmp.fontSize = 18f;
-                btTmp.characterSpacing = 3f;
+                btTmp.fontSize = 22f;
+                btTmp.characterSpacing = 4f;
                 btTmp.fontStyle = FontStyles.Bold;
                 btTmp.alignment = TextAlignmentOptions.Center;
                 btTmp.color = Color.white;
 
                 var slotComp = cardGo.GetComponent<UI_EcoShopSlot>();
-                slotComp.SetupReferences(crdImg, iconImg, cImg, ptTmp, buyBtn, buyImg, btTmp, buyOutl);
+                slotComp.SetupReferences(
+                    crdImg, iconImg, cImg, ptTmp,
+                    buyBtn, buyImg, btTmp, buyOutl,
+                    crdOutl, cardBg, cardHover, btnBuyAvail, btnBuyDis);
                 slotList.Add(slotComp);
             }
 
+            // 9. Bottom-Left Coin Counter Capsule Pill
+            GameObject pillGo = new GameObject("CoinCounterPill", typeof(RectTransform), typeof(Image));
+            pillGo.transform.SetParent(rootGo.transform, false);
+            RectTransform pillRt = pillGo.GetComponent<RectTransform>();
+            pillRt.anchorMin = new Vector2(0f, 0f);
+            pillRt.anchorMax = new Vector2(0f, 0f);
+            pillRt.pivot = new Vector2(0f, 0f);
+            pillRt.anchoredPosition = new Vector2(40f, 36f);
+            pillRt.sizeDelta = new Vector2(225f, 64f);
+
+            Image pillImg = pillGo.GetComponent<Image>();
+            pillImg.sprite = coinPillBg;
+            pillImg.type = Image.Type.Sliced;
+            pillImg.color = Color.white;
+            pillImg.raycastTarget = false;
+
+            GameObject pillIconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            pillIconGo.transform.SetParent(pillGo.transform, false);
+            RectTransform pillIconRt = pillIconGo.GetComponent<RectTransform>();
+            pillIconRt.anchorMin = new Vector2(0f, 0.5f);
+            pillIconRt.anchorMax = new Vector2(0f, 0.5f);
+            pillIconRt.pivot = new Vector2(0f, 0.5f);
+            pillIconRt.anchoredPosition = new Vector2(14f, 0f);
+            pillIconRt.sizeDelta = new Vector2(42f, 42f);
+            Image pillIconImg = pillIconGo.GetComponent<Image>();
+            pillIconImg.sprite = coinSprite;
+            pillIconImg.preserveAspect = true;
+            pillIconImg.raycastTarget = false;
+
+            GameObject pillTxtGo = new GameObject("AmountText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            pillTxtGo.transform.SetParent(pillGo.transform, false);
+            RectTransform pillTxtRt = pillTxtGo.GetComponent<RectTransform>();
+            pillTxtRt.anchorMin = new Vector2(0f, 0f);
+            pillTxtRt.anchorMax = new Vector2(1f, 1f);
+            pillTxtRt.pivot = new Vector2(0f, 0.5f);
+            pillTxtRt.offsetMin = new Vector2(64f, 0f);
+            pillTxtRt.offsetMax = new Vector2(-14f, 0f);
+            TextMeshProUGUI pillTxtTmp = pillTxtGo.GetComponent<TextMeshProUGUI>();
+            pillTxtTmp.font = fredoka;
+            pillTxtTmp.text = "945";
+            pillTxtTmp.fontSize = 32f;
+            pillTxtTmp.fontStyle = FontStyles.Bold;
+            pillTxtTmp.alignment = TextAlignmentOptions.MidlineLeft;
+            pillTxtTmp.color = Color.white;
+            pillTxtTmp.raycastTarget = false;
+
+            // 10. Themed Toast Banner (centered at bottom of panel so it never overlaps ECO SHOP plaque)
             var toastGo = new GameObject("ShopToast", typeof(RectTransform), typeof(CanvasGroup), typeof(Image), typeof(Outline));
-            toastGo.transform.SetParent(rootGo.transform, false);
+            toastGo.transform.SetParent(panelGo.transform, false);
             var toastRt = toastGo.GetComponent<RectTransform>();
-            toastRt.anchorMin = new Vector2(0.5f, 0.88f);
-            toastRt.anchorMax = new Vector2(0.5f, 0.88f);
+            toastRt.anchorMin = new Vector2(0.5f, 0.5f);
+            toastRt.anchorMax = new Vector2(0.5f, 0.5f);
             toastRt.pivot = new Vector2(0.5f, 0.5f);
+            toastRt.anchoredPosition = new Vector2(0f, -270f);
             toastRt.sizeDelta = new Vector2(440f, 50f);
 
             var toastImg = toastGo.GetComponent<Image>();
@@ -1152,7 +1366,13 @@ namespace EcoQuest.Inventory.Editor
 
             panelGo.SetActive(false);
 
-            ecoShop.SetupReferences(bdCg, pRt, pCg, closeBtn, bnImg, titleTmp, inRt, slotList, padlockSprite, coinSprite);
+            ecoShop.SetupReferences(
+                bdCg, bdImg, pRt, pCg, closeBtn,
+                bnRt, bnImg, titleTmp,
+                wellRt, sr, contentRt, sb, handleImg,
+                slotList, pillRt, pillIconImg, pillTxtTmp,
+                padlockSprite, coinSprite);
+
             SetPrivateField(ecoShop, "itemDatabase", db);
             SetPrivateField(ecoShop, "toastGroup", toastCg);
             SetPrivateField(ecoShop, "toastText", ttTmp);

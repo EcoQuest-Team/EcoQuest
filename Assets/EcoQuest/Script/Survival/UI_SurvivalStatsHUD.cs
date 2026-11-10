@@ -36,7 +36,6 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     [SerializeField] private GameObject _staminaBuffPillGo;
     [SerializeField] private TextMeshProUGUI _staminaBuffTimerText;
     [SerializeField] private Image _staminaBuffIcon;
-    [SerializeField] private TextMeshProUGUI _buffsHeaderTitleText;
 
     [Header("Animation Settings")]
     [SerializeField] private float _fillLerpSpeed = 10f;
@@ -51,6 +50,16 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     {
         if (_hungerBadge != null) _hungerBadgeBaseScale = _hungerBadge.localScale;
         if (_staminaBadge != null) _staminaBadgeBaseScale = _staminaBadge.localScale;
+
+        // Clean up visual notches so text stays crisp and unbroken
+        var hungerNotches = transform.Find("Container_PlayerStats/Row_Hunger/BarTrack/Notches");
+        if (hungerNotches != null) hungerNotches.gameObject.SetActive(false);
+        var staminaNotches = transform.Find("Container_PlayerStats/Row_Stamina/BarTrack/Notches");
+        if (staminaNotches != null) staminaNotches.gameObject.SetActive(false);
+
+        // Delete any leftover misplaced LowerBuffPill
+        var lower = transform.Find("LowerBuffPill");
+        if (lower != null) Destroy(lower.gameObject);
     }
 
     private void Start()
@@ -188,12 +197,37 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
     private void EnsureBuffsHudSetup()
     {
-        if (_buffsContainerGo != null) return;
+        // Delete any leftover LowerBuffPill
+        var lower = transform.Find("LowerBuffPill");
+        if (lower != null) Destroy(lower.gameObject);
+
+        if (_buffsContainerGo != null)
+        {
+            var crt = _buffsContainerGo.GetComponent<RectTransform>();
+            if (crt != null)
+            {
+                crt.anchorMin = new Vector2(0f, 1f);
+                crt.anchorMax = new Vector2(0f, 1f);
+                crt.pivot = new Vector2(0f, 1f);
+                crt.anchoredPosition = new Vector2(40f, -128f);
+                crt.sizeDelta = new Vector2(260f, 36f);
+            }
+            var title = _buffsContainerGo.transform.Find("TitleText");
+            if (title != null) Destroy(title.gameObject);
+            return;
+        }
 
         Transform existing = transform.Find("ActiveBuffsContainer");
         if (existing != null)
         {
             _buffsContainerGo = existing.gameObject;
+            var crt = existing.GetComponent<RectTransform>();
+            crt.anchorMin = new Vector2(0f, 1f);
+            crt.anchorMax = new Vector2(0f, 1f);
+            crt.pivot = new Vector2(0f, 1f);
+            crt.anchoredPosition = new Vector2(40f, -128f);
+            crt.sizeDelta = new Vector2(260f, 36f);
+
             var speedPill = existing.Find("SpeedBuffPill");
             if (speedPill != null)
             {
@@ -211,18 +245,18 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
                 if (img != null) _staminaBuffIcon = img.GetComponent<Image>();
             }
             var title = existing.Find("TitleText");
-            if (title != null) _buffsHeaderTitleText = title.GetComponent<TextMeshProUGUI>();
+            if (title != null) Destroy(title.gameObject);
             return;
         }
 
         var containerGo = new GameObject("ActiveBuffsContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup));
         containerGo.transform.SetParent(transform, false);
-        var crt = containerGo.GetComponent<RectTransform>();
-        crt.anchorMin = new Vector2(0f, 1f);
-        crt.anchorMax = new Vector2(0f, 1f);
-        crt.pivot = new Vector2(0f, 1f);
-        crt.anchoredPosition = new Vector2(340f, -6f);
-        crt.sizeDelta = new Vector2(400f, 44f);
+        var contRt = containerGo.GetComponent<RectTransform>();
+        contRt.anchorMin = new Vector2(0f, 1f);
+        contRt.anchorMax = new Vector2(0f, 1f);
+        contRt.pivot = new Vector2(0f, 1f);
+        contRt.anchoredPosition = new Vector2(40f, -128f);
+        contRt.sizeDelta = new Vector2(260f, 36f);
 
         var hlg = containerGo.GetComponent<HorizontalLayoutGroup>();
         hlg.spacing = 10f;
@@ -234,21 +268,8 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
         _buffsContainerGo = containerGo;
 
-        _speedBuffPillGo = CreateBuffPill(containerGo.transform, "SpeedBuffPill", "icon_buff_speed", new Color(0.12f, 0.48f, 0.65f, 0.95f), out _speedBuffTimerText, out _speedBuffIcon);
-        _staminaBuffPillGo = CreateBuffPill(containerGo.transform, "StaminaBuffPill", "icon_energy_drink", new Color(0.14f, 0.52f, 0.36f, 0.95f), out _staminaBuffTimerText, out _staminaBuffIcon);
-
-        var titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
-        titleGo.transform.SetParent(containerGo.transform, false);
-        var trt = titleGo.GetComponent<RectTransform>();
-        trt.sizeDelta = new Vector2(180f, 32f);
-        _buffsHeaderTitleText = titleGo.GetComponent<TextMeshProUGUI>();
-        if (_hungerText != null && _hungerText.font != null) _buffsHeaderTitleText.font = _hungerText.font;
-        _buffsHeaderTitleText.text = "ACTIVE BUFFS & TIMERS";
-        _buffsHeaderTitleText.fontSize = 13f;
-        _buffsHeaderTitleText.fontStyle = FontStyles.Bold;
-        _buffsHeaderTitleText.characterSpacing = 3f;
-        _buffsHeaderTitleText.color = new Color(0.95f, 0.95f, 0.95f, 0.95f);
-        _buffsHeaderTitleText.alignment = TextAlignmentOptions.MidlineLeft;
+        _speedBuffPillGo = CreateBuffPill(containerGo.transform, "SpeedBuffPill", "hud_badge_boot_cyan", new Color(0.18f, 0.70f, 0.90f, 0.95f), out _speedBuffTimerText, out _speedBuffIcon);
+        _staminaBuffPillGo = CreateBuffPill(containerGo.transform, "StaminaBuffPill", "hud_badge_can_green", new Color(0.22f, 0.80f, 0.42f, 0.95f), out _staminaBuffTimerText, out _staminaBuffIcon);
 
         _buffsContainerGo.SetActive(false);
     }
@@ -302,6 +323,35 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
         pillGo.SetActive(false);
         return pillGo;
+    }
+
+    public void SetPreviewReferenceState(bool enabled)
+    {
+        EnsureBuffsHudSetup();
+
+        if (enabled)
+        {
+            if (_hungerFillImage != null) _hungerFillImage.fillAmount = 1f;
+            if (_staminaFillImage != null) _staminaFillImage.fillAmount = 1f;
+            if (_hungerText != null) _hungerText.text = "HUNGER 100%";
+            if (_staminaText != null) _staminaText.text = "STAMINA 100%";
+
+            if (_buffsContainerGo != null) _buffsContainerGo.SetActive(true);
+            if (_speedBuffPillGo != null)
+            {
+                _speedBuffPillGo.SetActive(true);
+                if (_speedBuffTimerText != null) _speedBuffTimerText.text = "0:58";
+            }
+            if (_staminaBuffPillGo != null)
+            {
+                _staminaBuffPillGo.SetActive(true);
+                if (_staminaBuffTimerText != null) _staminaBuffTimerText.text = "1:45";
+            }
+        }
+        else
+        {
+            if (_buffsContainerGo != null) _buffsContainerGo.SetActive(false);
+        }
     }
 
     public void SetupReferences(

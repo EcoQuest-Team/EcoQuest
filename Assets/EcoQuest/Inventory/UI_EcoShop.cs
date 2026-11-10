@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using TMPro;
 using StarterAssets;
 
@@ -10,13 +12,15 @@ namespace EcoQuest.Inventory
 {
     /// <summary>
     /// Master UI controller for the ECO SHOP modal screen.
-    /// Matched to the user's approved design (Image 1):
-    /// - Dark forest green rounded panel with leaf garland banner and "ECO SHOP" title
-    /// - Top-right "X" close button
-    /// - 2x4 grid of shop cards: 7 consumables with icons, prices, and BUY buttons,
-    ///   plus an 8th locked padlock card.
-    /// - Elevates coin and survival stats HUD sorting so they stay visible while shopping.
-    /// - Background blur, cursor management, and audio feedback.
+    /// Rebuilt to match the user's reference mockup (Image 1):
+    /// - Double-border forest green panel with outer glow and soft vignette.
+    /// - Decorative top banner with plaque, leaves, and tendrils (gentle idle sway).
+    /// - Functional ScrollRect with RectMask2D, clamped bounds, glowing mint scrollbar handle,
+    ///   and row-by-row mouse wheel scroll.
+    /// - 16+ pooled cards: Available, Locked (padlock, shake on click), and CannotAfford.
+    /// - Bottom-left coin counter capsule pill bound to PlayerCurrency.
+    /// - Elevation of HUD vitals & active buffs so they remain visible while shopping.
+    /// - Proper cursor unlocking and input freezing without camera look leakage.
     /// </summary>
     [RequireComponent(typeof(CanvasGroup))]
     public class UI_EcoShop : MonoBehaviour
@@ -33,17 +37,30 @@ namespace EcoQuest.Inventory
 
         [Header("Backdrop & Panel")]
         [SerializeField] private CanvasGroup backdropGroup;
+        [SerializeField] private Image vignetteImage;
         [SerializeField] private RectTransform panelRect;
         [SerializeField] private CanvasGroup panelGroup;
         [SerializeField] private Button closeButton;
 
-        [Header("Header")]
+        [Header("Header Decoration & Plaque")]
+        [SerializeField] private RectTransform bannerTransform;
         [SerializeField] private Image headerBannerImage;
         [SerializeField] private TextMeshProUGUI headerTitleText;
 
-        [Header("Grid & Cards (8 Slots)")]
-        [SerializeField] private RectTransform gridContainerRect;
+        [Header("Scrolling Content Well")]
+        [SerializeField] private RectTransform contentWellRect;
+        [SerializeField] private ScrollRect scrollRect;
+        [SerializeField] private RectTransform scrollContent;
+        [SerializeField] private Scrollbar scrollbar;
+        [SerializeField] private Image scrollbarHandleImage;
+
+        [Header("Shop Cards (16+ Slots)")]
         [SerializeField] private List<UI_EcoShopSlot> slotViews = new List<UI_EcoShopSlot>();
+
+        [Header("Bottom-Left Coin Counter Pill")]
+        [SerializeField] private RectTransform coinPillRect;
+        [SerializeField] private Image coinPillIcon;
+        [SerializeField] private TextMeshProUGUI coinPillAmountText;
 
         [Header("Database & Sprites")]
         [SerializeField] private InventoryItemDatabase itemDatabase;
@@ -65,6 +82,13 @@ namespace EcoQuest.Inventory
         private Coroutine transitionRoutine;
         private Coroutine toastRoutine;
         private Coroutine blurRoutine;
+        private Coroutine wheelScrollRoutine;
+
+        // Wheel scrolling math
+        private float targetScrollPos = 1f;
+        private const int Columns = 4;
+        private const int TotalSlots = 16;
+        private const int VisibleRows = 2;
 
         // Saved player & HUD state
         private bool hasSavedPlayerState = false;
@@ -91,6 +115,14 @@ namespace EcoQuest.Inventory
         private void Awake()
         {
             if (instance == null) instance = this;
+
+            // Safety rule: disable in Main Menu
+            if (SceneManager.GetActiveScene().name.Equals("Main Menu", StringComparison.OrdinalIgnoreCase))
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             LoadDatabaseIfNeeded();
 
             if (closeButton != null)
@@ -108,6 +140,23 @@ namespace EcoQuest.Inventory
             {
                 HideImmediate();
             }
+        }
+
+        private void OnDisable()
+        {
+            StopAllCoroutines();
+            if (isOpen)
+            {
+                RestorePlayerAndCursorState();
+                ApplyVitalsVisibilityAndSorting(false);
+                isOpen = false;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            StopAllCoroutines();
+            if (instance == this) instance = null;
         }
 
         private void LoadDatabaseIfNeeded()
@@ -135,6 +184,7 @@ namespace EcoQuest.Inventory
                 Cursor.visible = true;
             }
 
+            // Freeze player locomotion & camera look
             if (cachedInputs != null)
             {
                 cachedInputs.move = Vector2.zero;
@@ -147,7 +197,64 @@ namespace EcoQuest.Inventory
             if (IsEscapePressed() || IsBPressed())
             {
                 CloseShop();
+                return;
             }
+
+            // Gentle decorative leaves sway
+            if (bannerTransform != null)
+            {
+                float sway = Mathf.Sin(Time.unscaledTime * 1.8f) * 1.25f;
+                bannerTransform.localRotation = Quaternion.Euler(0f, 0f, sway);
+            }
+
+            // Update live coin display
+            UpdateCoinPill(false);
+
+            // Handle mouse wheel scrolling over content well or scrollbar
+            HandleMouseWheelScroll();
+        }
+
+        private void HandleMouseWheelScroll()
+        {
+            if (scrollRect == null) return;
+
+            float scrollDelta = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(scrollDelta) < 0.01f) return;
+
+            // Check if cursor is over shop content well or scrollbar
+            Vector2 mousePos = Input.mousePosition;
+            if (contentWellRect != null && !RectTransformUtility.RectangleContainsScreenPoint(contentWellRect, mousePos))
+            {
+                if (scrollbar != null && !RectTransformUtility.RectangleContainsScreenPoint(scrollbar.GetComponent<RectTransform>(), mousePos))
+                {
+                    return;
+                }
+            }
+
+            int totalRows = Mathf.CeilToInt((float)slotViews.Count / Columns);
+            int scrollableRows = Mathf.Max(1, totalRows - VisibleRows);
+            float step = 1.0f / scrollableRows;
+
+            // Invert delta: scroll down (negative delta) moves content up (decreases normalizedPosition)
+            targetScrollPos = Mathf.Clamp01(targetScrollPos + (scrollDelta > 0 ? step : -step));
+
+            if (wheelScrollRoutine != null) StopCoroutine(wheelScrollRoutine);
+            wheelScrollRoutine = StartCoroutine(SmoothWheelScrollRoutine(targetScrollPos, 0.12f));
+        }
+
+        private IEnumerator SmoothWheelScrollRoutine(float target, float duration)
+        {
+            if (scrollRect == null) yield break;
+            float start = scrollRect.verticalNormalizedPosition;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                scrollRect.verticalNormalizedPosition = Mathf.Lerp(start, target, t);
+                yield return null;
+            }
+            scrollRect.verticalNormalizedPosition = target;
         }
 
         private static bool IsBPressed()
@@ -176,6 +283,7 @@ namespace EcoQuest.Inventory
             gameObject.SetActive(true);
             if (backdropGroup != null) backdropGroup.gameObject.SetActive(true);
             if (panelRect != null) panelRect.gameObject.SetActive(true);
+            if (coinPillRect != null) coinPillRect.gameObject.SetActive(true);
 
             SaveAndDisableGameplayInput();
 
@@ -198,6 +306,20 @@ namespace EcoQuest.Inventory
             }
 
             PopulateSlots();
+            UpdateCoinPill(true);
+
+            if (scrollContent != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(scrollContent);
+            }
+            Canvas.ForceUpdateCanvases();
+
+            // Reset scroll to top on open
+            if (scrollRect != null)
+            {
+                scrollRect.verticalNormalizedPosition = 1f;
+                targetScrollPos = 1f;
+            }
 
             if (transitionRoutine != null) StopCoroutine(transitionRoutine);
             transitionRoutine = StartCoroutine(AnimateOpenRoutine());
@@ -260,8 +382,85 @@ namespace EcoQuest.Inventory
                 panelRect.localScale = Vector3.one;
                 panelRect.gameObject.SetActive(false);
             }
+            if (coinPillRect != null)
+            {
+                coinPillRect.gameObject.SetActive(false);
+            }
             ApplyVitalsVisibilityAndSorting(false);
             RestorePlayerAndCursorState();
+        }
+
+        private IEnumerator AnimateOpenRoutine()
+        {
+            float duration = 0.28f;
+            float elapsed = 0f;
+
+            if (panelGroup != null) panelGroup.alpha = 0f;
+            if (backdropGroup != null) backdropGroup.alpha = 0f;
+
+            Vector3 startScale = new Vector3(0.92f, 0.92f, 1f);
+            Vector3 targetScale = Vector3.one;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+
+                // Slight overshoot curve for juicy pop
+                float pop = 1f + Mathf.Sin(t * Mathf.PI) * 0.05f;
+                if (panelRect != null) panelRect.localScale = Vector3.Lerp(startScale, targetScale, t) * pop;
+
+                float alpha = Mathf.SmoothStep(0f, 1f, t);
+                if (panelGroup != null) panelGroup.alpha = alpha;
+                if (backdropGroup != null) backdropGroup.alpha = alpha;
+
+                yield return null;
+            }
+
+            if (panelRect != null) panelRect.localScale = targetScale;
+            if (panelGroup != null)
+            {
+                panelGroup.alpha = 1f;
+                panelGroup.interactable = true;
+                panelGroup.blocksRaycasts = true;
+            }
+            if (backdropGroup != null)
+            {
+                backdropGroup.alpha = 1f;
+                backdropGroup.blocksRaycasts = true;
+                backdropGroup.interactable = true;
+            }
+        }
+
+        private IEnumerator AnimateCloseRoutine()
+        {
+            float duration = 0.18f;
+            float elapsed = 0f;
+
+            if (panelGroup != null)
+            {
+                panelGroup.interactable = false;
+                panelGroup.blocksRaycasts = false;
+            }
+
+            Vector3 startScale = panelRect != null ? panelRect.localScale : Vector3.one;
+            Vector3 targetScale = new Vector3(0.94f, 0.94f, 1f);
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+
+                if (panelRect != null) panelRect.localScale = Vector3.Lerp(startScale, targetScale, t);
+
+                float alpha = 1f - t;
+                if (panelGroup != null) panelGroup.alpha = alpha;
+                if (backdropGroup != null) backdropGroup.alpha = alpha;
+
+                yield return null;
+            }
+
+            HideImmediate();
         }
 
         public void PopulateSlots()
@@ -280,19 +479,47 @@ namespace EcoQuest.Inventory
                 "boost_speed_long"
             };
 
+            int currentCoins = GetCurrentPlayerCoins();
+
             for (int i = 0; i < slotViews.Count; i++)
             {
                 if (i < shopItemIds.Length)
                 {
                     var def = itemDatabase.GetItem(shopItemIds[i]);
-                    slotViews[i].Setup(def, false, padlockSprite, coinSprite, OnSlotBuyClicked);
+                    slotViews[i].Setup(
+                        def,
+                        false,
+                        padlockSprite,
+                        coinSprite,
+                        OnSlotBuyClicked,
+                        OnLockedSlotClicked,
+                        currentCoins);
                 }
                 else
                 {
-                    // 8th slot: locked with padlock
-                    slotViews[i].Setup(null, true, padlockSprite, coinSprite, null);
+                    // Locked expansion slots
+                    slotViews[i].Setup(
+                        null,
+                        true,
+                        padlockSprite,
+                        coinSprite,
+                        null,
+                        OnLockedSlotClicked,
+                        currentCoins);
                 }
             }
+        }
+
+        private int GetCurrentPlayerCoins()
+        {
+            var currency = PlayerCurrency.Instance ?? FindFirstObjectByType<PlayerCurrency>(FindObjectsInactive.Include);
+            return currency != null ? currency.CurrentGold : PlayerPrefs.GetInt("PlayerGold", 0);
+        }
+
+        private void OnLockedSlotClicked()
+        {
+            ShowToast("Locked for now!", isError: false);
+            PlaySound(errorSound != null ? errorSound : (UITheme.Instance != null ? UITheme.Instance.buttonHoverSound : null));
         }
 
         private void OnSlotBuyClicked(InventoryItemDef item)
@@ -300,11 +527,11 @@ namespace EcoQuest.Inventory
             if (item == null) return;
 
             var currency = PlayerCurrency.Instance ?? FindFirstObjectByType<PlayerCurrency>(FindObjectsInactive.Include);
-            int currentGold = currency != null ? currency.CurrentGold : PlayerPrefs.GetInt("PlayerGold", 0);
+            int currentGold = GetCurrentPlayerCoins();
 
             if (currentGold < item.price)
             {
-                ShowToast("Not enough coins!", isError: true);
+                ShowToast("Not enough coins yet - complete more quests!", isError: true);
                 PlaySound(errorSound != null ? errorSound : (UITheme.Instance != null ? UITheme.Instance.buttonHoverSound : null));
                 return;
             }
@@ -328,8 +555,18 @@ namespace EcoQuest.Inventory
                 invCtrl.Service.AddItem(item.id, 1);
             }
 
+            UpdateCoinPill(true);
+            PopulateSlots();
+
             ShowToast($"Purchased {item.displayName}!", isError: false);
             PlaySound(buySound != null ? buySound : (UITheme.Instance != null ? UITheme.Instance.coinPickupSound : null));
+        }
+
+        public void UpdateCoinPill(bool animate = false)
+        {
+            if (coinPillAmountText == null) return;
+            int gold = GetCurrentPlayerCoins();
+            coinPillAmountText.text = gold.ToString();
         }
 
         public void ShowToast(string message, bool isError = false)
@@ -346,135 +583,144 @@ namespace EcoQuest.Inventory
             if (toastRoutine != null) StopCoroutine(toastRoutine);
             if (isActiveAndEnabled)
             {
-                toastRoutine = StartCoroutine(ToastRoutine(2.0f));
+                toastRoutine = StartCoroutine(ToastRoutine(2.2f));
             }
         }
 
         private IEnumerator ToastRoutine(float duration)
         {
             if (toastGroup == null) yield break;
-            toastGroup.alpha = 1f;
-            yield return new WaitForSecondsRealtime(duration);
+            toastGroup.gameObject.SetActive(true);
+            toastGroup.alpha = 0f;
 
-            float fade = 0.35f;
+            float fadeTime = 0.15f;
             float el = 0f;
-            while (el < fade)
+            while (el < fadeTime)
             {
                 el += Time.unscaledDeltaTime;
-                toastGroup.alpha = Mathf.Lerp(1f, 0f, el / fade);
+                toastGroup.alpha = Mathf.Clamp01(el / fadeTime);
+                yield return null;
+            }
+            toastGroup.alpha = 1f;
+
+            yield return new WaitForSecondsRealtime(duration);
+
+            el = 0f;
+            while (el < fadeTime)
+            {
+                el += Time.unscaledDeltaTime;
+                toastGroup.alpha = 1f - Mathf.Clamp01(el / fadeTime);
                 yield return null;
             }
             toastGroup.alpha = 0f;
-            toastRoutine = null;
+            toastGroup.gameObject.SetActive(false);
         }
 
-        private IEnumerator AnimateOpenRoutine()
+        private void EnsureToastSetup()
         {
-            if (backdropGroup != null)
+            if (toastGroup != null)
             {
-                backdropGroup.alpha = 0f;
-                backdropGroup.blocksRaycasts = true;
+                toastGroup.alpha = 0f;
+                toastGroup.blocksRaycasts = false;
+                toastGroup.interactable = false;
             }
-            if (panelGroup != null)
-            {
-                panelGroup.alpha = 0f;
-                panelGroup.interactable = true;
-                panelGroup.blocksRaycasts = true;
-            }
-            if (panelRect != null)
-            {
-                panelRect.localScale = new Vector3(0.95f, 0.95f, 1f);
-            }
+        }
 
-            float duration = 0.25f;
+        private void StartBlurTransition(bool blurOn, float duration)
+        {
+            if (blurRoutine != null) StopCoroutine(blurRoutine);
+            blurRoutine = StartCoroutine(BlurRoutine(blurOn, duration));
+        }
+
+        private IEnumerator BlurRoutine(bool blurOn, float duration)
+        {
+            float startWeight = UIBackgroundBlur.GetWeight();
+            float targetWeight = blurOn ? 1f : 0f;
+
+            if (blurOn) UIBackgroundBlur.AcquireFullSceneBlur("EcoShop");
+
             float elapsed = 0f;
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-                float ease = 1f - Mathf.Pow(1f - t, 3f);
-
-                if (backdropGroup != null) backdropGroup.alpha = ease;
-                if (panelGroup != null) panelGroup.alpha = ease;
-                if (panelRect != null) panelRect.localScale = Vector3.LerpUnclamped(new Vector3(0.95f, 0.95f, 1f), Vector3.one, ease);
+                UIBackgroundBlur.SetWeight(Mathf.Lerp(startWeight, targetWeight, t));
                 yield return null;
             }
+            UIBackgroundBlur.SetWeight(targetWeight);
 
-            if (backdropGroup != null) backdropGroup.alpha = 1f;
-            if (panelGroup != null)
-            {
-                panelGroup.alpha = 1f;
-                panelGroup.interactable = true;
-                panelGroup.blocksRaycasts = true;
-            }
-            if (panelRect != null) panelRect.localScale = Vector3.one;
-            transitionRoutine = null;
+            if (!blurOn) UIBackgroundBlur.ReleaseFullSceneBlur("EcoShop");
         }
 
-        private IEnumerator AnimateCloseRoutine()
+        private void ApplyVitalsVisibilityAndSorting(bool elevate)
         {
-            if (panelGroup != null)
+            if (elevate)
             {
-                panelGroup.interactable = false;
-                panelGroup.blocksRaycasts = false;
-            }
+                var statsHud = FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
+                if (statsHud != null)
+                {
+                    cachedStatsCanvas = statsHud.GetComponentInParent<Canvas>();
+                    if (cachedStatsCanvas != null && !hasElevatedVitalsSorting)
+                    {
+                        savedStatsSortOrder = cachedStatsCanvas.sortingOrder;
+                        cachedStatsCanvas.sortingOrder = 95;
+                    }
+                }
 
-            float duration = 0.20f;
-            float elapsed = 0f;
-            while (elapsed < duration)
+                var currency = FindFirstObjectByType<PlayerCurrency>(FindObjectsInactive.Include);
+                if (currency != null)
+                {
+                    cachedCoinsCanvas = currency.GetComponentInParent<Canvas>();
+                    if (cachedCoinsCanvas != null && !hasElevatedVitalsSorting)
+                    {
+                        savedCoinsSortOrder = cachedCoinsCanvas.sortingOrder;
+                        cachedCoinsCanvas.sortingOrder = 95;
+                    }
+                }
+                hasElevatedVitalsSorting = true;
+            }
+            else
             {
-                elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                float ease = t * t;
-
-                if (backdropGroup != null) backdropGroup.alpha = 1f - ease;
-                if (panelGroup != null) panelGroup.alpha = 1f - ease;
-                if (panelRect != null) panelRect.localScale = Vector3.LerpUnclamped(Vector3.one, new Vector3(0.95f, 0.95f, 1f), ease);
-                yield return null;
+                if (hasElevatedVitalsSorting)
+                {
+                    if (cachedStatsCanvas != null) cachedStatsCanvas.sortingOrder = savedStatsSortOrder;
+                    if (cachedCoinsCanvas != null) cachedCoinsCanvas.sortingOrder = savedCoinsSortOrder;
+                    hasElevatedVitalsSorting = false;
+                }
             }
-
-            HideImmediate();
-            transitionRoutine = null;
         }
 
         private void SaveAndDisableGameplayInput()
         {
-            if (!hasSavedPlayerState)
+            if (hasSavedPlayerState) return;
+            hasSavedPlayerState = true;
+
+            savedCursorLock = Cursor.lockState;
+            savedCursorVisible = Cursor.visible;
+
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            cachedFpc = FindFirstObjectByType<FirstPersonController>();
+            if (cachedFpc != null)
             {
-                savedCursorLock = Cursor.lockState;
-                savedCursorVisible = Cursor.visible;
-
-                cachedFpc = FindFirstObjectByType<FirstPersonController>();
-                if (cachedFpc != null) savedFpcEnabled = cachedFpc.enabled;
-
-                cachedInputs = FindFirstObjectByType<StarterAssetsInputs>();
-                if (cachedInputs != null)
-                {
-                    savedCursorLockedInput = cachedInputs.cursorLocked;
-                    savedCursorInputForLook = cachedInputs.cursorInputForLook;
-                }
-
-                hasSavedPlayerState = true;
+                savedFpcEnabled = cachedFpc.enabled;
+                cachedFpc.enabled = false;
             }
 
-            if (cachedFpc != null) cachedFpc.enabled = false;
+            cachedInputs = FindFirstObjectByType<StarterAssetsInputs>();
             if (cachedInputs != null)
             {
+                savedCursorLockedInput = cachedInputs.cursorLocked;
+                savedCursorInputForLook = cachedInputs.cursorInputForLook;
+
+                cachedInputs.cursorLocked = false;
+                cachedInputs.cursorInputForLook = false;
                 cachedInputs.move = Vector2.zero;
                 cachedInputs.look = Vector2.zero;
                 cachedInputs.jump = false;
                 cachedInputs.sprint = false;
-                cachedInputs.cursorLocked = false;
-                cachedInputs.cursorInputForLook = false;
             }
-
-            if (WorldInteractionPrompt.Instance != null)
-            {
-                WorldInteractionPrompt.Instance.SetBlocked(true);
-            }
-
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
         }
 
         private void RestorePlayerAndCursorState()
@@ -482,111 +728,20 @@ namespace EcoQuest.Inventory
             if (!hasSavedPlayerState) return;
             hasSavedPlayerState = false;
 
-            bool otherModalActive = (ModalManager.Instance != null && ModalManager.Instance.IsAnyModalActuallyVisible());
-            if (!otherModalActive)
-            {
-                if (cachedFpc != null) cachedFpc.enabled = savedFpcEnabled;
-                if (cachedInputs != null)
-                {
-                    cachedInputs.move = Vector2.zero;
-                    cachedInputs.look = Vector2.zero;
-                    cachedInputs.cursorLocked = savedCursorLockedInput;
-                    cachedInputs.cursorInputForLook = savedCursorInputForLook;
-                }
-                if (WorldInteractionPrompt.Instance != null)
-                {
-                    WorldInteractionPrompt.Instance.SetBlocked(false);
-                }
+            Cursor.lockState = savedCursorLock;
+            Cursor.visible = savedCursorVisible;
 
-                Cursor.lockState = savedCursorLock == CursorLockMode.None && Application.isPlaying ? CursorLockMode.Locked : savedCursorLock;
-                Cursor.visible = savedCursorLock == CursorLockMode.None && Application.isPlaying ? false : savedCursorVisible;
-            }
-        }
-
-        private void ApplyVitalsVisibilityAndSorting(bool opening)
-        {
-            var statsHud = FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
-            if (statsHud != null && cachedStatsCanvas == null)
+            if (cachedFpc != null)
             {
-                cachedStatsCanvas = statsHud.GetComponentInParent<Canvas>();
+                cachedFpc.enabled = savedFpcEnabled;
+                cachedFpc = null;
             }
 
-            if (cachedCoinsCanvas == null)
+            if (cachedInputs != null)
             {
-                var coinsGo = GameObject.Find("UI_Coins");
-                if (coinsGo != null) cachedCoinsCanvas = coinsGo.GetComponentInParent<Canvas>();
-            }
-
-            if (opening)
-            {
-                if (cachedStatsCanvas != null)
-                {
-                    if (!hasElevatedVitalsSorting) savedStatsSortOrder = cachedStatsCanvas.sortingOrder;
-                    cachedStatsCanvas.sortingOrder = 95;
-                }
-                if (cachedCoinsCanvas != null)
-                {
-                    if (!hasElevatedVitalsSorting) savedCoinsSortOrder = cachedCoinsCanvas.sortingOrder;
-                    cachedCoinsCanvas.sortingOrder = 95;
-                }
-                hasElevatedVitalsSorting = true;
-            }
-            else if (hasElevatedVitalsSorting)
-            {
-                if (cachedStatsCanvas != null) cachedStatsCanvas.sortingOrder = savedStatsSortOrder;
-                if (cachedCoinsCanvas != null) cachedCoinsCanvas.sortingOrder = savedCoinsSortOrder;
-                hasElevatedVitalsSorting = false;
-            }
-        }
-
-        private void StartBlurTransition(bool opening, float duration)
-        {
-            if (opening)
-            {
-                UIBackgroundBlur.AcquireFullSceneBlur("EcoShop");
-            }
-
-            if (!gameObject.activeInHierarchy)
-            {
-                if (!opening) UIBackgroundBlur.ReleaseFullSceneBlur("EcoShop");
-                else UIBackgroundBlur.SetWeight(1f);
-                return;
-            }
-
-            if (blurRoutine != null) StopCoroutine(blurRoutine);
-            blurRoutine = StartCoroutine(BlurRoutine(opening, duration));
-        }
-
-        private IEnumerator BlurRoutine(bool opening, float duration)
-        {
-            float startW = UIBackgroundBlur.GetWeight();
-            float endW = opening ? 1f : 0f;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / Mathf.Max(0.01f, duration));
-                UIBackgroundBlur.SetWeight(Mathf.Lerp(startW, endW, t));
-                yield return null;
-            }
-
-            UIBackgroundBlur.SetWeight(endW);
-            if (!opening)
-            {
-                UIBackgroundBlur.ReleaseFullSceneBlur("EcoShop");
-            }
-            blurRoutine = null;
-        }
-
-        private void EnsureToastSetup()
-        {
-            if (toastGroup != null && toastText != null) return;
-            Transform existing = transform.Find("ShopToast");
-            if (existing != null)
-            {
-                toastGroup = existing.GetComponent<CanvasGroup>();
-                toastText = existing.GetComponentInChildren<TextMeshProUGUI>(true);
+                cachedInputs.cursorLocked = savedCursorLockedInput;
+                cachedInputs.cursorInputForLook = savedCursorInputForLook;
+                cachedInputs = null;
             }
         }
 
@@ -594,27 +749,38 @@ namespace EcoQuest.Inventory
         {
             if (clip == null) return;
             if (audioSource == null) audioSource = GetComponent<AudioSource>();
-            if (audioSource != null && audioSource.isActiveAndEnabled)
+            if (audioSource != null)
             {
-                audioSource.PlayOneShot(clip, 0.85f);
+                audioSource.PlayOneShot(clip);
             }
         }
 
         public void SetupReferences(
-            CanvasGroup bdGroup, RectTransform pnlRt, CanvasGroup pnlGroup, Button closeBtn,
-            Image bannerImg, TextMeshProUGUI titleTmp, RectTransform gridRt,
-            List<UI_EcoShopSlot> slots, Sprite padlock, Sprite coin)
+            CanvasGroup bgGrp, Image vigImg, RectTransform pRt, CanvasGroup pCg, Button closeBtn,
+            RectTransform bnrRt, Image bnrImg, TextMeshProUGUI titleTmp,
+            RectTransform wellRt, ScrollRect sr, RectTransform scRt, Scrollbar sb, Image sbImg,
+            List<UI_EcoShopSlot> slots, RectTransform pillRt, Image pillIcn, TextMeshProUGUI pillTxt,
+            Sprite padSp, Sprite cnSp)
         {
-            backdropGroup = bdGroup;
-            panelRect = pnlRt;
-            panelGroup = pnlGroup;
+            backdropGroup = bgGrp;
+            vignetteImage = vigImg;
+            panelRect = pRt;
+            panelGroup = pCg;
             closeButton = closeBtn;
-            headerBannerImage = bannerImg;
+            bannerTransform = bnrRt;
+            headerBannerImage = bnrImg;
             headerTitleText = titleTmp;
-            gridContainerRect = gridRt;
+            contentWellRect = wellRt;
+            scrollRect = sr;
+            scrollContent = scRt;
+            scrollbar = sb;
+            scrollbarHandleImage = sbImg;
             slotViews = slots;
-            padlockSprite = padlock;
-            coinSprite = coin;
+            coinPillRect = pillRt;
+            coinPillIcon = pillIcn;
+            coinPillAmountText = pillTxt;
+            padlockSprite = padSp;
+            coinSprite = cnSp;
         }
     }
 }
