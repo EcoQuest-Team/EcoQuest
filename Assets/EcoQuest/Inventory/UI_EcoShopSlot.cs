@@ -72,7 +72,6 @@ namespace EcoQuest.Inventory
             if (cardRect != null)
             {
                 cardRect.localScale = Vector3.one;
-                cardRect.anchoredPosition = initialPos;
             }
 
             if (buyButton != null)
@@ -98,7 +97,7 @@ namespace EcoQuest.Inventory
                 if (priceText != null)
                 {
                     priceText.text = "--";
-                    priceText.color = new Color(0.70f, 0.70f, 0.70f, 0.75f);
+                    priceText.color = Color.white;
                 }
                 if (buyButton != null)
                 {
@@ -107,16 +106,16 @@ namespace EcoQuest.Inventory
                 if (buyButtonBg != null)
                 {
                     if (btnDisabledSprite != null) buyButtonBg.sprite = btnDisabledSprite;
-                    buyButtonBg.color = new Color(0.24f, 0.29f, 0.27f, 0.90f);
+                    buyButtonBg.color = Color.white;
                 }
                 if (buyButtonText != null)
                 {
                     buyButtonText.text = "BUY";
-                    buyButtonText.color = new Color(0.83f, 0.87f, 0.85f, 0.65f);
+                    buyButtonText.color = new Color(0.56f, 0.64f, 0.61f, 1f); // #8FA39B
                 }
                 if (buyButtonOutline != null)
                 {
-                    buyButtonOutline.effectColor = new Color(0.43f, 0.49f, 0.46f, 0.60f);
+                    buyButtonOutline.enabled = false;
                 }
             }
             else
@@ -131,7 +130,7 @@ namespace EcoQuest.Inventory
                 if (priceText != null)
                 {
                     priceText.text = def.price.ToString();
-                    priceText.color = cannotAfford ? new Color(0.92f, 0.42f, 0.42f, 1f) : new Color(1.0f, 0.94f, 0.88f, 1f);
+                    priceText.color = cannotAfford ? new Color(0.92f, 0.42f, 0.42f, 1f) : Color.white;
                 }
                 if (buyButton != null)
                 {
@@ -139,17 +138,26 @@ namespace EcoQuest.Inventory
                 }
                 if (buyButtonBg != null)
                 {
-                    if (btnAvailableSprite != null) buyButtonBg.sprite = btnAvailableSprite;
-                    buyButtonBg.color = new Color(0.12f, 0.42f, 0.20f, 1f);
+                    if (cannotAfford)
+                    {
+                        if (btnDisabledSprite != null) buyButtonBg.sprite = btnDisabledSprite;
+                    }
+                    else
+                    {
+                        if (btnAvailableSprite != null) buyButtonBg.sprite = btnAvailableSprite;
+                    }
+                    buyButtonBg.color = Color.white;
                 }
                 if (buyButtonText != null)
                 {
                     buyButtonText.text = "BUY";
-                    buyButtonText.color = Color.white;
+                    buyButtonText.color = cannotAfford ? new Color(0.56f, 0.64f, 0.61f, 1f) : Color.white;
                 }
                 if (buyButtonOutline != null)
                 {
-                    buyButtonOutline.effectColor = new Color(0.30f, 0.82f, 0.42f, 1f);
+                    buyButtonOutline.enabled = !cannotAfford;
+                    buyButtonOutline.effectColor = new Color(0.47f, 0.86f, 0.56f, 0.90f); // #78DB8E
+                    buyButtonOutline.effectDistance = new Vector2(1.5f, -1.5f);
                 }
             }
 
@@ -164,23 +172,17 @@ namespace EcoQuest.Inventory
         public void OnPointerEnter(PointerEventData eventData)
         {
             SetHoverVisual(true);
-            if (animRoutine != null) StopCoroutine(animRoutine);
-            animRoutine = StartCoroutine(ScaleRoutine(1.04f, 0.10f));
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
             SetHoverVisual(false);
-            if (animRoutine != null) StopCoroutine(animRoutine);
-            animRoutine = StartCoroutine(ScaleRoutine(1.0f, 0.10f));
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
             if (isLocked)
             {
-                if (animRoutine != null) StopCoroutine(animRoutine);
-                animRoutine = StartCoroutine(ShakeRoutine(0.20f, 5f));
                 onLockedClickCallback?.Invoke();
             }
         }
@@ -188,8 +190,6 @@ namespace EcoQuest.Inventory
         private void OnBuyPressed()
         {
             if (isLocked || itemDef == null) return;
-            if (animRoutine != null) StopCoroutine(animRoutine);
-            animRoutine = StartCoroutine(SquashRoutine(0.94f, 0.08f));
             onBuyCallback?.Invoke(itemDef);
         }
 
@@ -203,8 +203,12 @@ namespace EcoQuest.Inventory
             if (cardOutline != null)
             {
                 cardOutline.effectColor = isHover
-                    ? new Color(0.62f, 0.72f, 0.67f, 0.95f)
-                    : new Color(0.42f, 0.45f, 0.44f, 0.80f);
+                    ? new Color(0.55f, 0.65f, 0.60f, 0.95f)
+                    : new Color(0.35f, 0.40f, 0.38f, 0.65f);
+            }
+            if (buyButtonOutline != null && !isLocked && itemDef != null)
+            {
+                buyButtonOutline.enabled = isHover;
             }
         }
 
@@ -234,7 +238,7 @@ namespace EcoQuest.Inventory
         private IEnumerator ShakeRoutine(float duration, float magnitude)
         {
             if (cardRect == null) yield break;
-            Vector2 origin = initialPos;
+            Vector2 origin = cardRect.anchoredPosition;
             float elapsed = 0f;
             while (elapsed < duration)
             {

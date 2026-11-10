@@ -40,6 +40,32 @@ namespace EcoQuest.Inventory.Editor
                         importer.mipmapEnabled = false;
                         changed = true;
                     }
+                    if (importer.textureCompression != TextureImporterCompression.Uncompressed)
+                    {
+                        importer.textureCompression = TextureImporterCompression.Uncompressed;
+                        changed = true;
+                    }
+                    if (importer.filterMode != FilterMode.Bilinear)
+                    {
+                        importer.filterMode = FilterMode.Bilinear;
+                        changed = true;
+                    }
+                    if (importer.maxTextureSize != 2048)
+                    {
+                        importer.maxTextureSize = 2048;
+                        changed = true;
+                    }
+
+                    var standaloneSettings = importer.GetPlatformTextureSettings("Standalone");
+                    if (standaloneSettings.textureCompression != TextureImporterCompression.Uncompressed || standaloneSettings.format != TextureImporterFormat.RGBA32 || standaloneSettings.maxTextureSize != 2048)
+                    {
+                        standaloneSettings.overridden = true;
+                        standaloneSettings.textureCompression = TextureImporterCompression.Uncompressed;
+                        standaloneSettings.format = TextureImporterFormat.RGBA32;
+                        standaloneSettings.maxTextureSize = 2048;
+                        importer.SetPlatformTextureSettings(standaloneSettings);
+                        changed = true;
+                    }
 
                     string fname = Path.GetFileName(path);
                     if (fname == "panel_bg.png" && importer.spriteBorder != new Vector4(16, 16, 16, 16))
@@ -62,14 +88,14 @@ namespace EcoQuest.Inventory.Editor
                         importer.spriteBorder = new Vector4(30, 16, 30, 16);
                         changed = true;
                     }
-                    else if (fname == "scrollbar_handle_glow.png" && importer.spriteBorder != new Vector4(10, 16, 10, 16))
+                    else if (fname == "scrollbar_handle_glow.png" && importer.spriteBorder != new Vector4(12, 16, 12, 16))
                     {
-                        importer.spriteBorder = new Vector4(10, 16, 10, 16);
+                        importer.spriteBorder = new Vector4(12, 16, 12, 16);
                         changed = true;
                     }
-                    else if (fname == "scrollbar_track_recessed.png" && importer.spriteBorder != new Vector4(8, 12, 8, 12))
+                    else if (fname == "scrollbar_track_recessed.png" && importer.spriteBorder != new Vector4(10, 16, 10, 16))
                     {
-                        importer.spriteBorder = new Vector4(8, 12, 8, 12);
+                        importer.spriteBorder = new Vector4(10, 16, 10, 16);
                         changed = true;
                     }
                     else if (fname.StartsWith("scrollbar_") && importer.spriteBorder != new Vector4(6, 12, 6, 12))
@@ -77,24 +103,29 @@ namespace EcoQuest.Inventory.Editor
                         importer.spriteBorder = new Vector4(6, 12, 6, 12);
                         changed = true;
                     }
-                    else if (fname == "eco_shop_panel_bg.png" && importer.spriteBorder != new Vector4(28, 28, 28, 28))
+                    else if (fname == "eco_shop_panel_bg.png" && importer.spriteBorder != new Vector4(50, 50, 50, 50))
                     {
-                        importer.spriteBorder = new Vector4(28, 28, 28, 28);
+                        importer.spriteBorder = new Vector4(50, 50, 50, 50);
                         changed = true;
                     }
-                    else if (fname == "eco_shop_well_bg.png" && importer.spriteBorder != new Vector4(20, 20, 20, 20))
+                    else if (fname == "eco_shop_banner_clean.png" && importer.spriteBorder != new Vector4(56, 56, 56, 56))
                     {
-                        importer.spriteBorder = new Vector4(20, 20, 20, 20);
+                        importer.spriteBorder = new Vector4(56, 56, 56, 56);
                         changed = true;
                     }
-                    else if ((fname == "eco_shop_card_bg.png" || fname == "eco_shop_card_hover.png") && importer.spriteBorder != new Vector4(20, 20, 20, 20))
+                    else if (fname == "eco_shop_well_bg.png" && importer.spriteBorder != new Vector4(24, 24, 24, 24))
                     {
-                        importer.spriteBorder = new Vector4(20, 20, 20, 20);
+                        importer.spriteBorder = new Vector4(24, 24, 24, 24);
                         changed = true;
                     }
-                    else if (fname.StartsWith("btn_buy_") && importer.spriteBorder != new Vector4(20, 16, 20, 16))
+                    else if ((fname == "eco_shop_card_bg.png" || fname == "eco_shop_card_hover.png") && importer.spriteBorder != new Vector4(24, 24, 24, 24))
                     {
-                        importer.spriteBorder = new Vector4(20, 16, 20, 16);
+                        importer.spriteBorder = new Vector4(24, 24, 24, 24);
+                        changed = true;
+                    }
+                    else if (fname.StartsWith("btn_buy_") && importer.spriteBorder != new Vector4(30, 20, 30, 20))
+                    {
+                        importer.spriteBorder = new Vector4(30, 20, 30, 20);
                         changed = true;
                     }
                     else if (fname == "coin_counter_pill_bg.png" && importer.spriteBorder != new Vector4(28, 24, 28, 24))
@@ -917,8 +948,8 @@ namespace EcoQuest.Inventory.Editor
             if (padlockSprite == null) padlockSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{SpritesFolder}/icon_padlock.png");
 
             Sprite coinSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/icon_shop_coin.png");
-            Sprite bannerSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_header_banner_v2.png");
-            if (bannerSprite == null) bannerSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_header_banner.png");
+            Sprite bannerSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_banner_clean.png");
+            if (bannerSprite == null) bannerSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/eco_shop_header_banner_v2.png");
 
             Sprite sbTrack = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/scrollbar_track_recessed.png");
             Sprite sbHandle = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiSpritesFolder}/scrollbar_handle_glow.png");
@@ -1002,8 +1033,8 @@ namespace EcoQuest.Inventory.Editor
             pRt.anchorMin = new Vector2(0.5f, 0.5f);
             pRt.anchorMax = new Vector2(0.5f, 0.5f);
             pRt.pivot = new Vector2(0.5f, 0.5f);
-            pRt.anchoredPosition = new Vector2(0f, -12f);
-            pRt.sizeDelta = new Vector2(1226f, 834f);
+            pRt.anchoredPosition = new Vector2(0f, 0f);
+            pRt.sizeDelta = new Vector2(1238f, 842f);
 
             Image pImg = panelGo.GetComponent<Image>();
             pImg.sprite = panelBg;
@@ -1016,34 +1047,40 @@ namespace EcoQuest.Inventory.Editor
             pCg.interactable = false;
             pCg.blocksRaycasts = false;
 
-            // 3. Header Banner (Plaque with autumn leaves & vines)
+            // 3. Header Banner (Clean rounded pill with crisp white text, zero leaves/vines)
             GameObject bannerGo = new GameObject("HeaderBanner", typeof(RectTransform), typeof(Image));
             bannerGo.transform.SetParent(panelGo.transform, false);
             RectTransform bnRt = bannerGo.GetComponent<RectTransform>();
             bnRt.anchorMin = new Vector2(0.5f, 1f);
             bnRt.anchorMax = new Vector2(0.5f, 1f);
-            bnRt.pivot = new Vector2(0.5f, 0.5f);
-            bnRt.anchoredPosition = new Vector2(0f, -18f);
-            bnRt.sizeDelta = new Vector2(940f, 198f);
+            bnRt.pivot = new Vector2(0.5f, 1f);
+            bnRt.anchoredPosition = new Vector2(0f, 2f);
+            bnRt.sizeDelta = new Vector2(553f, 129f);
             Image bnImg = bannerGo.GetComponent<Image>();
             bnImg.sprite = bannerSprite;
-            bnImg.preserveAspect = true;
+            bnImg.type = Image.Type.Sliced;
+            bnImg.preserveAspect = false;
             bnImg.raycastTarget = false;
 
-            // Plaque Title Text (disabled so it never overlaps or duplicates the crisp hand-drawn title in bannerSprite)
+            // Plaque Title Text
             GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
             titleGo.transform.SetParent(bannerGo.transform, false);
             RectTransform tRt = titleGo.GetComponent<RectTransform>();
             tRt.anchorMin = Vector2.zero;
             tRt.anchorMax = Vector2.one;
-            tRt.offsetMin = new Vector2(180f, 18f);
-            tRt.offsetMax = new Vector2(-180f, -18f);
+            tRt.offsetMin = Vector2.zero;
+            tRt.offsetMax = Vector2.zero;
             TextMeshProUGUI titleTmp = titleGo.GetComponent<TextMeshProUGUI>();
             titleTmp.font = fredoka;
-            titleTmp.text = "";
-            titleTmp.enabled = false;
+            titleTmp.text = "ECO SHOP";
+            titleTmp.fontSize = 52f;
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.alignment = TextAlignmentOptions.Center;
+            titleTmp.color = Color.white;
+            titleTmp.characterSpacing = 2f;
+            titleTmp.enabled = true;
             titleTmp.raycastTarget = false;
-            titleGo.SetActive(false);
+            titleGo.SetActive(true);
 
             // 4. Crisp White Close Button (X)
             GameObject closeGo = new GameObject("CloseButton", typeof(RectTransform), typeof(Button), typeof(Image));
@@ -1052,8 +1089,8 @@ namespace EcoQuest.Inventory.Editor
             closeRt.anchorMin = new Vector2(1f, 1f);
             closeRt.anchorMax = new Vector2(1f, 1f);
             closeRt.pivot = new Vector2(0.5f, 0.5f);
-            closeRt.anchoredPosition = new Vector2(-64f, -56f);
-            closeRt.sizeDelta = new Vector2(34f, 34f);
+            closeRt.anchoredPosition = new Vector2(-67f, -59f);
+            closeRt.sizeDelta = new Vector2(38f, 38f);
             Image closeImg = closeGo.GetComponent<Image>();
             closeImg.sprite = closeX;
             closeImg.preserveAspect = true;
@@ -1068,22 +1105,22 @@ namespace EcoQuest.Inventory.Editor
             wellRt.anchorMin = new Vector2(0.5f, 0.5f);
             wellRt.anchorMax = new Vector2(0.5f, 0.5f);
             wellRt.pivot = new Vector2(0.5f, 0.5f);
-            wellRt.anchoredPosition = new Vector2(0f, -36f);
-            wellRt.sizeDelta = new Vector2(1140f, 668f);
+            wellRt.anchoredPosition = new Vector2(0f, -81f);
+            wellRt.sizeDelta = new Vector2(1162f, 625f);
             Image wellImg = wellGo.GetComponent<Image>();
             wellImg.sprite = wellBg;
             wellImg.type = Image.Type.Sliced;
             wellImg.color = Color.white;
             wellImg.raycastTarget = false;
 
-            // 6. ScrollRect Container inside Content Well
+            // 6. ScrollRect Container inside Content Well (Viewport height = 618px)
             GameObject scrollGo = new GameObject("ScrollRect", typeof(RectTransform), typeof(ScrollRect));
             scrollGo.transform.SetParent(wellGo.transform, false);
             RectTransform scrollRt = scrollGo.GetComponent<RectTransform>();
             scrollRt.anchorMin = Vector2.zero;
             scrollRt.anchorMax = Vector2.one;
-            scrollRt.offsetMin = new Vector2(16f, 16f);
-            scrollRt.offsetMax = new Vector2(-48f, -16f);
+            scrollRt.offsetMin = new Vector2(16f, 8f);
+            scrollRt.offsetMax = new Vector2(-48f, -6f);
 
             ScrollRect sr = scrollGo.GetComponent<ScrollRect>();
             sr.horizontal = false;
@@ -1106,7 +1143,7 @@ namespace EcoQuest.Inventory.Editor
             vpImg.raycastTarget = true;
             sr.viewport = vpRt;
 
-            // Content (4 columns fixed GridLayoutGroup + ContentSizeFitter)
+            // Content (4 columns, exactly 2 full rows visible at rest with 24px top and 45px bottom framing)
             GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(GridLayoutGroup), typeof(ContentSizeFitter));
             contentGo.transform.SetParent(vpGo.transform, false);
             RectTransform contentRt = contentGo.GetComponent<RectTransform>();
@@ -1119,10 +1156,10 @@ namespace EcoQuest.Inventory.Editor
             GridLayoutGroup glg = contentGo.GetComponent<GridLayoutGroup>();
             glg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             glg.constraintCount = 4;
-            glg.padding = new RectOffset(16, 16, 16, 16);
-            glg.spacing = new Vector2(24f, 24f);
-            glg.cellSize = new Vector2(244f, 266f);
-            glg.childAlignment = TextAnchor.UpperCenter;
+            glg.padding = new RectOffset(31, 35, 24, 45);
+            glg.spacing = new Vector2(31f, 57f);
+            glg.cellSize = new Vector2(246f, 246f);
+            glg.childAlignment = TextAnchor.UpperLeft;
 
             ContentSizeFitter contentCsf = contentGo.GetComponent<ContentSizeFitter>();
             contentCsf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
@@ -1136,8 +1173,8 @@ namespace EcoQuest.Inventory.Editor
             sbRt.anchorMin = new Vector2(1f, 0f);
             sbRt.anchorMax = new Vector2(1f, 1f);
             sbRt.pivot = new Vector2(1f, 0.5f);
-            sbRt.anchoredPosition = new Vector2(-14f, 0f);
-            sbRt.sizeDelta = new Vector2(28f, -32f);
+            sbRt.anchoredPosition = new Vector2(-16f, 0f);
+            sbRt.sizeDelta = new Vector2(25f, -32f);
 
             Image sbImg = sbGo.GetComponent<Image>();
             sbImg.sprite = sbTrack;
@@ -1179,7 +1216,7 @@ namespace EcoQuest.Inventory.Editor
                 var cardGo = new GameObject($"Card_{i:00}", typeof(RectTransform), typeof(Image), typeof(Outline), typeof(UI_EcoShopSlot));
                 cardGo.transform.SetParent(contentGo.transform, false);
                 var crdRt = cardGo.GetComponent<RectTransform>();
-                crdRt.sizeDelta = new Vector2(244f, 266f);
+                crdRt.sizeDelta = new Vector2(246f, 246f);
 
                 var crdImg = cardGo.GetComponent<Image>();
                 crdImg.sprite = cardBg;
@@ -1187,7 +1224,7 @@ namespace EcoQuest.Inventory.Editor
                 crdImg.color = Color.white;
 
                 var crdOutl = cardGo.GetComponent<Outline>();
-                crdOutl.effectColor = new Color(0.25f, 0.40f, 0.30f, 0.45f);
+                crdOutl.effectColor = new Color(0.34f, 0.41f, 0.38f, 0.60f);
                 crdOutl.effectDistance = new Vector2(1.5f, -1.5f);
 
                 var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
@@ -1196,8 +1233,8 @@ namespace EcoQuest.Inventory.Editor
                 iconRt.anchorMin = new Vector2(0.5f, 0.5f);
                 iconRt.anchorMax = new Vector2(0.5f, 0.5f);
                 iconRt.pivot = new Vector2(0.5f, 0.5f);
-                iconRt.anchoredPosition = new Vector2(0f, 42f);
-                iconRt.sizeDelta = new Vector2(110f, 110f);
+                iconRt.anchoredPosition = new Vector2(0f, 14f);
+                iconRt.sizeDelta = new Vector2(118f, 120f);
                 var iconImg = iconGo.GetComponent<Image>();
                 iconImg.sprite = padlockSprite;
                 iconImg.preserveAspect = true;
@@ -1208,11 +1245,11 @@ namespace EcoQuest.Inventory.Editor
                 prRt.anchorMin = new Vector2(0.5f, 0.5f);
                 prRt.anchorMax = new Vector2(0.5f, 0.5f);
                 prRt.pivot = new Vector2(0.5f, 0.5f);
-                prRt.anchoredPosition = new Vector2(0f, -32f);
+                prRt.anchoredPosition = new Vector2(0f, -66f);
                 prRt.sizeDelta = new Vector2(130f, 28f);
 
                 var prHlg = priceRowGo.GetComponent<HorizontalLayoutGroup>();
-                prHlg.spacing = 6f;
+                prHlg.spacing = 8f;
                 prHlg.childAlignment = TextAnchor.MiddleCenter;
                 prHlg.childControlWidth = false;
                 prHlg.childControlHeight = false;
@@ -1220,7 +1257,7 @@ namespace EcoQuest.Inventory.Editor
                 var cGo = new GameObject("CoinIcon", typeof(RectTransform), typeof(Image));
                 cGo.transform.SetParent(priceRowGo.transform, false);
                 var cRt = cGo.GetComponent<RectTransform>();
-                cRt.sizeDelta = new Vector2(24f, 24f);
+                cRt.sizeDelta = new Vector2(28f, 28f);
                 var cImg = cGo.GetComponent<Image>();
                 cImg.sprite = coinSprite;
                 cImg.preserveAspect = true;
@@ -1228,13 +1265,13 @@ namespace EcoQuest.Inventory.Editor
                 var pTxtGo = new GameObject("PriceText", typeof(RectTransform), typeof(TextMeshProUGUI));
                 pTxtGo.transform.SetParent(priceRowGo.transform, false);
                 var ptRt = pTxtGo.GetComponent<RectTransform>();
-                ptRt.sizeDelta = new Vector2(60f, 26f);
+                ptRt.sizeDelta = new Vector2(80f, 28f);
                 var ptTmp = pTxtGo.GetComponent<TextMeshProUGUI>();
                 ptTmp.font = fredoka;
-                ptTmp.fontSize = 24f;
+                ptTmp.fontSize = 22f;
                 ptTmp.fontStyle = FontStyles.Bold;
                 ptTmp.alignment = TextAlignmentOptions.MidlineLeft;
-                ptTmp.color = new Color(0.98f, 0.88f, 0.46f, 1f);
+                ptTmp.color = Color.white;
 
                 var buyGo = new GameObject("BuyButton", typeof(RectTransform), typeof(Button), typeof(Image), typeof(Outline));
                 buyGo.transform.SetParent(cardGo.transform, false);
@@ -1242,8 +1279,8 @@ namespace EcoQuest.Inventory.Editor
                 buyRt.anchorMin = new Vector2(0.5f, 0.5f);
                 buyRt.anchorMax = new Vector2(0.5f, 0.5f);
                 buyRt.pivot = new Vector2(0.5f, 0.5f);
-                buyRt.anchoredPosition = new Vector2(0f, -82f);
-                buyRt.sizeDelta = new Vector2(154f, 44f);
+                buyRt.anchoredPosition = new Vector2(0f, -118f);
+                buyRt.sizeDelta = new Vector2(133f, 49f);
 
                 var buyImg = buyGo.GetComponent<Image>();
                 buyImg.sprite = btnBuyDis;
@@ -1251,10 +1288,12 @@ namespace EcoQuest.Inventory.Editor
                 buyImg.color = Color.white;
 
                 var buyOutl = buyGo.GetComponent<Outline>();
-                buyOutl.effectColor = new Color(0.42f, 0.78f, 0.52f, 0.6f);
+                buyOutl.enabled = false;
+                buyOutl.effectColor = new Color(0.47f, 0.86f, 0.56f, 0.90f);
                 buyOutl.effectDistance = new Vector2(1.5f, -1.5f);
 
                 var buyBtn = buyGo.GetComponent<Button>();
+                buyBtn.targetGraphic = buyImg;
 
                 var bTxtGo = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
                 bTxtGo.transform.SetParent(buyGo.transform, false);
@@ -1266,11 +1305,11 @@ namespace EcoQuest.Inventory.Editor
                 var btTmp = bTxtGo.GetComponent<TextMeshProUGUI>();
                 btTmp.font = fredoka;
                 btTmp.text = "BUY";
-                btTmp.fontSize = 22f;
-                btTmp.characterSpacing = 4f;
+                btTmp.fontSize = 20f;
+                btTmp.characterSpacing = 3f;
                 btTmp.fontStyle = FontStyles.Bold;
                 btTmp.alignment = TextAlignmentOptions.Center;
-                btTmp.color = Color.white;
+                btTmp.color = new Color(0.56f, 0.64f, 0.61f, 1f);
 
                 var slotComp = cardGo.GetComponent<UI_EcoShopSlot>();
                 slotComp.SetupReferences(
@@ -1377,10 +1416,25 @@ namespace EcoQuest.Inventory.Editor
             SetPrivateField(ecoShop, "toastGroup", toastCg);
             SetPrivateField(ecoShop, "toastText", ttTmp);
 
+            int uiLayer = LayerMask.NameToLayer("UI");
+            if (uiLayer >= 0)
+            {
+                SetLayerRecursively(rootGo, uiLayer);
+            }
+
             string shopPrefabPath = $"{PrefabFolder}/UI_EcoShop.prefab";
             PrefabUtility.SaveAsPrefabAsset(rootGo, shopPrefabPath);
             GameObject.DestroyImmediate(rootGo);
             Debug.Log($"[InventoryPrefabBuilder] Created {shopPrefabPath}");
+        }
+
+        private static void SetLayerRecursively(GameObject go, int layer)
+        {
+            go.layer = layer;
+            foreach (Transform child in go.transform)
+            {
+                SetLayerRecursively(child.gameObject, layer);
+            }
         }
 
         private static HintRow CreateSharedHintRow(Transform parent, string name, string keyLabel, string actionText,

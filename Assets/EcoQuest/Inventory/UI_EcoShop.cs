@@ -165,6 +165,14 @@ namespace EcoQuest.Inventory
             {
                 itemDatabase = Resources.Load<InventoryItemDatabase>("Inventory/InventoryItemDatabase");
             }
+            if (itemDatabase == null)
+            {
+                var invCtrl = InventoryController.Instance ?? FindFirstObjectByType<InventoryController>(FindObjectsInactive.Include);
+                if (invCtrl != null && invCtrl.Database != null)
+                {
+                    itemDatabase = invCtrl.Database;
+                }
+            }
 #if UNITY_EDITOR
             if (itemDatabase == null)
             {
@@ -200,11 +208,10 @@ namespace EcoQuest.Inventory
                 return;
             }
 
-            // Gentle decorative leaves sway
-            if (bannerTransform != null)
+            // Decorative leaves stay completely stationary (zero sway/drift to match target reference)
+            if (bannerTransform != null && bannerTransform.localRotation != Quaternion.identity)
             {
-                float sway = Mathf.Sin(Time.unscaledTime * 1.8f) * 1.25f;
-                bannerTransform.localRotation = Quaternion.Euler(0f, 0f, sway);
+                bannerTransform.localRotation = Quaternion.identity;
             }
 
             // Update live coin display
@@ -555,8 +562,21 @@ namespace EcoQuest.Inventory
                 invCtrl.Service.AddItem(item.id, 1);
             }
 
+            // Preserve normalized scroll position so purchasing never shifts or resets the grid
+            float savedNormPos = scrollRect != null ? scrollRect.verticalNormalizedPosition : 1f;
+
             UpdateCoinPill(true);
             PopulateSlots();
+
+            if (scrollContent != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(scrollContent);
+            }
+            if (scrollRect != null)
+            {
+                scrollRect.verticalNormalizedPosition = savedNormPos;
+                targetScrollPos = savedNormPos;
+            }
 
             ShowToast($"Purchased {item.displayName}!", isError: false);
             PlaySound(buySound != null ? buySound : (UITheme.Instance != null ? UITheme.Instance.coinPickupSound : null));
