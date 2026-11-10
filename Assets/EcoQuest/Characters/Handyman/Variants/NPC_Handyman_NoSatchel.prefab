@@ -938,6 +938,7 @@ GameObject:
   - component: {fileID: 6574862147234862483}
   - component: {fileID: 657970839485498403}
   - component: {fileID: 4601122715309950686}
+  - component: {fileID: 7042297981376922839}
   m_Layer: 0
   m_Name: NPC_Handyman_NoSatchel
   m_TagString: Untagged
@@ -1182,6 +1183,28 @@ MonoBehaviour:
   blinkIntervalRange: {x: 3, y: 6}
   blinkDuration: 0.15
   idleVariationIntervalRange: {x: 8, y: 15}
+  enableInteraction: 1
+  interactRadius: 3.5
+  npcDisplayName: Handyman
+  shopPreviewDialogue:
+  - Hey there, Explorer! Welcome to the city square! I'm currently setting up my
+    shop with supplies and consumables for your journey.
+  - My store will open soon. Keep up the great work cleaning up litter around the
+    city!
+--- !u!114 &7042297981376922839
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7137934808583840118}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47c9b14e001939e4f89fef5328e601ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapIcon
+  type: 0
+  customSprite: {fileID: 21300000, guid: 8656a87eb3294aa99e94101fef718ce4, type: 3}
 --- !u!1 &7248539553452026057
 GameObject:
   m_ObjectHideFlags: 0

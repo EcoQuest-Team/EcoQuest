@@ -270,6 +270,7 @@ GameObject:
   - component: {fileID: 5078511011486582449}
   - component: {fileID: 8407658609328178913}
   - component: {fileID: 3772882498895119440}
+  - component: {fileID: 3412860176733351623}
   m_Layer: 0
   m_Name: Explorer_Var1
   m_TagString: Untagged
@@ -306,7 +307,7 @@ Animator:
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 70fb694e3073f9a45a9c172e8f3ef203, type: 3}
   m_Controller: {fileID: 9100000, guid: 2227dcf553140b748b19ad8a04c38ff5, type: 2}
-  m_CullingMode: 1
+  m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
@@ -521,6 +522,20 @@ MonoBehaviour:
   onThrowReleased:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3412860176733351623
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3381127624602768196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47c9b14e001939e4f89fef5328e601ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapIcon
+  type: 0
+  customSprite: {fileID: 21300000, guid: 24f525276b4a4c7bbacebe8f4daea875, type: 3}
 --- !u!1 &3898639838832599142
 GameObject:
   m_ObjectHideFlags: 0

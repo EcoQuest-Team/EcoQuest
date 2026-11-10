@@ -488,32 +488,42 @@ namespace EcoQuest.Inventory
 
             int currentCoins = GetCurrentPlayerCoins();
 
-            for (int i = 0; i < slotViews.Count; i++)
+            // 1. Gather all valid unlocked consumable definitions in original relative order
+            var unlockedItems = new List<InventoryItemDef>();
+            for (int i = 0; i < shopItemIds.Length; i++)
             {
-                if (i < shopItemIds.Length)
+                var def = itemDatabase.GetItem(shopItemIds[i]);
+                if (def != null)
                 {
-                    var def = itemDatabase.GetItem(shopItemIds[i]);
-                    slotViews[i].Setup(
-                        def,
-                        false,
-                        padlockSprite,
-                        coinSprite,
-                        OnSlotBuyClicked,
-                        OnLockedSlotClicked,
-                        currentCoins);
+                    unlockedItems.Add(def);
                 }
-                else
-                {
-                    // Locked expansion slots
-                    slotViews[i].Setup(
-                        null,
-                        true,
-                        padlockSprite,
-                        coinSprite,
-                        null,
-                        OnLockedSlotClicked,
-                        currentCoins);
-                }
+            }
+
+            // 2. Unlocked consumables fill slots from slot 0 upward
+            int slotIdx = 0;
+            for (; slotIdx < unlockedItems.Count && slotIdx < slotViews.Count; slotIdx++)
+            {
+                slotViews[slotIdx].Setup(
+                    unlockedItems[slotIdx],
+                    false,
+                    padlockSprite,
+                    coinSprite,
+                    OnSlotBuyClicked,
+                    OnLockedSlotClicked,
+                    currentCoins);
+            }
+
+            // 3. Locked / expansion slots follow at the end (lower-right)
+            for (; slotIdx < slotViews.Count; slotIdx++)
+            {
+                slotViews[slotIdx].Setup(
+                    null,
+                    true,
+                    padlockSprite,
+                    coinSprite,
+                    null,
+                    OnLockedSlotClicked,
+                    currentCoins);
             }
         }
 

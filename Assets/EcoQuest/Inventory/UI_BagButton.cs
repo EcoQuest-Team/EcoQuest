@@ -70,8 +70,8 @@ namespace EcoQuest.Inventory
         {
             if (canvasGroup == null) return;
 
-            // Hide in Main Menu
-            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("MainMenu"))
+            // Hide in Main Menu or outside City Scene (Inventory is World 2 / City only)
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("MainMenu") || !UIOrchestrator.IsCityScene())
             {
                 canvasGroup.alpha = 0f;
                 canvasGroup.interactable = false;

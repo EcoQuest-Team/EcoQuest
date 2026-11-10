@@ -363,6 +363,7 @@ GameObject:
   - component: {fileID: 5073340959473364213}
   - component: {fileID: 8720027655925275272}
   - component: {fileID: 5253596547157652757}
+  - component: {fileID: 6937950768129907456}
   m_Layer: 0
   m_Name: NPC_Explorer
   m_TagString: Untagged
@@ -399,7 +400,7 @@ Animator:
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 70fb694e3073f9a45a9c172e8f3ef203, type: 3}
   m_Controller: {fileID: 9100000, guid: 2227dcf553140b748b19ad8a04c38ff5, type: 2}
-  m_CullingMode: 1
+  m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
@@ -417,7 +418,7 @@ NavMeshAgent:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1822374065986329788}
-  m_Enabled: 1
+  m_Enabled: 0
   m_AgentTypeID: 0
   m_Radius: 0.35
   m_Speed: 1.4
@@ -614,6 +615,20 @@ MonoBehaviour:
   onThrowReleased:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &6937950768129907456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1822374065986329788}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47c9b14e001939e4f89fef5328e601ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapIcon
+  type: 0
+  customSprite: {fileID: 21300000, guid: 24f525276b4a4c7bbacebe8f4daea875, type: 3}
 --- !u!1 &2427416785348014717
 GameObject:
   m_ObjectHideFlags: 0

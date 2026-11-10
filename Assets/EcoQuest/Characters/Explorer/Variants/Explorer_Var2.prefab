@@ -848,6 +848,7 @@ GameObject:
   - component: {fileID: 8958821740918669084}
   - component: {fileID: 5849430445771705370}
   - component: {fileID: 8042841523512120112}
+  - component: {fileID: 1523372755374731552}
   m_Layer: 0
   m_Name: Explorer_Var2
   m_TagString: Untagged
@@ -1099,6 +1100,20 @@ MonoBehaviour:
   onThrowReleased:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1523372755374731552
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5169979616414738192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47c9b14e001939e4f89fef5328e601ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapIcon
+  type: 0
+  customSprite: {fileID: 21300000, guid: 24f525276b4a4c7bbacebe8f4daea875, type: 3}
 --- !u!1 &5307556526137012893
 GameObject:
   m_ObjectHideFlags: 0

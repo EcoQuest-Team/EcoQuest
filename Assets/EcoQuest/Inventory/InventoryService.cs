@@ -200,6 +200,7 @@ namespace EcoQuest.Inventory
                 }
             }
 
+            CompactSlots();
             Save();
             OnInventoryChanged?.Invoke();
             return true;
@@ -207,6 +208,7 @@ namespace EcoQuest.Inventory
 
         /// <summary>
         /// Removes one item directly from the specified slot index.
+        /// When a slot empties, remaining items shift forward to keep slots contiguous.
         /// </summary>
         public bool RemoveOneAt(int slotIndex)
         {
@@ -215,10 +217,42 @@ namespace EcoQuest.Inventory
             if (slots[slotIndex].count <= 0)
             {
                 slots[slotIndex].Clear();
+                CompactSlots();
             }
             Save();
             OnInventoryChanged?.Invoke();
             return true;
+        }
+
+        /// <summary>
+        /// Compacts the slots so that all non-empty items are contiguous starting from index 0.
+        /// </summary>
+        public void CompactSlots()
+        {
+            int writeIdx = 0;
+            for (int readIdx = 0; readIdx < slots.Length; readIdx++)
+            {
+                if (!slots[readIdx].IsEmpty)
+                {
+                    if (writeIdx != readIdx)
+                    {
+                        slots[writeIdx].itemId = slots[readIdx].itemId;
+                        slots[writeIdx].count = slots[readIdx].count;
+                        slots[readIdx].Clear();
+                    }
+                    writeIdx++;
+                }
+            }
+        }
+
+        public int GetOccupiedSlotCount()
+        {
+            int count = 0;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (!slots[i].IsEmpty) count++;
+            }
+            return count;
         }
 
         /// <summary>

@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 1800000000000004}
   - component: {fileID: 1800000000000005}
   - component: {fileID: 1800000000000006}
+  - component: {fileID: 1159509069169955571}
   m_Layer: 0
   m_Name: NPC_Ranger
   m_TagString: Untagged
@@ -136,6 +137,9 @@ MonoBehaviour:
   lookAtHeight: 1.25
   dialogueFOV: 55
   transitionTime: 0.7
+  topLetterboxBar: {fileID: 0}
+  bottomLetterboxBar: {fileID: 0}
+  speakerAnimator: {fileID: 0}
   trashContainer: {fileID: 0}
   tutorialNotification: {fileID: 0}
   tutorialManager: {fileID: 0}
@@ -144,9 +148,24 @@ MonoBehaviour:
   - Proper waste sorting in the city prevents toxic runoff from polluting surrounding
     rivers and forests.
   repeatOfferLine: Great work, Guardian! Would you like to help clean up again?
+  interactDistance: 3.5
   typingSpeed: 0.04
   nextLineDelay: 0.5
   repeatQuestRunsPostTest: 0
+--- !u!114 &1159509069169955571
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1800000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47c9b14e001939e4f89fef5328e601ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapIcon
+  type: 0
+  customSprite: {fileID: 21300000, guid: 24f525276b4a4c7bbacebe8f4daea875, type: 3}
 --- !u!1 &1800000000000007
 GameObject:
   m_ObjectHideFlags: 0
@@ -205,7 +224,7 @@ MonoBehaviour:
   Lens:
     FieldOfView: 55
     OrthographicSize: 5
-    NearClipPlane: 0.1
+    NearClipPlane: 0.03
     FarClipPlane: 5000
     Dutch: 0
     ModeOverride: 0

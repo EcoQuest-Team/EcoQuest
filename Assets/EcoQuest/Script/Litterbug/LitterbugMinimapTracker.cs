@@ -44,7 +44,8 @@ public class LitterbugMinimapTracker : MonoBehaviour
 
     public void SetFountainMarker(Transform fountainTarget, bool visible, bool completedCheck = false)
     {
-        SetSlot(MaxLitterbugSlots, fountainTarget, visible, completedCheck);
+        // Suppress exclamation '!' over Fountain Guardian so it does not block the guardian portrait icon
+        SetSlot(MaxLitterbugSlots, fountainTarget, false, false);
     }
 
     public void ClearAll()

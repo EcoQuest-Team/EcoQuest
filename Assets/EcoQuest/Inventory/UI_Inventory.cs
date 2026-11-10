@@ -632,10 +632,14 @@ namespace EcoQuest.Inventory
                 emptyInventoryMessageGo.SetActive(isEmpty);
             }
 
-            // If selected slot just became empty after using its last item, reset selection
-            if (selectedIndex >= 0 && selectedIndex < service.Slots.Count && service.Slots[selectedIndex].IsEmpty)
+            int occupiedCount = service.GetOccupiedSlotCount();
+            if (isEmpty || occupiedCount == 0)
             {
-                // Keep slot frame highlighted if navigating by keyboard, or clear details to "No item selected"
+                selectedIndex = -1;
+            }
+            else if (selectedIndex >= occupiedCount)
+            {
+                selectedIndex = occupiedCount - 1;
             }
 
             for (int i = 0; i < slotViews.Count && i < service.Slots.Count; i++)
@@ -813,6 +817,7 @@ namespace EcoQuest.Inventory
             int usedSlot = selectedIndex;
             var slotData = service.Slots[usedSlot];
             if (slotData.IsEmpty) return;
+            bool wasLastInStack = slotData.count == 1;
 
             bool blockFull = controller != null ? controller.BlockUseWhenFull : true;
             bool success = service.TryUse(usedSlot, blockFull, out string message);
@@ -831,10 +836,24 @@ namespace EcoQuest.Inventory
                     slotViews[usedSlot].PlayUsePopAnimation();
                 }
 
-                // When stack reaches 0, slot empties and details panel resets to "No item selected"
-                if (service.Slots[usedSlot].IsEmpty)
+                // If stack was depleted, items after it shifted forward (compaction)
+                if (wasLastInStack)
                 {
-                    selectedIndex = -1;
+                    int occupiedCount = service.GetOccupiedSlotCount();
+                    if (occupiedCount == 0)
+                    {
+                        selectedIndex = -1;
+                    }
+                    else if (usedSlot < occupiedCount)
+                    {
+                        // Select the item that slid into that index
+                        selectedIndex = usedSlot;
+                    }
+                    else
+                    {
+                        // Last item was removed; select the previous index
+                        selectedIndex = occupiedCount - 1;
+                    }
                 }
 
                 RefreshUI();

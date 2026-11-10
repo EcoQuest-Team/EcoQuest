@@ -857511,7 +857511,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 22
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: 9b42c5cf3df2e4848a973403bd150f2e, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 3dce09d5a16a4db289b246c74e9d6ab1, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -1002849,6 +1002849,7 @@ GameObject:
   - component: {fileID: 5811411871262279583}
   - component: {fileID: 1461994011207975981}
   - component: {fileID: 5811411871269742720}
+  - component: {fileID: 5811411871269742721}
   m_Layer: 0
   m_Name: FountainQuestGiver
   m_TagString: Untagged
@@ -1003351,6 +1003352,20 @@ MonoBehaviour:
   animator: {fileID: 0}
   maxLookWeight: 0.8
   yawEaseDuration: 0.4
+--- !u!114 &5811411871269742721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5811411871269581919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47c9b14e001939e4f89fef5328e601ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapIcon
+  type: 0
+  customSprite: {fileID: 21300000, guid: 3dce09d5a16a4db289b246c74e9d6ab1, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

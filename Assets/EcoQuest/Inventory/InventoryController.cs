@@ -238,11 +238,24 @@ namespace EcoQuest.Inventory
                 return;
             }
 
+            if (!UIOrchestrator.IsCityScene())
+            {
+                if (inventoryUI != null) inventoryUI.HideImmediate();
+                return;
+            }
+
             service?.Load();
         }
 
         private void Update()
         {
+            // Inventory & Hotkey B are disabled outside City Scene (Forest Scene / World 1)
+            if (!UIOrchestrator.IsCityScene())
+            {
+                if (isOpen) CloseInventory(true);
+                return;
+            }
+
             if (isOpen)
             {
                 // Maintain cursor unlocked and movement suppressed while open
@@ -314,6 +327,13 @@ namespace EcoQuest.Inventory
 
             if (IsInCloseLockout)
             {
+                return false;
+            }
+
+            // 0. World check: Inventory is available in City Scene only (World 2)
+            if (!UIOrchestrator.IsCityScene())
+            {
+                blockedReason = "Inventory is unavailable in the Forest.";
                 return false;
             }
 
