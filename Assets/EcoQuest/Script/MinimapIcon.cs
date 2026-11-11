@@ -108,6 +108,7 @@ public class MinimapIcon : MonoBehaviour
             : (type == IconType.NPC) ? "map_npc_guardian_elder.png"
             : "map_trash_pin_alert.png";
 
+#if UNITY_EDITOR
         string filePath = System.IO.Path.Combine(Application.dataPath, "EcoQuest", "Sprites", "MapIcons", fileName);
         if (System.IO.File.Exists(filePath))
         {
@@ -118,6 +119,7 @@ public class MinimapIcon : MonoBehaviour
                 return tex;
             }
         }
+#endif
 
         return Texture2D.whiteTexture;
     }

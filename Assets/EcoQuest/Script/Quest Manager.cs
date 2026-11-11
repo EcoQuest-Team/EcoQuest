@@ -286,6 +286,30 @@ public class QuestManager : MonoBehaviour
         return false;
     }
 
+    public static string GetCorrectCategoryHint(GameObject item)
+    {
+        if (item == null) return "the correct bin";
+        string tag = item.tag;
+        string name = item.name.ToLower();
+
+        if (tag.Equals("Biodegradable", System.StringComparison.OrdinalIgnoreCase) ||
+            (!name.Contains("non") && (name.Contains("bio") || name.Contains("apple") || name.Contains("banana") || name.Contains("food") || name.Contains("organic") || name.Contains("leaf") || name.Contains("wood") || name.Contains("applecore"))))
+        {
+            return "Green Bin (Biodegradable / Nabubulok)";
+        }
+        else if (tag.Equals("Recyclable", System.StringComparison.OrdinalIgnoreCase) ||
+            (name.Contains("recyc") || name.Contains("can") || name.Contains("bottle") || name.Contains("paper") || name.Contains("cardboard") || name.Contains("plastic") || name.Contains("glass") || name.Contains("trash_01")))
+        {
+            return "Blue Bin (Recyclable / Pwedeng Gamitin Muli)";
+        }
+        else if (tag.Equals("Non-Biodegradable", System.StringComparison.OrdinalIgnoreCase) ||
+            (name.Contains("non") || name.Contains("bag") || name.Contains("wrapper") || name.Contains("styrofoam") || name.Contains("battery") || name.Contains("e-waste") || name.Contains("trash_02")))
+        {
+            return "Yellow Bin (Non-Biodegradable / Hindi Nabubulok)";
+        }
+        return "the matching colored bin";
+    }
+
     private void HandleWrongTrash(GameObject trashObject)
     {
         TrashItem trash = trashObject.GetComponent<TrashItem>();
@@ -294,15 +318,21 @@ public class QuestManager : MonoBehaviour
             trash.SetDepositCooldown(1.0f);
         }
 
-        if (WrongTrashPopup.Instance != null)
-        {
-            WrongTrashPopup.Instance.Show();
-        }
+        string hint = GetCorrectCategoryHint(trashObject);
 
         if (Time.time > lastMistakeTime + 0.5f)
         {
             lastMistakeTime = Time.time;
-            HandleMistake();
+            HandleMistake(hint);
+        }
+        else if (WrongTrashPopup.Instance != null)
+        {
+            WrongTrashPopup.Instance.Show($"💡 Hint: Put this in the {hint}!");
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayTrashDepositWrong();
         }
 
         DragAndDrop drag = trashObject.GetComponent<DragAndDrop>();
@@ -367,6 +397,11 @@ public class QuestManager : MonoBehaviour
             binVisualLayer.SetDepositCount(depositedInThisBinCount, animatePop: true);
         }
 
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayTrashDepositCorrect();
+        }
+
         int slotIndex = depositedInBin.Count;
         Vector3 slotPos = GetDepositSlotPosition(slotIndex);
         Quaternion slotRot = GetDepositSlotRotation(slotIndex);
@@ -414,11 +449,12 @@ public class QuestManager : MonoBehaviour
         }
     }
 
-    private void HandleMistake()
+    private void HandleMistake(string hint = null)
     {
         mistakes++;
         Debug.Log($"Mistake! {mistakes}/3");
 
+        string msg;
         if (mistakes >= 3)
         {
             PlayerCurrency bank = FindFirstObjectByType<PlayerCurrency>();
@@ -427,7 +463,24 @@ public class QuestManager : MonoBehaviour
                 bank.DeductGold(10);
                 Debug.Log("Deducted 10 gold for 3 mistakes.");
             }
+            msg = "⚠️ 3 Mistakes reached! -10 Eco-Coins deducted. Please check bin colors!";
             mistakes = 0;
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(hint))
+            {
+                msg = $"💡 Hint: Put this in the {hint}! • Mistake {mistakes}/3";
+            }
+            else
+            {
+                msg = $"Oops! Mistake {mistakes}/3 — try the matching colored bin!";
+            }
+        }
+
+        if (WrongTrashPopup.Instance != null)
+        {
+            WrongTrashPopup.Instance.Show(msg);
         }
     }
 
@@ -461,6 +514,11 @@ public class QuestManager : MonoBehaviour
 
         isQuestComplete = true;
         Debug.Log("Quest Complete!");
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayQuestComplete();
+        }
 
         if (questCanvas != null) questCanvas.SetActive(false);
         if (IntroSequenceController.Instance != null)

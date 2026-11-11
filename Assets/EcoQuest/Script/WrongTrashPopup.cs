@@ -11,10 +11,12 @@ public class WrongTrashPopup : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private Button closeButton;
     [SerializeField] private CanvasGroup canvasGroup;
+    [SerializeField] private TMPro.TextMeshProUGUI hintText;
+    [SerializeField] private GameObject hintRibbon;
 
     [Header("Timing")]
     [Tooltip("How long the popup stays visible before automatically popping out.")]
-    [SerializeField] private float showDuration = 3.0f;
+    [SerializeField] private float showDuration = 3.5f;
     [Tooltip("Pop-in animation duration in seconds.")]
     [SerializeField] private float popInDuration = 0.35f;
     [Tooltip("Pop-out animation duration in seconds.")]
@@ -94,12 +96,100 @@ public class WrongTrashPopup : MonoBehaviour
         }
     }
 
+    private void EnsureHintText()
+    {
+        if (hintText != null && hintRibbon != null) return;
+
+        // Check if HintRibbon already exists as a child
+        Transform existingRibbon = transform.Find("HintRibbon");
+        if (existingRibbon != null)
+        {
+            hintRibbon = existingRibbon.gameObject;
+            hintText = hintRibbon.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+            return;
+        }
+
+        // Dynamically build HintRibbon matching UITheme dark-green styling
+        GameObject ribbon = new GameObject("HintRibbon", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+        ribbon.transform.SetParent(transform, false);
+
+        RectTransform rt = ribbon.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0f);
+        rt.anchorMax = new Vector2(0.5f, 0f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, -6f);
+        rt.sizeDelta = new Vector2(700f, 44f);
+
+        UnityEngine.UI.Image img = ribbon.GetComponent<UnityEngine.UI.Image>();
+        if (UITheme.Instance != null && UITheme.Instance.panelBackgroundSprite != null)
+        {
+            img.sprite = UITheme.Instance.panelBackgroundSprite;
+            img.type = UnityEngine.UI.Image.Type.Sliced;
+            img.color = UITheme.Instance.panelColor;
+        }
+        else
+        {
+            img.color = new Color(0.043f, 0.141f, 0.098f, 0.95f);
+        }
+
+        var outline = ribbon.AddComponent<UnityEngine.UI.Outline>();
+        outline.effectColor = (UITheme.Instance != null) ? UITheme.Instance.borderColor : new Color(0.427f, 0.745f, 0.427f, 1f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        // Child Text
+        GameObject textObj = new GameObject("HintText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        textObj.transform.SetParent(ribbon.transform, false);
+
+        RectTransform textRt = textObj.GetComponent<RectTransform>();
+        textRt.anchorMin = Vector2.zero;
+        textRt.anchorMax = Vector2.one;
+        textRt.offsetMin = new Vector2(16f, 4f);
+        textRt.offsetMax = new Vector2(-16f, -4f);
+
+        hintText = textObj.GetComponent<TMPro.TextMeshProUGUI>();
+        hintText.alignment = TMPro.TextAlignmentOptions.Center;
+        hintText.enableWordWrapping = true;
+        hintText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
+        hintText.fontSize = 20f;
+        hintText.fontSizeMin = 14f;
+        hintText.fontSizeMax = 22f;
+        hintText.enableAutoSizing = true;
+        hintText.color = (UITheme.Instance != null) ? UITheme.Instance.textMuted : new Color(0.890f, 0.960f, 0.890f, 1f);
+
+        if (UITheme.Instance != null)
+        {
+            var font = UITheme.Instance.GetBodyFont();
+            if (font != null) hintText.font = font;
+        }
+#if UNITY_EDITOR
+        if (hintText.font == null)
+        {
+            hintText.font = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/Fonts/Nunito SDF.asset");
+        }
+#endif
+        hintRibbon = ribbon;
+    }
+
     /// <summary>
-    /// Displays the wrong trash notification popup.
+    /// Displays the wrong trash notification popup with an optional educational hint message.
     /// If already visible, executes a gentle pulse and resets the visible countdown.
     /// </summary>
-    public void Show()
+    public void Show(string message = null)
     {
+        EnsureHintText();
+        if (hintRibbon != null)
+        {
+            if (!string.IsNullOrEmpty(message))
+            {
+                if (hintText != null) hintText.text = message;
+                hintRibbon.SetActive(true);
+            }
+            else
+            {
+                hintRibbon.SetActive(false);
+            }
+        }
+
         if (isVisible)
         {
             // Already visible: smoothly punch/pulse without restarting offscreen

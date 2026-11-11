@@ -55,6 +55,7 @@ public class PlayerCurrency : MonoBehaviour
         UpdateGoldUI();
         
         ShowPopup("+" + amount.ToString(), Color.green);
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayCoinEarn();
     }
 
     public void AddGoldAnimated(int amount, float duration = 0.9f)
@@ -63,6 +64,7 @@ public class PlayerCurrency : MonoBehaviour
         currentGold += amount;
         SaveGold();
         ShowPopup("+" + amount.ToString(), Color.green);
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayCoinEarn();
 
         if (coinText == null || !isActiveAndEnabled || duration <= 0f)
         {

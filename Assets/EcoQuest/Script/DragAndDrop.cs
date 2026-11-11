@@ -1962,6 +1962,10 @@ public class DragAndDrop : MonoBehaviour
         {
             audioSource.PlayOneShot(pickupAudioClip, audioVolume);
         }
+        else if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayTrashPickup();
+        }
     }
 
     private IEnumerator GrabEaseRoutine()

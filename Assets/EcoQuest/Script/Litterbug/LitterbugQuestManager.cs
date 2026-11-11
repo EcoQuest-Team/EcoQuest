@@ -1112,6 +1112,8 @@ public class LitterbugQuestManager : MonoBehaviour
 
     private static void ShuffleList<T>(List<T> list, System.Random rng)
     {
+        if (list == null || list.Count <= 1) return;
+        if (rng == null) rng = new System.Random();
         for (int i = 0; i < list.Count; i++)
         {
             int r = rng.Next(i, list.Count);
@@ -1121,6 +1123,8 @@ public class LitterbugQuestManager : MonoBehaviour
 
     private static void ShuffleArray<T>(T[] arr, System.Random rng)
     {
+        if (arr == null || arr.Length <= 1) return;
+        if (rng == null) rng = new System.Random();
         for (int i = 0; i < arr.Length; i++)
         {
             int r = rng.Next(i, arr.Length);

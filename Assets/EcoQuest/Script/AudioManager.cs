@@ -30,6 +30,13 @@ public class AudioManager : MonoBehaviour
     public AudioClip buttonHoverClip;
     public AudioClip sliderChangeClip;
 
+    [Header("Gameplay Audio Clips (CC0 Slots - Silent Until Assigned)")]
+    public AudioClip sfxTrashPickup;
+    public AudioClip sfxTrashDepositCorrect;
+    public AudioClip sfxTrashDepositWrong;
+    public AudioClip sfxCoinEarn;
+    public AudioClip sfxQuestComplete;
+
     private float lastSliderSoundTime = -10f;
 
     public float CurrentMasterDb { get; private set; }
@@ -252,4 +259,10 @@ public class AudioManager : MonoBehaviour
             PlaySFX(sliderChangeClip, 0.75f);
         }
     }
+
+    public void PlayTrashPickup() => PlaySFX(sfxTrashPickup);
+    public void PlayTrashDepositCorrect() => PlaySFX(sfxTrashDepositCorrect);
+    public void PlayTrashDepositWrong() => PlaySFX(sfxTrashDepositWrong);
+    public void PlayCoinEarn() => PlaySFX(sfxCoinEarn);
+    public void PlayQuestComplete() => PlaySFX(sfxQuestComplete);
 }
