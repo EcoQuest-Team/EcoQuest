@@ -6,7 +6,36 @@ using UnityEngine.EventSystems;
 [RequireComponent(typeof(RectTransform))]
 public class WrongTrashPopup : MonoBehaviour
 {
-    public static WrongTrashPopup Instance { get; private set; }
+    private static WrongTrashPopup _instance;
+    public static WrongTrashPopup Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = Object.FindFirstObjectByType<WrongTrashPopup>(FindObjectsInactive.Include);
+                if (_instance != null && !_instance.gameObject.activeSelf)
+                {
+                    _instance.gameObject.SetActive(true);
+                }
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void BootstrapOnSceneLoad()
+    {
+        if (_instance == null)
+        {
+            _instance = Object.FindFirstObjectByType<WrongTrashPopup>(FindObjectsInactive.Include);
+        }
+        if (_instance != null && !_instance.gameObject.activeSelf)
+        {
+            _instance.gameObject.SetActive(true);
+        }
+    }
 
     [Header("UI References")]
     [SerializeField] private Button closeButton;
@@ -59,12 +88,12 @@ public class WrongTrashPopup : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        Instance = this;
+        _instance = this;
 
         rectTransform = GetComponent<RectTransform>();
         if (canvasGroup == null)
@@ -77,7 +106,10 @@ public class WrongTrashPopup : MonoBehaviour
         }
 
         // Cache the resting position relative to the Canvas
-        restingPosition = rectTransform.anchoredPosition;
+        if (rectTransform != null)
+        {
+            restingPosition = rectTransform.anchoredPosition;
+        }
 
         if (closeButton != null)
         {
@@ -90,9 +122,9 @@ public class WrongTrashPopup : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (Instance == this)
+        if (_instance == this)
         {
-            Instance = null;
+            _instance = null;
         }
     }
 
@@ -176,6 +208,23 @@ public class WrongTrashPopup : MonoBehaviour
     /// </summary>
     public void Show(string message = null)
     {
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
+        if (rectTransform == null)
+        {
+            rectTransform = GetComponent<RectTransform>();
+            if (rectTransform != null) restingPosition = rectTransform.anchoredPosition;
+        }
+
+        if (canvasGroup == null)
+        {
+            canvasGroup = GetComponent<CanvasGroup>();
+            if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+        }
+
         EnsureHintText();
         if (hintRibbon != null)
         {
@@ -201,11 +250,6 @@ public class WrongTrashPopup : MonoBehaviour
         }
         else
         {
-            if (ModalManager.Instance != null && ModalManager.Instance.ActiveModal?.modalObject != gameObject)
-            {
-                ModalManager.Instance.RequestModal(ModalManager.ModalType.Warning, gameObject, null, () => Hide(), priority: 3);
-            }
-
             // Start pop-in animation from offscreen
             if (activeAnimationCoroutine != null)
             {
@@ -223,16 +267,20 @@ public class WrongTrashPopup : MonoBehaviour
         if (!isVisible) return;
         isVisible = false;
 
-        if (ModalManager.Instance != null && ModalManager.Instance.ActiveModal?.modalObject == gameObject)
-        {
-            ModalManager.Instance.CloseModal(gameObject);
-        }
-
         if (activeAnimationCoroutine != null)
         {
             StopCoroutine(activeAnimationCoroutine);
         }
-        activeAnimationCoroutine = StartCoroutine(PopOutRoutine());
+
+        if (gameObject.activeInHierarchy)
+        {
+            activeAnimationCoroutine = StartCoroutine(PopOutRoutine());
+        }
+        else
+        {
+            ResetToHidden();
+            activeAnimationCoroutine = null;
+        }
     }
 
     private IEnumerator PopInSequenceRoutine()
