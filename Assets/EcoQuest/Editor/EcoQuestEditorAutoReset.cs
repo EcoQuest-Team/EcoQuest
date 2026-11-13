@@ -82,6 +82,7 @@ public static class EcoQuestEditorAutoReset
         LitterbugQuestManager.ResetStaticState();
         SequentialWASDTutorial.AllowedState = SequentialWASDTutorial.TutorialState.All;
         TravelGate.ResetStaticState();
+        EcoQuest.CityQuest.CityTrashDetectiveManager.ClearCooldownCache();
     }
 }
 #endif

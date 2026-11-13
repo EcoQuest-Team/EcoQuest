@@ -43,6 +43,11 @@ namespace EcoQuest.CityQuest
         private static void ResetStaticState()
         {
             Instance = null;
+            IsRobinCooldownDialogueOpen = false;
+            _cooldownInitialized = false;
+            _cooldownRemainingSeconds = 0f;
+            _lastCooldownTickFrame = -1;
+            _lastCooldownSaveUnscaledTime = -100f;
             if (UIOrchestrator.IsCityScavengerActiveHook != null)
                 UIOrchestrator.IsCityScavengerActiveHook = null;
             if (UIOrchestrator.IsCityScavengerOverlayOpenHook != null)
@@ -108,11 +113,17 @@ namespace EcoQuest.CityQuest
         [Header("Quest Settings")]
         public float questDurationSeconds = 240f;
         public float pickupInteractRange = 3.0f;
+        [Tooltip("Cooldown duration in seconds after Trash Detective ends (default 300s = 5:00).")]
+        public float repeatCooldownSeconds = 300f;
+        [HideInInspector]
         public float repeatCooldownMinutes = 5f;
         public int maxHintCharges = 4;
         public float hintCooldownSeconds = 25f;
         public float hintActiveDuration = 6.0f;
         public int coinsPerPickup = 5;
+
+        [Header("Marker Assets")]
+        public Sprite hourglassMarkerSprite;
 
         [Header("Runtime State (Read-Only)")]
         [SerializeField] private CityDetectiveState questState = CityDetectiveState.NotStarted;
@@ -153,6 +164,14 @@ namespace EcoQuest.CityQuest
         private RobinDialogueState dialogueState = RobinDialogueState.Idle;
         public RobinDialogueState DialogueState => dialogueState;
         private bool isFinalizingQuest = false;
+
+        private static bool _cooldownInitialized = false;
+        private static float _cooldownRemainingSeconds = 0f;
+        private static int _lastCooldownTickFrame = -1;
+        private static float _lastCooldownSaveUnscaledTime = -100f;
+        private static Sprite _fallbackHourglassSprite;
+
+        public static bool IsRobinCooldownDialogueOpen { get; private set; }
 
         public bool IsOverlayOrModalOpen =>
             (ui != null && ui.IsAnyModalOpen) ||
@@ -196,8 +215,29 @@ namespace EcoQuest.CityQuest
             UIOrchestrator.IsCityScavengerOverlayOpenHook = () => IsOverlayOrModalOpen;
         }
 
+        private void OnDisable()
+        {
+            StopAllCoroutines();
+            activeDialogueSessionRoutine = null;
+            letterboxRoutine = null;
+            dialogueWatchdogRoutine = null;
+            IsRobinCooldownDialogueOpen = false;
+            FlushRobinCooldownSave();
+        }
+
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (pauseStatus) FlushRobinCooldownSave();
+        }
+
+        private void OnApplicationQuit()
+        {
+            FlushRobinCooldownSave();
+        }
+
         private void OnDestroy()
         {
+            FlushRobinCooldownSave();
             if (Instance == this)
             {
                 Instance = null;
@@ -350,29 +390,101 @@ namespace EcoQuest.CityQuest
 
         private void EnsureRobinHeadMarker()
         {
-            if (rangerRobinTransform == null || robinHeadMarker != null) return;
+            if (rangerRobinTransform == null) return;
 
             Transform existing = rangerRobinTransform.Find("RobinQuestMarker");
-            if (existing != null)
+            GameObject markerRoot = existing != null ? existing.gameObject : null;
+            if (markerRoot == null)
             {
-                robinHeadMarker = existing;
-                return;
+                markerRoot = new GameObject("RobinQuestMarker");
+                markerRoot.transform.SetParent(rangerRobinTransform, false);
+                markerRoot.transform.localPosition = new Vector3(0f, 2.25f, 0f);
+
+                GameObject textGo = new GameObject("MarkerText");
+                textGo.transform.SetParent(markerRoot.transform, false);
+                var tmp = textGo.AddComponent<TextMeshPro>();
+                tmp.text = "!";
+                tmp.fontSize = 7.5f;
+                tmp.fontStyle = FontStyles.Bold;
+                tmp.alignment = TextAlignmentOptions.Center;
+                tmp.color = new Color(1f, 0.85f, 0.20f, 1f);
             }
 
-            GameObject markerRoot = new GameObject("RobinQuestMarker");
-            markerRoot.transform.SetParent(rangerRobinTransform, false);
-            markerRoot.transform.localPosition = new Vector3(0f, 2.25f, 0f);
-
-            GameObject textGo = new GameObject("MarkerText");
-            textGo.transform.SetParent(markerRoot.transform, false);
-            var tmp = textGo.AddComponent<TextMeshPro>();
-            tmp.text = "!";
-            tmp.fontSize = 7.5f;
-            tmp.fontStyle = FontStyles.Bold;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = new Color(1f, 0.85f, 0.20f, 1f);
-
             robinHeadMarker = markerRoot.transform;
+
+            Transform hourglassTr = robinHeadMarker.Find("HourglassIcon");
+            if (hourglassTr == null)
+            {
+                GameObject hgGo = new GameObject("HourglassIcon");
+                hgGo.transform.SetParent(robinHeadMarker, false);
+                hgGo.transform.localPosition = Vector3.zero;
+                hgGo.transform.localScale = Vector3.one * 0.62f;
+                var sr = hgGo.AddComponent<SpriteRenderer>();
+                sr.sprite = GetOrCreateHourglassSprite();
+                sr.color = Color.white;
+                sr.sortingOrder = 10;
+                hgGo.SetActive(false);
+            }
+            else
+            {
+                var sr = hourglassTr.GetComponent<SpriteRenderer>();
+                if (sr != null && sr.sprite == null)
+                {
+                    sr.sprite = GetOrCreateHourglassSprite();
+                }
+            }
+        }
+
+        private Sprite GetOrCreateHourglassSprite()
+        {
+            if (hourglassMarkerSprite != null) return hourglassMarkerSprite;
+#if UNITY_EDITOR
+            var loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/EcoQuest/UI/Icons/Icon_Hourglass.png");
+            if (loaded != null)
+            {
+                hourglassMarkerSprite = loaded;
+                return loaded;
+            }
+#endif
+            if (_fallbackHourglassSprite != null) return _fallbackHourglassSprite;
+
+            const int size = 64;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color outline = new Color(0.10f, 0.14f, 0.10f, 0.90f);
+            Color frame = new Color(1f, 0.96f, 0.80f, 1f);
+            Color sand = new Color(1f, 0.85f, 0.28f, 1f);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float cx = x + 0.5f;
+                    float cy = y + 0.5f;
+                    Color px = clear;
+                    bool topCap = (cy >= 48f && cy <= 54f && cx >= 14f && cx <= 50f);
+                    bool botCap = (cy >= 10f && cy <= 16f && cx >= 14f && cx <= 50f);
+                    bool inGlass = (cy >= 16f && cy <= 48f);
+                    float dx = Mathf.Abs(cx - 32f);
+                    float t = Mathf.Abs(cy - 32f) / 16f;
+                    float halfW = 3f + 13f * Mathf.Pow(t, 0.72f);
+
+                    if (topCap || botCap) px = frame;
+                    else if (inGlass && dx <= halfW && dx >= halfW - 2.2f) px = frame;
+                    else if (inGlass && dx < halfW - 2.2f && ((cy >= 32f && cy <= 40f) || (cy >= 16f && cy <= 23f && dx <= (23f - cy) * 1.4f))) px = sand;
+                    else if (inGlass && cy >= 23f && cy <= 32f && dx <= 1.2f) px = sand;
+                    else if ((cy >= 46f && cy <= 56f && cx >= 12f && cx <= 52f) || (cy >= 8f && cy <= 18f && cx >= 12f && cx <= 52f) || (inGlass && dx <= halfW + 1.8f && dx > halfW - 2.5f)) px = outline;
+
+                    tex.SetPixel(x, y, px);
+                }
+            }
+            tex.Apply();
+            _fallbackHourglassSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size / 1.2f);
+            return _fallbackHourglassSprite;
         }
 
         private void UpdateRobinMarkerVisibility()
@@ -387,24 +499,38 @@ namespace EcoQuest.CityQuest
 
             robinHeadMarker.gameObject.SetActive(show);
 
+            bool onCooldown = questState != CityDetectiveState.ReadyToTurnIn && IsOnRobinCooldown(out _);
+
             var tmp = robinHeadMarker.GetComponentInChildren<TextMeshPro>(true);
             if (tmp != null)
             {
-                if (questState == CityDetectiveState.ReadyToTurnIn)
+                tmp.gameObject.SetActive(!onCooldown);
+                if (!onCooldown)
                 {
-                    tmp.text = "?";
-                    tmp.color = new Color(0.35f, 0.90f, 0.45f, 1f);
+                    if (questState == CityDetectiveState.ReadyToTurnIn)
+                    {
+                        tmp.text = "?";
+                        tmp.color = new Color(0.35f, 0.90f, 0.45f, 1f);
+                    }
+                    else
+                    {
+                        tmp.text = "!";
+                        tmp.color = new Color(1f, 0.85f, 0.20f, 1f);
+                    }
                 }
-                else
-                {
-                    tmp.text = "!";
-                    tmp.color = new Color(1f, 0.85f, 0.20f, 1f);
-                }
+            }
+
+            Transform hg = robinHeadMarker.Find("HourglassIcon");
+            if (hg != null)
+            {
+                hg.gameObject.SetActive(show && onCooldown);
             }
         }
 
         private void Update()
         {
+            TickRobinCooldownGlobal();
+
             if (!CityDistrictVolume.IsInAllowedCityScene()) return;
 
             if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
@@ -685,24 +811,162 @@ namespace EcoQuest.CityQuest
         // RANGER ROBIN DIALOGUE FLOWS (Unified with DialoguePresenter & Guardian Look)
         // =====================================================================
 
+        private static void EnsureCooldownLoaded()
+        {
+            if (_cooldownInitialized) return;
+            _cooldownInitialized = true;
+            if (PlayerPrefs.HasKey(EcoQuestSaveKeys.CityRobinCooldownLegacyUntil))
+            {
+                PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinCooldownLegacyUntil);
+            }
+            _cooldownRemainingSeconds = Mathf.Max(0f, PlayerPrefs.GetFloat(EcoQuestSaveKeys.CityRobinCooldownRemaining, 0f));
+        }
+
+        public static void ClearCooldownCache()
+        {
+            _cooldownInitialized = false;
+            _cooldownRemainingSeconds = 0f;
+            _lastCooldownTickFrame = -1;
+            _lastCooldownSaveUnscaledTime = -100f;
+        }
+
+        public float GetConfiguredCooldownDurationSeconds()
+        {
+            if (repeatCooldownSeconds > 0f) return repeatCooldownSeconds;
+            return Mathf.Max(0f, repeatCooldownMinutes * 60f);
+        }
+
+        public static string FormatCooldownMS(float seconds)
+        {
+            int total = Mathf.Max(0, Mathf.CeilToInt(seconds));
+            return $"{total / 60}:{total % 60:00}";
+        }
+
+        public static bool IsRobinCooldownActive(out float remainingSeconds)
+        {
+            EnsureCooldownLoaded();
+            remainingSeconds = _cooldownRemainingSeconds;
+            return remainingSeconds > 0.01f;
+        }
+
         public bool IsOnRobinCooldown(out TimeSpan remaining)
         {
-            remaining = TimeSpan.Zero;
-            string saved = PlayerPrefs.GetString("EcoQuest_RobinCooldownUntil", string.Empty);
-            if (!string.IsNullOrEmpty(saved) && long.TryParse(saved, out long bin))
+            if (IsRobinCooldownActive(out float sec))
             {
-                try
-                {
-                    DateTime until = DateTime.FromBinary(bin);
-                    if (DateTime.UtcNow < until)
-                    {
-                        remaining = until - DateTime.UtcNow;
-                        return true;
-                    }
-                }
-                catch { }
+                remaining = TimeSpan.FromSeconds(sec);
+                return true;
             }
+            remaining = TimeSpan.Zero;
             return false;
+        }
+
+        public void StartRobinCooldown(float? overrideSeconds = null)
+        {
+            float duration = overrideSeconds.HasValue ? Mathf.Max(0f, overrideSeconds.Value) : GetConfiguredCooldownDurationSeconds();
+            _cooldownInitialized = true;
+            _cooldownRemainingSeconds = duration;
+            _lastCooldownSaveUnscaledTime = Time.unscaledTime;
+            SaveCooldownRemainingImmediate();
+            UpdateRobinMarkerVisibility();
+        }
+
+        public static void SkipRobinCooldown()
+        {
+            _cooldownInitialized = true;
+            _cooldownRemainingSeconds = 0f;
+            if (PlayerPrefs.HasKey(EcoQuestSaveKeys.CityRobinCooldownRemaining))
+            {
+                PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinCooldownRemaining);
+            }
+            if (PlayerPrefs.HasKey(EcoQuestSaveKeys.CityRobinCooldownLegacyUntil))
+            {
+                PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinCooldownLegacyUntil);
+            }
+            PlayerPrefs.Save();
+            if (Instance != null)
+            {
+                Instance.UpdateRobinMarkerVisibility();
+            }
+        }
+
+        public static void FlushRobinCooldownSave()
+        {
+            if (!_cooldownInitialized) return;
+            SaveCooldownRemainingImmediate();
+        }
+
+        private static void SaveCooldownRemainingImmediate()
+        {
+            if (_cooldownRemainingSeconds > 0.01f)
+            {
+                PlayerPrefs.SetFloat(EcoQuestSaveKeys.CityRobinCooldownRemaining, _cooldownRemainingSeconds);
+            }
+            else if (PlayerPrefs.HasKey(EcoQuestSaveKeys.CityRobinCooldownRemaining))
+            {
+                PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinCooldownRemaining);
+            }
+            PlayerPrefs.Save();
+        }
+
+        public static bool ShouldTickRobinCooldown()
+        {
+            if (!Application.isPlaying) return false;
+            if (PauseMenuController.IsPaused || Time.timeScale <= 0.001f) return false;
+            if (LoadingScreenController.IsLoading) return false;
+            if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen) return false;
+            if (EcoQuest.Inventory.UI_EcoShop.Instance != null && EcoQuest.Inventory.UI_EcoShop.Instance.IsOpen) return false;
+            if (LitterbugQuestManager.IsDialogueOpen || NPCInteraction.IsAnyGuardianFlowRunning) return false;
+            if (ModalManager.Instance != null && ModalManager.Instance.IsAnyModalActuallyVisible()) return false;
+
+            if (Instance != null && ((Instance.ui != null && Instance.ui.IsAnyModalOpen) ||
+                                     (Instance.bonusQuizAdapter != null && Instance.bonusQuizAdapter.IsQuizRunning)))
+            {
+                return false;
+            }
+
+            if (DialoguePresenter.Instance != null && (DialoguePresenter.Instance.IsInDialogue || DialoguePresenter.Instance.IsSuspended))
+            {
+                if (!IsRobinCooldownDialogueOpen) return false;
+            }
+
+            if (UIOrchestrator.Instance != null)
+            {
+                if (UIOrchestrator.Instance.AreModalsOpen) return false;
+                if (UIOrchestrator.Instance.IsOverlayActive && !IsRobinCooldownDialogueOpen) return false;
+            }
+
+            return true;
+        }
+
+        public static void TickRobinCooldownGlobal(float? explicitUnscaledDelta = null)
+        {
+            int frame = Time.frameCount;
+            if (!explicitUnscaledDelta.HasValue && frame == _lastCooldownTickFrame) return;
+            _lastCooldownTickFrame = frame;
+
+            EnsureCooldownLoaded();
+            if (_cooldownRemainingSeconds <= 0f) return;
+            if (!explicitUnscaledDelta.HasValue && !ShouldTickRobinCooldown()) return;
+
+            float dt = explicitUnscaledDelta.HasValue ? Mathf.Max(0f, explicitUnscaledDelta.Value) : Time.unscaledDeltaTime;
+            if (dt <= 0f) return;
+
+            _cooldownRemainingSeconds = Mathf.Max(0f, _cooldownRemainingSeconds - dt);
+
+            if (_cooldownRemainingSeconds <= 0.001f)
+            {
+                _cooldownRemainingSeconds = 0f;
+                SaveCooldownRemainingImmediate();
+                if (Instance != null)
+                {
+                    Instance.UpdateRobinMarkerVisibility();
+                }
+            }
+            else if (Time.unscaledTime - _lastCooldownSaveUnscaledTime >= 1.0f)
+            {
+                _lastCooldownSaveUnscaledTime = Time.unscaledTime;
+                PlayerPrefs.SetFloat(EcoQuestSaveKeys.CityRobinCooldownRemaining, _cooldownRemainingSeconds);
+            }
         }
 
         public void OpenRangerRobinDialogue()
@@ -787,31 +1051,13 @@ namespace EcoQuest.CityQuest
                 Action onAccept = null;
                 Action onDecline = null;
 
+                bool isCooldownDialogue = false;
                 if (LitterbugQuestManager.Instance != null &&
                     (LitterbugQuestManager.Instance.QuestState == LitterbugQuestState.Active ||
                      LitterbugQuestManager.Instance.QuestState == LitterbugQuestState.ReadyToTurnIn))
                 {
                     lines = new string[] { litterbugConflictDialogue };
                     showChoices = false;
-                }
-                else if (questState == CityDetectiveState.NotStarted)
-                {
-                    lines = introDialogueLines;
-                    bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
-                    if (hasPendingQuiz)
-                    {
-                        acceptLabel = "Accept";
-                        declineLabel = "Take Pending Bonus Quiz";
-                        onAccept = () => StartNewAttempt();
-                        onDecline = () => LaunchBonusQuiz();
-                    }
-                    else
-                    {
-                        acceptLabel = "Accept";
-                        declineLabel = "Close";
-                        onAccept = () => StartNewAttempt();
-                        onDecline = null;
-                    }
                 }
                 else if (questState == CityDetectiveState.Active)
                 {
@@ -835,53 +1081,80 @@ namespace EcoQuest.CityQuest
                     showChoices = false;
                     onAccept = () => FinalizeAttemptAndShowResults();
                 }
-                else // Completed
+                else if (IsRobinCooldownActive(out float cooldownRemaining))
                 {
-                    if (IsOnRobinCooldown(out TimeSpan cooldownRemaining))
+                    isCooldownDialogue = true;
+                    IsRobinCooldownDialogueOpen = true;
+                    bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
+                    lines = new string[]
                     {
-                        int mm = (int)cooldownRemaining.TotalMinutes;
-                        int ss = cooldownRemaining.Seconds;
-                        lines = new string[]
-                        {
-                            $"Great work on your last investigation, Detective! I'm currently reviewing field reports and preparing the next Field Checklist.",
-                            $"Please check back in {mm:00}:{ss:00} for new assignments!"
-                        };
+                        $"I'm sorting my field notes. Come back in {FormatCooldownMS(cooldownRemaining)}!"
+                    };
+                    if (hasPendingQuiz)
+                    {
+                        acceptLabel = "Take Bonus Quiz";
+                        declineLabel = "Take Quiz Later";
+                        showChoices = true;
+                        onAccept = () => LaunchBonusQuiz();
+                        onDecline = null;
+                    }
+                    else
+                    {
                         showChoices = false;
                         acceptLabel = "OK";
                         declineLabel = "Close";
                         onAccept = null;
                         onDecline = null;
                     }
+                }
+                else if (questState == CityDetectiveState.NotStarted)
+                {
+                    lines = introDialogueLines;
+                    bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
+                    if (hasPendingQuiz)
+                    {
+                        acceptLabel = "Accept";
+                        declineLabel = "Take Pending Bonus Quiz";
+                        onAccept = () => StartNewAttempt();
+                        onDecline = () => LaunchBonusQuiz();
+                    }
                     else
                     {
-                        int bestStars = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBestStars, 0);
-                        int bestSec = Mathf.RoundToInt(PlayerPrefs.GetFloat(EcoQuestSaveKeys.CityBestTime, 0f));
-                        bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
+                        acceptLabel = "Accept";
+                        declineLabel = "Close";
+                        onAccept = () => StartNewAttempt();
+                        onDecline = null;
+                    }
+                }
+                else // Completed and cooldown elapsed
+                {
+                    int bestStars = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBestStars, 0);
+                    int bestSec = Mathf.RoundToInt(PlayerPrefs.GetFloat(EcoQuestSaveKeys.CityBestTime, 0f));
+                    bool hasPendingQuiz = PlayerPrefs.GetInt(EcoQuestSaveKeys.CityBonusPending, 0) == 1;
 
-                        if (hasPendingQuiz)
+                    if (hasPendingQuiz)
+                    {
+                        lines = new string[]
                         {
-                            lines = new string[]
-                            {
-                                completedDialogue,
-                                $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). You have an unclaimed Bonus Quiz waiting!"
-                            };
-                            acceptLabel = "Take Bonus Quiz";
-                            declineLabel = "Play Again";
-                            onAccept = () => LaunchBonusQuiz();
-                            onDecline = () => StartNewAttempt();
-                        }
-                        else
+                            completedDialogue,
+                            $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). You have an unclaimed Bonus Quiz waiting!"
+                        };
+                        acceptLabel = "Take Bonus Quiz";
+                        declineLabel = "Play Again";
+                        onAccept = () => LaunchBonusQuiz();
+                        onDecline = () => StartNewAttempt();
+                    }
+                    else
+                    {
+                        lines = new string[]
                         {
-                            lines = new string[]
-                            {
-                                completedDialogue,
-                                $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). Ready for a brand-new Field Checklist?"
-                            };
-                            acceptLabel = "Accept";
-                            declineLabel = "Close";
-                            onAccept = () => StartNewAttempt();
-                            onDecline = null;
-                        }
+                            completedDialogue,
+                            $"Personal Best: {bestStars} Stars ({bestSec / 60:00}:{bestSec % 60:00} remaining). Ready for a brand-new Field Checklist?"
+                        };
+                        acceptLabel = "Accept";
+                        declineLabel = "Close";
+                        onAccept = () => StartNewAttempt();
+                        onDecline = null;
                     }
                 }
 
@@ -921,16 +1194,31 @@ namespace EcoQuest.CityQuest
                         cleanupExecuted = true;
                     });
 
+                int lastDisplayedCooldownSec = -1;
                 // Wait while dialogue remains open so the finally block covers every exit path
                 while (!dialogueDone &&
                        DialoguePresenter.Instance != null &&
                        (DialoguePresenter.Instance.IsInDialogue || DialoguePresenter.Instance.IsSuspended))
                 {
+                    if (isCooldownDialogue)
+                    {
+                        bool active = IsRobinCooldownActive(out float remSec);
+                        int dispSec = active ? Mathf.CeilToInt(remSec) : 0;
+                        if (dispSec != lastDisplayedCooldownSec)
+                        {
+                            lastDisplayedCooldownSec = dispSec;
+                            string liveLine = dispSec > 0
+                                ? $"I'm sorting my field notes. Come back in {dispSec / 60}:{dispSec % 60:00}!"
+                                : "My field notes are all sorted! Talk to me anytime for a new Field Checklist.";
+                            DialoguePresenter.Instance.UpdateLiveCurrentLineText(liveLine);
+                        }
+                    }
                     yield return null;
                 }
             }
             finally
             {
+                IsRobinCooldownDialogueOpen = false;
                 activeDialogueSessionRoutine = null;
                 if (!cleanupExecuted)
                 {
@@ -1536,13 +1824,11 @@ namespace EcoQuest.CityQuest
             if (canTakeBonusQuiz)
             {
                 PlayerPrefs.SetInt(EcoQuestSaveKeys.CityBonusPending, 1);
-                // Set cooldown before repeat attempt to balance game economy (default 5 minutes)
-                DateTime robinCooldownUntil = DateTime.UtcNow.AddMinutes(Mathf.Max(0f, repeatCooldownMinutes));
-                PlayerPrefs.SetString("EcoQuest_RobinCooldownUntil", robinCooldownUntil.ToBinary().ToString());
             }
-            PlayerPrefs.Save();
 
             questState = (stars >= 1) ? CityDetectiveState.Completed : CityDetectiveState.NotStarted;
+            // Start 5:00 cooldown on BOTH completion and timeout/0-star attempt (persisted as unpaused remaining seconds)
+            StartRobinCooldown();
             ui?.HideChecklist();
             UpdateRobinMarkerVisibility();
 
@@ -1569,6 +1855,7 @@ namespace EcoQuest.CityQuest
                     },
                     () =>
                     {
+                        if (IsRobinCooldownActive(out _)) return;
                         ui.HideResultsModal();
                         modalCloseCooldownTimer = 0.25f;
                         questState = CityDetectiveState.NotStarted;

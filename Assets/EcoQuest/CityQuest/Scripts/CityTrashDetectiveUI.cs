@@ -112,6 +112,10 @@ namespace EcoQuest.CityQuest
         private Action onResultsQuizClicked;
         private Action onResultsRetryClicked;
         private Action onResultsCloseClicked;
+        private bool resultsCanTakeBonusQuiz;
+        private int lastResultsCooldownSec = -2;
+        private bool lastResultsCooldownActive = false;
+        private KeyCapPrompt resultsSkipCloseKeyCap;
 
         // Legacy / compatibility properties
         public CanvasGroup dialogueCanvasGroup;
@@ -160,30 +164,40 @@ namespace EcoQuest.CityQuest
             coinCountRoutine = null;
             checklistSlideRoutine = null;
             idCardQueue.Clear();
+
+            if (resultsTakeQuizKeyCap != null) resultsTakeQuizKeyCap.OnPromptClicked -= HandleQuizPromptClicked;
+            if (resultsPlayAgainKeyCap != null) resultsPlayAgainKeyCap.OnPromptClicked -= HandleRetryPromptClicked;
+            if (resultsSkipCloseKeyCap != null) resultsSkipCloseKeyCap.OnPromptClicked -= HandleClosePromptClicked;
         }
 
         private void Update()
         {
             if (resultsCanvasGroup != null && resultsCanvasGroup.gameObject.activeSelf && resultsCanvasGroup.alpha > 0.5f)
             {
+                RefreshResultsRetryCooldownUI();
+
                 if (Input.GetKeyDown(KeyCode.E))
                 {
-                    if (resultsTakeQuizButton != null && resultsTakeQuizButton.gameObject.activeSelf)
+                    if (resultsTakeQuizButton != null && resultsTakeQuizButton.gameObject.activeSelf && resultsTakeQuizButton.interactable)
                     {
                         onResultsQuizClicked?.Invoke();
                     }
-                    else
+                    else if (resultsPlayAgainButton != null && resultsPlayAgainButton.gameObject.activeSelf && resultsPlayAgainButton.interactable)
                     {
                         onResultsRetryClicked?.Invoke();
+                    }
+                    else if (resultsSkipCloseButton != null && resultsSkipCloseButton.gameObject.activeSelf && resultsSkipCloseButton.interactable)
+                    {
+                        onResultsCloseClicked?.Invoke();
                     }
                 }
                 else if (Input.GetKeyDown(KeyCode.Q))
                 {
-                    if (resultsSkipCloseButton != null && resultsSkipCloseButton.gameObject.activeSelf)
+                    if (resultsSkipCloseButton != null && resultsSkipCloseButton.gameObject.activeSelf && resultsSkipCloseButton.interactable)
                     {
                         onResultsCloseClicked?.Invoke();
                     }
-                    else
+                    else if (resultsPlayAgainButton != null && resultsPlayAgainButton.gameObject.activeSelf && resultsPlayAgainButton.interactable)
                     {
                         onResultsRetryClicked?.Invoke();
                     }
@@ -209,7 +223,7 @@ namespace EcoQuest.CityQuest
             if (resultsPlayAgainButton != null)
             {
                 resultsPlayAgainButton.onClick.RemoveAllListeners();
-                resultsPlayAgainButton.onClick.AddListener(() => onResultsRetryClicked?.Invoke());
+                resultsPlayAgainButton.onClick.AddListener(HandleRetryPromptClicked);
             }
             if (resultsPlayAgainKeyCap == null && resultsPlayAgainButton != null)
                 resultsPlayAgainKeyCap = resultsPlayAgainButton.GetComponent<KeyCapPrompt>();
@@ -222,12 +236,34 @@ namespace EcoQuest.CityQuest
             if (resultsSkipCloseButton != null)
             {
                 resultsSkipCloseButton.onClick.RemoveAllListeners();
-                resultsSkipCloseButton.onClick.AddListener(() => onResultsCloseClicked?.Invoke());
+                resultsSkipCloseButton.onClick.AddListener(HandleClosePromptClicked);
+            }
+            if (resultsSkipCloseKeyCap == null && resultsSkipCloseButton != null)
+                resultsSkipCloseKeyCap = resultsSkipCloseButton.GetComponent<KeyCapPrompt>();
+            if (resultsSkipCloseKeyCap != null)
+            {
+                resultsSkipCloseKeyCap.OnPromptClicked -= HandleClosePromptClicked;
+                resultsSkipCloseKeyCap.OnPromptClicked += HandleClosePromptClicked;
             }
         }
 
-        private void HandleQuizPromptClicked() => onResultsQuizClicked?.Invoke();
-        private void HandleRetryPromptClicked() => onResultsRetryClicked?.Invoke();
+        private void HandleQuizPromptClicked()
+        {
+            if (resultsTakeQuizButton != null && !resultsTakeQuizButton.interactable) return;
+            onResultsQuizClicked?.Invoke();
+        }
+
+        private void HandleRetryPromptClicked()
+        {
+            if (resultsPlayAgainButton != null && !resultsPlayAgainButton.interactable) return;
+            if (CityTrashDetectiveManager.IsRobinCooldownActive(out _)) return;
+            onResultsRetryClicked?.Invoke();
+        }
+
+        private void HandleClosePromptClicked()
+        {
+            onResultsCloseClicked?.Invoke();
+        }
 
         public void HideAllImmediate()
         {
@@ -748,6 +784,8 @@ namespace EcoQuest.CityQuest
             onResultsQuizClicked = onTakeQuiz;
             onResultsRetryClicked = onPlayAgain;
             onResultsCloseClicked = onSkipOrClose;
+            resultsCanTakeBonusQuiz = canTakeBonusQuiz;
+            lastResultsCooldownSec = -2;
             BindResultsButtons();
 
             int sec = Mathf.Max(0, Mathf.CeilToInt(remainingSeconds));
@@ -794,19 +832,21 @@ namespace EcoQuest.CityQuest
             if (resultsTakeQuizButton != null)
             {
                 resultsTakeQuizButton.gameObject.SetActive(canTakeBonusQuiz);
+                resultsTakeQuizButton.interactable = true;
                 var quizRt = resultsTakeQuizButton.GetComponent<RectTransform>();
                 if (quizRt != null)
                 {
                     quizRt.anchorMin = new Vector2(0.5f, 0f);
                     quizRt.anchorMax = new Vector2(0.5f, 0f);
                     quizRt.pivot = new Vector2(0.5f, 0.5f);
-                    quizRt.anchoredPosition = new Vector2(0f, 104f);
-                    quizRt.sizeDelta = new Vector2(440f, 46f);
+                    quizRt.anchoredPosition = new Vector2(0f, 108f);
+                    quizRt.sizeDelta = new Vector2(440f, 44f);
                 }
 
                 if (resultsTakeQuizKeyCap == null) resultsTakeQuizKeyCap = resultsTakeQuizButton.GetComponent<KeyCapPrompt>();
                 if (resultsTakeQuizKeyCap != null)
                 {
+                    resultsTakeQuizKeyCap.SetLocked(false);
                     resultsTakeQuizKeyCap.SetCustomKeycapHeight(26f);
                     resultsTakeQuizKeyCap.SetPrompt("E", "Take Bonus Quiz (+70 Coins Max)");
                 }
@@ -816,39 +856,7 @@ namespace EcoQuest.CityQuest
                 }
             }
 
-            if (resultsPlayAgainButton != null)
-            {
-                resultsPlayAgainButton.gameObject.SetActive(true);
-                string retryKey = canTakeBonusQuiz ? "Q" : "E";
-                string retryLabel = canTakeBonusQuiz ? "Continue (Back to Robin)" : "Continue (Return to Robin)";
-
-                if (resultsPlayAgainKeyCap == null) resultsPlayAgainKeyCap = resultsPlayAgainButton.GetComponent<KeyCapPrompt>();
-                if (resultsPlayAgainKeyCap != null)
-                {
-                    resultsPlayAgainKeyCap.SetCustomKeycapHeight(26f);
-                    resultsPlayAgainKeyCap.SetPrompt(retryKey, retryLabel);
-                }
-                else if (resultsPlayAgainButtonText != null)
-                {
-                    resultsPlayAgainButtonText.text = $"<b>[{retryKey}]</b> {retryLabel}";
-                }
-
-                var rt = resultsPlayAgainButton.GetComponent<RectTransform>();
-                if (rt != null)
-                {
-                    rt.anchorMin = new Vector2(0.5f, 0f);
-                    rt.anchorMax = new Vector2(0.5f, 0f);
-                    rt.pivot = new Vector2(0.5f, 0.5f);
-                    rt.anchoredPosition = new Vector2(0f, canTakeBonusQuiz ? 50f : 60f);
-                    rt.sizeDelta = new Vector2(320f, 46f);
-                }
-            }
-
-            if (resultsSkipCloseButton != null)
-            {
-                // Continue button handles the exit flow back to Robin
-                resultsSkipCloseButton.gameObject.SetActive(false);
-            }
+            RefreshResultsRetryCooldownUI(forceUpdate: true);
 
             SetGroupState(resultsCanvasGroup, true);
 
@@ -859,6 +867,125 @@ namespace EcoQuest.CityQuest
             // Count up total coins
             if (coinCountRoutine != null) StopCoroutine(coinCountRoutine);
             coinCountRoutine = StartCoroutine(AnimateCoinsCountUp(pickupCoins + starBonusCoins));
+        }
+
+        private void RefreshResultsRetryCooldownUI(bool forceUpdate = false)
+        {
+            bool cooldownActive = CityTrashDetectiveManager.IsRobinCooldownActive(out float cooldownRemaining);
+            int displaySec = cooldownActive ? Mathf.CeilToInt(cooldownRemaining) : 0;
+            if (!forceUpdate && cooldownActive == lastResultsCooldownActive && (!cooldownActive || displaySec == lastResultsCooldownSec))
+            {
+                return;
+            }
+
+            lastResultsCooldownActive = cooldownActive;
+            lastResultsCooldownSec = displaySec;
+
+            if (resultsPlayAgainButton != null)
+            {
+                resultsPlayAgainButton.gameObject.SetActive(true);
+                resultsPlayAgainButton.interactable = !cooldownActive;
+
+                if (cooldownActive)
+                {
+                    ApplyResultsButtonLabel(resultsPlayAgainButton, resultsPlayAgainKeyCap, resultsPlayAgainButtonText,
+                        string.Empty, $"Ready in {displaySec / 60}:{displaySec % 60:00}", showBadge: false);
+                }
+                else
+                {
+                    string retryKey = resultsCanTakeBonusQuiz ? "Q" : "E";
+                    string retryLabel = resultsCanTakeBonusQuiz ? "Play Again" : "Retry";
+                    ApplyResultsButtonLabel(resultsPlayAgainButton, resultsPlayAgainKeyCap, resultsPlayAgainButtonText,
+                        retryKey, retryLabel, showBadge: true);
+                }
+
+                var rt = resultsPlayAgainButton.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0.5f, 0f);
+                    rt.anchorMax = new Vector2(0.5f, 0f);
+                    rt.pivot = new Vector2(0.5f, 0.5f);
+                    if (cooldownActive || resultsCanTakeBonusQuiz)
+                    {
+                        rt.anchoredPosition = new Vector2(-145f, 48f);
+                        rt.sizeDelta = new Vector2(260f, 44f);
+                    }
+                    else
+                    {
+                        rt.anchoredPosition = new Vector2(0f, 60f);
+                        rt.sizeDelta = new Vector2(320f, 46f);
+                    }
+                }
+            }
+
+            if (resultsSkipCloseButton != null)
+            {
+                bool showClose = cooldownActive || resultsCanTakeBonusQuiz;
+                resultsSkipCloseButton.gameObject.SetActive(showClose);
+                resultsSkipCloseButton.interactable = showClose;
+                if (showClose)
+                {
+                    string closeKey = resultsCanTakeBonusQuiz ? "Q" : "E";
+                    string closeLabel = resultsCanTakeBonusQuiz ? "Take Quiz Later" : "Close";
+                    if (resultsSkipCloseKeyCap == null) resultsSkipCloseKeyCap = resultsSkipCloseButton.GetComponent<KeyCapPrompt>();
+                    ApplyResultsButtonLabel(resultsSkipCloseButton, resultsSkipCloseKeyCap, resultsSkipCloseButtonText,
+                        closeKey, closeLabel, showBadge: true);
+
+                    var srt = resultsSkipCloseButton.GetComponent<RectTransform>();
+                    if (srt != null)
+                    {
+                        srt.anchorMin = new Vector2(0.5f, 0f);
+                        srt.anchorMax = new Vector2(0.5f, 0f);
+                        srt.pivot = new Vector2(0.5f, 0.5f);
+                        srt.anchoredPosition = new Vector2(145f, 48f);
+                        srt.sizeDelta = new Vector2(260f, 44f);
+                    }
+                }
+            }
+        }
+
+        private static void ApplyResultsButtonLabel(Button btn, KeyCapPrompt kcp, TextMeshProUGUI fallbackTmp, string keyStr, string labelText, bool showBadge)
+        {
+            if (btn == null) return;
+            Transform badge = btn.transform.Find("KeycapBadge");
+            if (badge != null) badge.gameObject.SetActive(showBadge);
+
+            if (kcp != null)
+            {
+                kcp.SetCustomKeycapHeight(26f);
+                kcp.SetLocked(!btn.interactable);
+                if (showBadge && !string.IsNullOrEmpty(keyStr))
+                {
+                    kcp.SetPrompt(keyStr, labelText);
+                }
+                else if (kcp.ActionLabelText != null)
+                {
+                    kcp.ActionLabelText.text = labelText;
+                }
+                if (kcp.ActionLabelText != null)
+                {
+                    var le = kcp.ActionLabelText.GetComponent<LayoutElement>();
+                    if (le != null)
+                    {
+                        float pw = kcp.ActionLabelText.GetPreferredValues(labelText).x;
+                        le.minWidth = pw;
+                        le.preferredWidth = pw;
+                    }
+                    if (!btn.interactable)
+                    {
+                        Color lc = kcp.ActionLabelText.color;
+                        lc.a = 0.82f;
+                        kcp.ActionLabelText.color = lc;
+                    }
+                }
+            }
+            else if (fallbackTmp != null)
+            {
+                fallbackTmp.text = showBadge && !string.IsNullOrEmpty(keyStr) ? $"<b>[{keyStr}]</b> {labelText}" : labelText;
+            }
+
+            var rt = btn.transform as RectTransform;
+            if (rt != null) LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
         }
 
         private IEnumerator AnimateStarsPopIn(int starsEarned)

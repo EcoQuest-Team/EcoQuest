@@ -25,6 +25,8 @@ public static class EcoQuestSaveKeys
     public const string CityBonusPending = "EcoQuest_City_BonusPending";
     public const string CityBonusTaken = "EcoQuest_City_BonusTaken";
     public const string CityLastSeed = "EcoQuest_City_LastSeed";
+    public const string CityRobinCooldownRemaining = "EcoQuest_City_RobinCooldownRemaining";
+    public const string CityRobinCooldownLegacyUntil = "EcoQuest_RobinCooldownUntil";
 
     // Inventory Keys
     public const string InventorySlots = "EcoQuest_Inventory_Slots";
@@ -50,6 +52,8 @@ public static class EcoQuestSaveKeys
         CityBonusPending,
         CityBonusTaken,
         CityLastSeed,
+        CityRobinCooldownRemaining,
+        CityRobinCooldownLegacyUntil,
         InventorySlots,
         InventorySeenNew
     };

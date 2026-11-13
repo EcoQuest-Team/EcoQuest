@@ -630320,6 +630320,9 @@ MonoBehaviour:
     Litterbug round! Finish or turn in that round first, then come right back to
     me.
   questDurationSeconds: 240
+  repeatCooldownSeconds: 300
+  repeatCooldownMinutes: 5
+  hourglassMarkerSprite: {fileID: 21300000, guid: 5accf65c5e7149a9b08ab109b868abe3, type: 3}
   pickupInteractRange: 3
   maxHintCharges: 4
   hintCooldownSeconds: 25

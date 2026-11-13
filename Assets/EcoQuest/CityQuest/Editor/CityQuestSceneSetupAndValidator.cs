@@ -478,6 +478,9 @@ namespace EcoQuest.CityQuest.Editor
             mgr.spawnPointsRoot = spawnPointsRoot;
             mgr.poolRoot = poolRoot;
             mgr.questDurationSeconds = 240f;
+            mgr.repeatCooldownSeconds = 300f;
+            mgr.repeatCooldownMinutes = 5f;
+            mgr.hourglassMarkerSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/EcoQuest/UI/Icons/Icon_Hourglass.png");
             mgr.maxHintCharges = 4;
 
             ApplyCityQuestUIPolish();
@@ -1306,6 +1309,13 @@ namespace EcoQuest.CityQuest.Editor
                     }
                 }
             }
+        }
+
+        [MenuItem("EcoQuest/City/Skip Robin Cooldown")]
+        public static void SkipRobinCooldownMenu()
+        {
+            CityTrashDetectiveManager.SkipRobinCooldown();
+            Debug.Log("[EcoQuest] Ranger Robin cooldown cleared cleanly (ready immediately).");
         }
 
         // =====================================================================

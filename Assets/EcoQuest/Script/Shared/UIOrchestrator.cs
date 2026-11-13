@@ -220,6 +220,7 @@ public class UIOrchestrator : MonoBehaviour
 
     private void Update()
     {
+        EcoQuest.CityQuest.CityTrashDetectiveManager.TickRobinCooldownGlobal();
         if (Input.GetKeyDown(KeyCode.Tab))
         {
             if (IsCityScene() || QuestPanelToggleController.Instance == null || !QuestPanelToggleController.Instance.gameObject.activeInHierarchy)
@@ -227,6 +228,16 @@ public class UIOrchestrator : MonoBehaviour
                 ToggleQuestPanel("TAB");
             }
         }
+    }
+
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus) EcoQuest.CityQuest.CityTrashDetectiveManager.FlushRobinCooldownSave();
+    }
+
+    private void OnApplicationQuit()
+    {
+        EcoQuest.CityQuest.CityTrashDetectiveManager.FlushRobinCooldownSave();
     }
 
     public void SetQuestPanelUserHidden(bool hidden, string caller = "System")
@@ -295,6 +306,7 @@ public class UIOrchestrator : MonoBehaviour
 
     private void OnDestroy()
     {
+        EcoQuest.CityQuest.CityTrashDetectiveManager.FlushRobinCooldownSave();
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
         if (instance == this) instance = null;
     }

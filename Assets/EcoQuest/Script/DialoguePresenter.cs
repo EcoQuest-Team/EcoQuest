@@ -617,6 +617,26 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    /// <summary>
+    /// Updates the currently shown dialogue body line in place (e.g., for live timers) without restarting typing.
+    /// </summary>
+    public void UpdateLiveCurrentLineText(string newText)
+    {
+        if (!IsInDialogue || string.IsNullOrEmpty(newText)) return;
+        if (currentPageIndex >= 0 && currentPageIndex < activePages.Count)
+        {
+            activePages[currentPageIndex] = newText;
+        }
+        if (dialogueBodyText != null)
+        {
+            dialogueBodyText.text = newText;
+            if (isTypewriterComplete)
+            {
+                dialogueBodyText.maxVisibleCharacters = 99999;
+            }
+        }
+    }
+
     private void CompleteTypewriterInstantly()
     {
         if (typewriterRoutine != null) StopRunningCoroutine(typewriterRoutine);
