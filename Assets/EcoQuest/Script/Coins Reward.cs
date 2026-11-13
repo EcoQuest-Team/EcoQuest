@@ -114,6 +114,15 @@ public class PlayerCurrency : MonoBehaviour
         ShowPopup("-" + amount.ToString(), Color.red);
     }
 
+    public void ResetGoldToZero()
+    {
+        currentGold = 0;
+        if (PlayerPrefs.HasKey(PrefsKey)) PlayerPrefs.DeleteKey(PrefsKey);
+        if (PlayerPrefs.HasKey(LegacyPrefsKey)) PlayerPrefs.DeleteKey(LegacyPrefsKey);
+        PlayerPrefs.Save();
+        UpdateGoldUI();
+    }
+
     private void UpdateGoldUI()
     {
         if (coinText != null)

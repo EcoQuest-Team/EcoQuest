@@ -796,7 +796,7 @@ namespace EcoQuest.Inventory.Editor
             SetPrivateField(ctrl, "inventoryUI", uiInv);
             SetPrivateField(ctrl, "keepVitalsVisible", true);
             SetPrivateField(ctrl, "blockUseWhenFull", true);
-            SetPrivateField(ctrl, "giveTestItemsOnStart", true);
+            SetPrivateField(ctrl, "giveTestItemsOnStart", false);
 
             string uiPrefabPath = $"{PrefabFolder}/UI_Inventory.prefab";
             PrefabUtility.SaveAsPrefabAsset(rootGo, uiPrefabPath);

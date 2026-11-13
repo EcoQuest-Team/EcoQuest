@@ -503,6 +503,28 @@ public class PlayerSurvivalStats : MonoBehaviour
         return true;
     }
 
+    public void ResetNeedsToFull()
+    {
+        _isSprinting = false;
+        _isExhausted = false;
+        _timeSinceLastSprint = 0f;
+        _rumble20Shown = false;
+        _rumble0Shown = false;
+        currentHunger = maxHunger;
+        currentStamina = maxStamina;
+
+        _speedBuffRemaining = 0f;
+        _speedBuffDuration = 0f;
+        _speedBuffPercent = 0f;
+        _staminaBuffRemaining = 0f;
+        _staminaBuffDuration = 0f;
+        _staminaBuffPercent = 0f;
+
+        OnHungerChanged?.Invoke(currentHunger, maxHunger);
+        OnStaminaChanged?.Invoke(currentStamina, maxStamina);
+        OnActiveBuffsChanged?.Invoke();
+    }
+
     public void ClearAllBuffsForTest()
     {
         _speedBuffRemaining = 0f;

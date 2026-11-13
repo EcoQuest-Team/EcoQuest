@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using UnityEngine;
 
 /// <summary>
@@ -12,12 +14,18 @@ public static class EcoQuestSaveKeys
     public const string PreQuizScore = "EcoQuest_PreQuizScore";
     public const string PostQuizScore = "EcoQuest_PostQuizScore";
     public const string SequentialWASD = "SequentialWASD_TutorialCompleted";
+    public const string LastLoadingTipText = "EcoQuest_LastLoadingTipText";
 
     // Gate & Completion Keys
     public const string ForestQuestAccepted = "EcoQuest_ForestQuestAccepted";
     public const string ForestTrashQuestDone = "EcoQuest_ForestTrashQuestDone";
     public const string ForestRewardClaimed = "EcoQuest_ForestRewardClaimed";
     public const string ForestExplorerGateNotified = "EcoQuest_ForestExplorerGateNotified";
+    public const string GuardianCooldownUntil = "EcoQuest_GuardianCooldownUntil";
+
+    // Currency Keys
+    public const string PlayerGold = "PlayerGold";
+    public const string PlayerCoins = "PlayerCoins";
 
     // City Trash Detective Keys
     public const string CityBestStars = "EcoQuest_City_BestStars";
@@ -27,6 +35,8 @@ public static class EcoQuestSaveKeys
     public const string CityLastSeed = "EcoQuest_City_LastSeed";
     public const string CityRobinCooldownRemaining = "EcoQuest_City_RobinCooldownRemaining";
     public const string CityRobinCooldownLegacyUntil = "EcoQuest_RobinCooldownUntil";
+    public const string CityTipChecklist = "EcoQuest_CityTip_Checklist";
+    public const string CityTipHint = "EcoQuest_CityTip_Hint";
 
     // Survival / Needs Keys
     public const string PlayerHungerRemaining = "EcoQuest_Player_HungerRemaining";
@@ -42,10 +52,12 @@ public static class EcoQuestSaveKeys
     // Inventory Keys
     public const string InventorySlots = "EcoQuest_Inventory_Slots";
     public const string InventorySeenNew = "EcoQuest_Inventory_SeenNew";
+    public const string InventoryDebugConsume = "EcoQuest_Inventory_DebugConsume";
 
     /// <summary>
-    /// Complete array of all persistent keys related to tutorial and quest progress.
-    /// Settings (volume, resolution, graphics) are excluded so player preferences remain intact.
+    /// Complete array of all persistent keys related to player progression, currency, inventory,
+    /// survival needs, and tutorial/quest state.
+    /// Settings (EcoQuest_Settings_*, graphics, volume, sensitivity) are intentionally excluded.
     /// </summary>
     public static readonly string[] AllTutorialProgressKeys = new string[]
     {
@@ -54,10 +66,14 @@ public static class EcoQuestSaveKeys
         PreQuizScore,
         PostQuizScore,
         SequentialWASD,
+        LastLoadingTipText,
         ForestQuestAccepted,
         ForestTrashQuestDone,
         ForestRewardClaimed,
         ForestExplorerGateNotified,
+        GuardianCooldownUntil,
+        PlayerGold,
+        PlayerCoins,
         CityBestStars,
         CityBestTime,
         CityBonusPending,
@@ -65,6 +81,8 @@ public static class EcoQuestSaveKeys
         CityLastSeed,
         CityRobinCooldownRemaining,
         CityRobinCooldownLegacyUntil,
+        CityTipChecklist,
+        CityTipHint,
         PlayerHungerRemaining,
         PlayerHungerRumble20Shown,
         PlayerHungerRumble0Shown,
@@ -75,7 +93,8 @@ public static class EcoQuestSaveKeys
         PlayerStaminaBuffDuration,
         PlayerStaminaBuffPercent,
         InventorySlots,
-        InventorySeenNew
+        InventorySeenNew,
+        InventoryDebugConsume
     };
 
     /// <summary>
@@ -83,11 +102,55 @@ public static class EcoQuestSaveKeys
     /// </summary>
     public static void ClearAllTutorialProgress()
     {
+        DeleteProgressKeysInternal();
+    }
+
+    /// <summary>
+    /// Single runtime entry point for New Game / Editor reset: clears all persistent player
+    /// progress, resets loaded runtime managers back to brand-new defaults, and preserves all
+    /// EcoQuest_Settings_* player preferences. Returns the number of deleted PlayerPrefs keys.
+    /// </summary>
+    public static int ResetAllPlayerProgress()
+    {
+        if (PlayerCurrency.Instance != null)
+        {
+            PlayerCurrency.Instance.ResetGoldToZero();
+        }
+
+        if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.Service != null)
+        {
+            EcoQuest.Inventory.InventoryController.Instance.Service.Clear();
+        }
+
+        if (PlayerSurvivalStats.Instance != null)
+        {
+            PlayerSurvivalStats.Instance.ResetNeedsToFull();
+        }
+
+        NPCInteraction.ResetStaticFlowState();
+
+        if (Application.isPlaying)
+        {
+            QuizManager.Instance?.ResetQuizzes();
+            GameplayControlTipsManager.Instance?.ResetTipsState();
+            QuestManager.ResetAllQuestCountsToZero();
+            IntroSequenceController.Instance?.SetTrashVisible(false, false, "ResetAllPlayerProgress");
+        }
+
+        DeleteCustomSaveFilesIfPresent();
+        return DeleteProgressKeysInternal();
+    }
+
+    private static int DeleteProgressKeysInternal()
+    {
+        int removedCount = 0;
+
         for (int i = 0; i < AllTutorialProgressKeys.Length; i++)
         {
             if (PlayerPrefs.HasKey(AllTutorialProgressKeys[i]))
             {
                 PlayerPrefs.DeleteKey(AllTutorialProgressKeys[i]);
+                removedCount++;
             }
         }
 
@@ -100,10 +163,41 @@ public static class EcoQuestSaveKeys
         for (int i = 0; i < binPrefixes.Length; i++)
         {
             string key = $"EcoQuest_Bin_{binPrefixes[i]}_Deposits";
-            if (PlayerPrefs.HasKey(key)) PlayerPrefs.DeleteKey(key);
+            if (PlayerPrefs.HasKey(key))
+            {
+                PlayerPrefs.DeleteKey(key);
+                removedCount++;
+            }
         }
 
         PlayerPrefs.Save();
         ModalManager.ClearPersistedSeenCards();
+        return removedCount;
+    }
+
+    private static void DeleteCustomSaveFilesIfPresent()
+    {
+        string saveDir = Application.persistentDataPath;
+        if (string.IsNullOrEmpty(saveDir) || !Directory.Exists(saveDir))
+        {
+            return;
+        }
+
+        string[] patterns = { "*.json", "*.sav", "*.dat", "*.bin" };
+        for (int p = 0; p < patterns.Length; p++)
+        {
+            string[] files = Directory.GetFiles(saveDir, patterns[p], SearchOption.TopDirectoryOnly);
+            for (int f = 0; f < files.Length; f++)
+            {
+                try
+                {
+                    File.Delete(files[f]);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[EcoQuestSaveKeys] Could not delete save file '{files[f]}': {ex.Message}");
+                }
+            }
+        }
     }
 }

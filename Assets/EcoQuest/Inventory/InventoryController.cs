@@ -40,8 +40,8 @@ namespace EcoQuest.Inventory
         [Tooltip("Block using a food/stamina item when that stat is already at 100%.")]
         [SerializeField] private bool blockUseWhenFull = true;
 
-        [Tooltip("Give 5 Apples and 3 Energy Drinks once at Play start when inventory is empty (Editor/Dev builds only).")]
-        [SerializeField] private bool giveTestItemsOnStart = true;
+        [Tooltip("Give 5 Apples and 3 Energy Drinks once at Play start when inventory is empty (opt-in for testing only).")]
+        [SerializeField] private bool giveTestItemsOnStart = false;
 
         private InventoryService service;
         private bool isOpen = false;

@@ -2948,7 +2948,7 @@ MonoBehaviour:
   bagButton: {fileID: 0}
   keepVitalsVisible: 1
   blockUseWhenFull: 1
-  giveTestItemsOnStart: 1
+  giveTestItemsOnStart: 0
 --- !u!1 &4982540966055440090
 GameObject:
   m_ObjectHideFlags: 0
