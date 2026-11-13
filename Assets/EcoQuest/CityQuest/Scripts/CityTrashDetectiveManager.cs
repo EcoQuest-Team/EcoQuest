@@ -1677,7 +1677,7 @@ namespace EcoQuest.CityQuest
             }
             else
             {
-                AudioManager.Instance?.PlayButtonClick();
+                AudioManager.Instance?.PlayCoinEarn();
             }
             WorldInteractionPrompt.Instance?.HidePrompt();
 
@@ -1753,7 +1753,7 @@ namespace EcoQuest.CityQuest
             }
             else
             {
-                AudioManager.Instance?.PlayButtonClick();
+                AudioManager.Instance?.PlayNotification();
             }
 
             if (ui != null)

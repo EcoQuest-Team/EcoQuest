@@ -410,6 +410,7 @@ public class QuestPanelToggleController : MonoBehaviour
         {
             UIOrchestrator.Instance.ToggleQuestPanel("TAB");
             isVisible = UIOrchestrator.Instance.GetExpectedVisibility(UIOrchestrator.UIElement.QuestPanel);
+            AudioManager.Instance?.PlayPanelWhoosh();
             if (isVisible) RefreshProgressBars(false);
             OnPanelToggled?.Invoke(isVisible);
 
@@ -427,6 +428,7 @@ public class QuestPanelToggleController : MonoBehaviour
 
         isVisible = !questHud.IsVisible;
         questHud.SetVisible(isVisible, toggleDuration);
+        AudioManager.Instance?.PlayPanelWhoosh();
         OnPanelToggled?.Invoke(isVisible);
 
         if (!isVisible) hasHiddenOnce = true;

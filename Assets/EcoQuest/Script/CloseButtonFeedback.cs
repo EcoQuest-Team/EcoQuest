@@ -18,6 +18,7 @@ public class CloseButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointer
     {
         isHovered = true;
         transform.localScale = originalScale * hoverScale;
+        AudioManager.Instance?.PlayButtonHover();
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -29,6 +30,7 @@ public class CloseButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointer
     public void OnPointerDown(PointerEventData eventData)
     {
         transform.localScale = originalScale * pressScale;
+        AudioManager.Instance?.PlayButtonClick();
     }
 
     public void OnPointerUp(PointerEventData eventData)

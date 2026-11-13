@@ -1039,6 +1039,7 @@ public class MinimapController : MonoBehaviour
         isFullMapOpen = true;
         hasOpenedMapOnce = true;
         openedAtUnscaledTime = Time.unscaledTime;
+        AudioManager.Instance?.PlayPanelWhoosh();
 
         savedLodBias = QualitySettings.lodBias;
         QualitySettings.lodBias = 100f; // Force highest LOD for full map view
@@ -1086,6 +1087,7 @@ public class MinimapController : MonoBehaviour
         if (!isFullMapOpen) return;
         isFullMapOpen = false;
         QualitySettings.lodBias = savedLodBias;
+        AudioManager.Instance?.PlayPanelWhoosh();
 
         if (hasOpenedMapOnce)
         {

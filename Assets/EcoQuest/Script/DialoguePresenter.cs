@@ -470,6 +470,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         // Fade dialogue panel in
         if (fadeRoutine != null) StopRunningCoroutine(fadeRoutine);
         fadeRoutine = RunCoroutine(FadeDialoguePanelRoutine(1f, panelOpenDuration));
+        AudioManager.Instance?.PlayModalOpen();
 
         OnDialogueStarted?.Invoke();
 
@@ -617,6 +618,10 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
             for (int i = 1; i <= totalChars; i++)
             {
                 dialogueBodyText.maxVisibleCharacters = i;
+                if (!char.IsWhiteSpace(fullText[i - 1]))
+                {
+                    AudioManager.Instance?.PlayDialogueBlip();
+                }
                 yield return new WaitForSecondsRealtime(typewriterCharDelay);
             }
 
@@ -856,6 +861,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         if (!IsInDialogue) return;
         IsInDialogue = false;
         isSuspended = false;
+        AudioManager.Instance?.PlayModalClose();
 
         if (dialogueNextTriangle != null) dialogueNextTriangle.SetActive(false);
         OnTypingStateChanged?.Invoke(false);

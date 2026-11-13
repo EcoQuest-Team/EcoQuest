@@ -175,6 +175,7 @@ public class QuizManager : MonoBehaviour
                     questions[0].questionImage
                 );
             }
+            AudioManager.Instance?.PlayModalOpen();
             yield return quizUI.AnimateOpenModal("Pre-Quiz: Initial Knowledge");
         }
 
@@ -207,6 +208,7 @@ public class QuizManager : MonoBehaviour
             {
                 yield return null;
             }
+            AudioManager.Instance?.PlayButtonClick();
 
             // Record score without revealing feedback
             if (chosenOption == q.correctIndex)
@@ -225,6 +227,7 @@ public class QuizManager : MonoBehaviour
         // 5. Close modal completely before triggering 3 Bin Educational Cards
         if (quizUI != null)
         {
+            AudioManager.Instance?.PlayModalClose();
             yield return quizUI.AnimateCloseModal();
         }
 
@@ -277,6 +280,7 @@ public class QuizManager : MonoBehaviour
                     questions[0].questionImage
                 );
             }
+            AudioManager.Instance?.PlayModalOpen();
             yield return quizUI.AnimateOpenModal("Post-Quiz: Master Verification");
         }
 
@@ -313,6 +317,7 @@ public class QuizManager : MonoBehaviour
             if (isCorrect)
             {
                 postQuizScore++;
+                AudioManager.Instance?.PlayQuizCorrect();
 
                 // Optional bonus gold award
                 if (awardBonusGold && goldBonusPerCorrect > 0)
@@ -324,6 +329,10 @@ public class QuizManager : MonoBehaviour
                         totalBonusGoldEarned += goldBonusPerCorrect;
                     }
                 }
+            }
+            else
+            {
+                AudioManager.Instance?.PlayQuizWrong();
             }
 
             // Post-quiz feedback: highlight, pulse/shake, explanation, Next button
@@ -355,6 +364,7 @@ public class QuizManager : MonoBehaviour
         bool continueClicked = false;
         if (quizUI != null)
         {
+            AudioManager.Instance?.PlayQuestComplete();
             yield return quizUI.AnimateResultsScreen(
                 preQuizScore,
                 postQuizScore,
@@ -372,6 +382,7 @@ public class QuizManager : MonoBehaviour
         // 6. Close modal and restore player controls
         if (quizUI != null)
         {
+            AudioManager.Instance?.PlayModalClose();
             yield return quizUI.AnimateCloseModal();
         }
 

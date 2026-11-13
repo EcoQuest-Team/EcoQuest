@@ -1085,7 +1085,7 @@ namespace EcoQuest.CityQuest
                     }
                     else
                     {
-                        AudioManager.Instance?.PlayButtonClick();
+                        AudioManager.Instance?.PlayQuizCorrect();
                     }
                 }
 

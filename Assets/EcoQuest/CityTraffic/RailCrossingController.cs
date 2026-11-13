@@ -103,6 +103,10 @@ namespace EcoQuest.CityTraffic
                 bellAudioSource.maxDistance = 42.0f;
                 bellAudioSource.volume = 0.28f;
             }
+            if (bellAudioSource.outputAudioMixerGroup == null && AudioManager.Instance != null)
+            {
+                bellAudioSource.outputAudioMixerGroup = AudioManager.Instance.GetSFXGroup();
+            }
         }
 
         private void Update()

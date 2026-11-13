@@ -726,6 +726,7 @@ public class ControlTipCardUI : MonoBehaviour
 
     private IEnumerator CompleteRoutine(string doneMessage, System.Action onFinished)
     {
+        AudioManager.Instance?.PlayTutorialStep();
         isIdlePulsing = false;
         isKeyHeld = false;
         if (cardRect != null) cardRect.localScale = Vector3.one;

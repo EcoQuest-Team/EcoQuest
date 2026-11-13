@@ -2251,18 +2251,23 @@ public class LitterbugQuestManager : MonoBehaviour
 
     public void PlayThrowAudio()
     {
-        if (sfxSource != null && throwClip != null)
-            sfxSource.PlayOneShot(throwClip, 0.8f);
+        if (throwClip != null && sfxSource != null) sfxSource.PlayOneShot(throwClip, 0.8f);
+        else if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(AudioManager.Instance.sfxLitterThrow, 0.8f);
     }
 
     public void PlayLandAudio()
     {
-        if (sfxSource != null && landClip != null)
-            sfxSource.PlayOneShot(landClip, 0.75f);
+        if (landClip != null && sfxSource != null) sfxSource.PlayOneShot(landClip, 0.75f);
+        else if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(AudioManager.Instance.sfxLitterLand, 0.75f);
     }
 
     public void PlayDialogueBlipAudio()
     {
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayDialogueBlip();
+            return;
+        }
         if (sfxSource != null && dialogueBlipClip != null)
         {
             sfxSource.pitch = UnityEngine.Random.Range(0.94f, 1.06f);
@@ -2272,8 +2277,8 @@ public class LitterbugQuestManager : MonoBehaviour
 
     public void PlayCoinAudio()
     {
-        if (sfxSource != null && coinClip != null)
-            sfxSource.PlayOneShot(coinClip, 0.95f);
+        if (coinClip != null && sfxSource != null) sfxSource.PlayOneShot(coinClip, 0.95f);
+        else if (AudioManager.Instance != null) AudioManager.Instance.PlayCoinEarn();
     }
 
     [ContextMenu("Run Self Check")]

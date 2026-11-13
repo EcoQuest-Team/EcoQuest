@@ -143,6 +143,10 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         {
             UITheme.PlaySound(_hungerWarningSound, _hungerWarningSoundVolume);
         }
+        else if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayHungerWarning();
+        }
 
         ShowNeedsToast(msg, Mathf.Max(1.0f, _hungerWarningDuration));
     }

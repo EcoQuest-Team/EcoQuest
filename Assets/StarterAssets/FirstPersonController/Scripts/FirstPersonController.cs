@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace StarterAssets
 {
@@ -258,6 +259,12 @@ namespace StarterAssets
 
 		public void PlayFootstepSound()
 		{
+			if (AudioManager.Instance != null)
+			{
+				bool isCity = SceneManager.GetActiveScene().name.IndexOf("City", System.StringComparison.OrdinalIgnoreCase) >= 0;
+				AudioManager.Instance.PlayFootstep(isCity, FootstepAudioVolume);
+				return;
+			}
 			if (FootstepAudioClips == null || FootstepAudioClips.Length == 0) return;
 			AudioClip clip = FootstepAudioClips[Random.Range(0, FootstepAudioClips.Length)];
 			if (clip == null) return;
@@ -270,6 +277,11 @@ namespace StarterAssets
 
 		public void PlayLandingSound()
 		{
+			if (AudioManager.Instance != null && AudioManager.Instance.sfxLand != null)
+			{
+				AudioManager.Instance.PlayLand();
+				return;
+			}
 			if (LandingAudioClip == null) return;
 			if (FootstepAudioSource != null)
 			{
@@ -451,6 +463,7 @@ namespace StarterAssets
 				_jumpTimeoutDelta = JumpTimeout;
 				Grounded = false;
 				TriggerJumpAnimation();
+				if (AudioManager.Instance != null) AudioManager.Instance.PlayJump();
 			}
 
 			if (_verticalVelocity < _terminalVelocity)

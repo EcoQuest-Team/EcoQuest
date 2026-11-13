@@ -397,6 +397,10 @@ public class ExplorerGateController : MonoBehaviour
         {
             AudioManager.Instance.PlaySFX(travelAcceptClip);
         }
+        else if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayQuestComplete();
+        }
 
         // Brief delay for cheer reaction before screen transition begins
         StartCoroutine(ExecuteTravelSequence());

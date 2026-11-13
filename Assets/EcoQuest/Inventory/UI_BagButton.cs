@@ -179,6 +179,7 @@ namespace EcoQuest.Inventory
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            AudioManager.Instance?.PlayButtonClick();
             controller?.ToggleInventory();
         }
     }

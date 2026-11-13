@@ -1973,6 +1973,10 @@ public class DragAndDrop : MonoBehaviour
         {
             audioSource.PlayOneShot(dropAudioClip, audioVolume);
         }
+        else if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayTrashDrop();
+        }
 
         if (Application.isPlaying && gameObject.activeInHierarchy)
         {

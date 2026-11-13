@@ -164,7 +164,7 @@ public class ExplorerGateNotification : MonoBehaviour
         }
         else if (AudioManager.Instance != null)
         {
-            AudioManager.Instance.PlayButtonClick();
+            AudioManager.Instance.PlayNotification();
         }
 
         // Fade In (0.35s)

@@ -280,6 +280,10 @@ namespace EcoQuest.CityTraffic
                 hornAudioSource.maxDistance = 30.0f;
                 hornAudioSource.volume = 0.35f;
             }
+            if (hornAudioSource.outputAudioMixerGroup == null && AudioManager.Instance != null)
+            {
+                hornAudioSource.outputAudioMixerGroup = AudioManager.Instance.GetSFXGroup();
+            }
 
             // Stage D.2: Shared 3D Engine Hum AudioSource
             Transform engChild = transform.Find("EngineHumAudio");
@@ -304,7 +308,11 @@ namespace EcoQuest.CityTraffic
             engineAudioSource.maxDistance = 18.0f;
             engineAudioSource.volume = 0.12f;
             engineAudioSource.dopplerLevel = 0.15f;
-            if (engineHumClip == null)
+            if (engineAudioSource.outputAudioMixerGroup == null && AudioManager.Instance != null)
+            {
+                engineAudioSource.outputAudioMixerGroup = AudioManager.Instance.GetSFXGroup();
+            }
+            if (engineHumClip == null || engineHumClip.length <= 0.01f)
             {
                 engineHumClip = GetOrCreateSharedEngineHumClip();
             }
@@ -1180,7 +1188,7 @@ namespace EcoQuest.CityTraffic
             if (hornAudioSource == null) return;
 
             AudioClip clipToPlay = hornClip;
-            if (clipToPlay == null)
+            if (clipToPlay == null || clipToPlay.length <= 0.01f)
             {
                 clipToPlay = GetOrCreateFriendlyBeepClip();
             }

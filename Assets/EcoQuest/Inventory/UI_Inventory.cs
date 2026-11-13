@@ -438,7 +438,9 @@ namespace EcoQuest.Inventory
             if (transitionRoutine != null) StopCoroutine(transitionRoutine);
             transitionRoutine = StartCoroutine(AnimateOpenRoutine());
 
-            PlaySound(openSound != null ? openSound : (UITheme.Instance != null ? UITheme.Instance.modalOpenSound : null));
+            if (openSound != null) PlaySound(openSound);
+            else if (UITheme.Instance != null && UITheme.Instance.modalOpenSound != null) PlaySound(UITheme.Instance.modalOpenSound);
+            else AudioManager.Instance?.PlayModalOpen();
             RefreshUI();
 
             // Auto-select first occupied slot if current selection is invalid or empty
@@ -473,7 +475,9 @@ namespace EcoQuest.Inventory
             }
             if (transitionRoutine != null) StopCoroutine(transitionRoutine);
             transitionRoutine = StartCoroutine(AnimateCloseRoutine());
-            PlaySound(closeSound != null ? closeSound : (UITheme.Instance != null ? UITheme.Instance.modalCloseSound : null));
+            if (closeSound != null) PlaySound(closeSound);
+            else if (UITheme.Instance != null && UITheme.Instance.modalCloseSound != null) PlaySound(UITheme.Instance.modalCloseSound);
+            else AudioManager.Instance?.PlayModalClose();
         }
 
         public void HideImmediate()
@@ -978,7 +982,9 @@ namespace EcoQuest.Inventory
                 if (useCooldownRoutine != null) StopCoroutine(useCooldownRoutine);
                 useCooldownRoutine = isActiveAndEnabled ? StartCoroutine(UseCooldownRoutine(useCooldownDuration)) : null;
 
-                PlaySound(useItemSound != null ? useItemSound : (UITheme.Instance != null ? UITheme.Instance.buttonClickSound : null));
+                if (useItemSound != null) PlaySound(useItemSound);
+                else if (AudioManager.Instance != null) AudioManager.Instance.PlayItemUse();
+                else if (UITheme.Instance != null && UITheme.Instance.buttonClickSound != null) PlaySound(UITheme.Instance.buttonClickSound);
                 TriggerPreviewFlash();
 
                 if (usedSlot >= 0 && usedSlot < slotViews.Count)
@@ -1094,13 +1100,13 @@ namespace EcoQuest.Inventory
         private void PlaySound(AudioClip clip)
         {
             if (clip == null) return;
-            if (audioSource != null)
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlayUI(clip);
+            }
+            else if (audioSource != null)
             {
                 audioSource.PlayOneShot(clip);
-            }
-            else
-            {
-                UITheme.PlaySound(clip);
             }
         }
     }

@@ -332,7 +332,9 @@ namespace EcoQuest.Inventory
             if (transitionRoutine != null) StopCoroutine(transitionRoutine);
             transitionRoutine = StartCoroutine(AnimateOpenRoutine());
 
-            PlaySound(openSound != null ? openSound : (UITheme.Instance != null ? UITheme.Instance.modalOpenSound : null));
+            if (openSound != null) PlaySound(openSound);
+            else if (UITheme.Instance != null && UITheme.Instance.modalOpenSound != null) PlaySound(UITheme.Instance.modalOpenSound);
+            else AudioManager.Instance?.PlayModalOpen();
             OnShopOpened?.Invoke();
         }
 
@@ -361,7 +363,9 @@ namespace EcoQuest.Inventory
             }
 
             RestorePlayerAndCursorState();
-            PlaySound(closeSound != null ? closeSound : (UITheme.Instance != null ? UITheme.Instance.modalCloseSound : null));
+            if (closeSound != null) PlaySound(closeSound);
+            else if (UITheme.Instance != null && UITheme.Instance.modalCloseSound != null) PlaySound(UITheme.Instance.modalCloseSound);
+            else AudioManager.Instance?.PlayModalClose();
         }
 
         public void HideImmediate()
@@ -537,7 +541,9 @@ namespace EcoQuest.Inventory
         private void OnLockedSlotClicked()
         {
             ShowToast("Locked for now!", isError: false);
-            PlaySound(errorSound != null ? errorSound : (UITheme.Instance != null ? UITheme.Instance.buttonHoverSound : null));
+            if (errorSound != null) PlaySound(errorSound);
+            else if (AudioManager.Instance != null) AudioManager.Instance.PlayShopError();
+            else if (UITheme.Instance != null) PlaySound(UITheme.Instance.buttonHoverSound);
         }
 
         private void OnSlotBuyClicked(InventoryItemDef item)
@@ -550,7 +556,9 @@ namespace EcoQuest.Inventory
             if (currentGold < item.price)
             {
                 ShowToast("Not enough coins yet - complete more quests!", isError: true);
-                PlaySound(errorSound != null ? errorSound : (UITheme.Instance != null ? UITheme.Instance.buttonHoverSound : null));
+                if (errorSound != null) PlaySound(errorSound);
+                else if (AudioManager.Instance != null) AudioManager.Instance.PlayShopError();
+                else if (UITheme.Instance != null) PlaySound(UITheme.Instance.buttonHoverSound);
                 return;
             }
 
@@ -590,7 +598,9 @@ namespace EcoQuest.Inventory
             }
 
             ShowToast($"Purchased {item.displayName}!", isError: false);
-            PlaySound(buySound != null ? buySound : (UITheme.Instance != null ? UITheme.Instance.coinPickupSound : null));
+            if (buySound != null) PlaySound(buySound);
+            else if (AudioManager.Instance != null) AudioManager.Instance.PlayShopBuy();
+            else if (UITheme.Instance != null) PlaySound(UITheme.Instance.coinPickupSound);
         }
 
         public void UpdateCoinPill(bool animate = false)
@@ -769,6 +779,11 @@ namespace EcoQuest.Inventory
         private void PlaySound(AudioClip clip)
         {
             if (clip == null) return;
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlayUI(clip);
+                return;
+            }
             if (audioSource == null) audioSource = GetComponent<AudioSource>();
             if (audioSource != null)
             {

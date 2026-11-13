@@ -130,6 +130,10 @@ namespace EcoQuest.CityTraffic
                 hornAudioSource.maxDistance = 85.0f;
                 hornAudioSource.volume = 0.45f;
             }
+            if (hornAudioSource.outputAudioMixerGroup == null && AudioManager.Instance != null)
+            {
+                hornAudioSource.outputAudioMixerGroup = AudioManager.Instance.GetSFXGroup();
+            }
 
             Transform rumbleTr = transform.Find("TrainRumbleAudio");
             if (rumbleTr == null)
@@ -148,6 +152,10 @@ namespace EcoQuest.CityTraffic
             rumbleAudioSource.minDistance = 6.0f;
             rumbleAudioSource.maxDistance = 55.0f;
             rumbleAudioSource.volume = 0.22f;
+            if (rumbleAudioSource.outputAudioMixerGroup == null && AudioManager.Instance != null)
+            {
+                rumbleAudioSource.outputAudioMixerGroup = AudioManager.Instance.GetSFXGroup();
+            }
             rumbleAudioSource.clip = GetOrCreateTrainRumbleClip();
 
             _waitingInTunnel = false;

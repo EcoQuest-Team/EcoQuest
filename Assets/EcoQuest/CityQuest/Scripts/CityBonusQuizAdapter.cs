@@ -213,11 +213,11 @@ namespace EcoQuest.CityQuest
                 correctCount++;
                 totalQuizCoinsEarned += 10;
                 AwardCoins(10);
-                AudioManager.Instance?.PlayButtonClick();
+                AudioManager.Instance?.PlayQuizCorrect();
             }
             else
             {
-                AudioManager.Instance?.PlayButtonHover();
+                AudioManager.Instance?.PlayQuizWrong();
             }
 
             string feedbackBody = isCorrect

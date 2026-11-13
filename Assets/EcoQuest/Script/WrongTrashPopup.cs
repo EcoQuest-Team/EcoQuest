@@ -194,6 +194,7 @@ public class WrongTrashPopup : MonoBehaviour
         ApplyParsedContent(parsed);
 
         StopActiveAnimation();
+        AudioManager.Instance?.PlayTrashDepositWrong();
         if (isVisible)
         {
             activeAnimationCoroutine = StartCoroutine(PulseAndHoldRoutine());

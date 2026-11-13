@@ -581,9 +581,10 @@ public class LoadingScreenController : MonoBehaviour
             StartCoroutine(PunchTransform(leafHandleRect, 1.4f, 0.3f));
         }
 
-        if (readyChimeClip != null)
+        if (AudioManager.Instance != null)
         {
-            AudioSource.PlayClipAtPoint(readyChimeClip, Camera.main != null ? Camera.main.transform.position : Vector3.zero, 0.8f);
+            if (readyChimeClip != null) AudioManager.Instance.PlayUI(readyChimeClip, 0.8f);
+            else AudioManager.Instance.PlayLoadingReady();
         }
 
         // Wait for key press or auto-continue beat
@@ -712,9 +713,9 @@ public class LoadingScreenController : MonoBehaviour
         // Change text
         DisplayNextTip(sceneFilter, immediate: false);
 
-        if (tipChangeClip != null)
+        if (tipChangeClip != null && AudioManager.Instance != null)
         {
-            AudioSource.PlayClipAtPoint(tipChangeClip, Vector3.zero, 0.4f);
+            AudioManager.Instance.PlayUI(tipChangeClip, 0.4f);
         }
 
         // Slide up from below while fading in

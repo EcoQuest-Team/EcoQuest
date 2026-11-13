@@ -97,6 +97,7 @@ public class SceneTransition : MonoBehaviour
 
     public void LoadScene(string sceneName)
     {
+        AudioManager.Instance?.PlayPanelWhoosh();
         if (transitionCanvas != null) transitionCanvas.enabled = false;
         LoadingScreen.Load(sceneName);
     }

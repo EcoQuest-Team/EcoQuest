@@ -409,6 +409,7 @@ public class PauseMenuController : MonoBehaviour
 
         IsPaused = true;
         Time.timeScale = 0f;
+        AudioManager.Instance?.PlayModalOpen();
 
         if (fpc != null) fpc.enabled = false;
         if (playerInputs != null)
@@ -431,6 +432,7 @@ public class PauseMenuController : MonoBehaviour
     public void ResumeGame()
     {
         if (!IsPaused || isResuming) return;
+        AudioManager.Instance?.PlayModalClose();
 
         if (settingsPanelObject != null && settingsPanelObject.activeSelf)
         {
