@@ -80,10 +80,33 @@ public class SequentialWASDTutorial : MonoBehaviour
         ObjectiveMarkerService.Instance?.RefreshTargetFromState();
     }
 
+    private static bool HasPersistedTutorialCompletion()
+    {
+        return PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1 ||
+               PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 1;
+    }
+
+    private void ApplyCompletedFlags(bool persistPref)
+    {
+        isActionTipsCompleted = true;
+        isCompleted = true;
+        AllowedState = TutorialState.All;
+        MinimapController.IsMapTutorialUnlocked = true;
+        if (persistPref && PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) != 1)
+        {
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.SequentialWASD, 1);
+            PlayerPrefs.Save();
+        }
+    }
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
         AllowedState = TutorialState.All;
+        if (HasPersistedTutorialCompletion())
+        {
+            ApplyCompletedFlags(persistPref: false);
+        }
     }
 
     private void OnDisable()
@@ -129,6 +152,17 @@ public class SequentialWASDTutorial : MonoBehaviour
 
         // Enable full movement capability
         AllowedState = TutorialState.All;
+
+        if (HasPersistedTutorialCompletion())
+        {
+            ApplyCompletedFlags(persistPref: true);
+            if (titleGroup != null) titleGroup.alpha = 0f;
+            if (tipCardUI != null) tipCardUI.SetImmediateHidden();
+            var npc = FindFirstObjectByType<NPCInteraction>();
+            if (npc != null) npc.OnTutorialUnlocked();
+            NotifyStep6Unlocked();
+            return;
+        }
 
         StartCoroutine(RunTutorialSequence());
     }
@@ -265,12 +299,12 @@ public class SequentialWASDTutorial : MonoBehaviour
         // -------------------------------------------------------------
         // ALL 6 STEPS COMPLETED
         // -------------------------------------------------------------
-        isCompleted = true;
-        isActionTipsCompleted = true;
-        AllowedState = TutorialState.All;
-        MinimapController.IsMapTutorialUnlocked = true;
-        HudVisibilityService.Instance?.ShowToast("Tutorial complete! Talk to the Guardian", 3.0f);
-        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.FreePlay);
+        ApplyCompletedFlags(persistPref: true);
+        if (!NPCInteraction.IsAnyGuardianFlowRunning)
+        {
+            HudVisibilityService.Instance?.ShowToast("Tutorial complete! Talk to the Guardian", 3.0f);
+            UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.FreePlay);
+        }
         OnTutorialCompletedEvent?.Invoke();
     }
 
@@ -303,7 +337,7 @@ public class SequentialWASDTutorial : MonoBehaviour
         yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunTalkStep());
 
-        isCompleted = true;
+        ApplyCompletedFlags(persistPref: true);
         OnTutorialCompletedEvent?.Invoke();
     }
 

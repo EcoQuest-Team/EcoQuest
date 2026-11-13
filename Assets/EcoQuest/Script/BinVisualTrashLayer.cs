@@ -59,9 +59,17 @@ public class BinVisualTrashLayer : MonoBehaviour
     /// </summary>
     public void RestoreSavedState()
     {
-        if (QuestManager.IsQuestComplete)
+        if (QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1)
         {
             SetDepositCount(1, animatePop: false);
+            return;
+        }
+
+        // Only restore mid-session deposit visuals when QuestManager also has matching progress loaded;
+        // otherwise fresh scene loads start all 9 items at 0/9 so bins should start empty too.
+        if (QuestManager.GetTotalSortedWaste() <= 0)
+        {
+            SetDepositCount(0, animatePop: false);
             return;
         }
 

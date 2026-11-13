@@ -96,6 +96,7 @@ public class QuestManager : MonoBehaviour
     private static int mistakes = 0;
     private static float lastMistakeTime = 0f;
     private static bool isQuestComplete = false;
+    private static int lastInitializedSceneHandle = -1;
     public static bool IsQuestComplete => isQuestComplete;
     public static bool IsRepeatQuest { get; set; } = false;
 
@@ -177,6 +178,20 @@ public class QuestManager : MonoBehaviour
 
     private void Awake()
     {
+        if (gameObject.scene.IsValid() && gameObject.scene.handle != lastInitializedSceneHandle)
+        {
+            lastInitializedSceneHandle = gameObject.scene.handle;
+            currentCounts.Clear();
+            targets.Clear();
+            progressBars.Clear();
+            countLabels.Clear();
+            collectedTrash.Clear();
+            mistakes = 0;
+            lastMistakeTime = 0f;
+            isQuestComplete = false;
+            IsRepeatQuest = false;
+        }
+
         if (string.IsNullOrEmpty(acceptedTag))
         {
             string gName = gameObject.name.ToLower();

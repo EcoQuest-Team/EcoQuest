@@ -88,10 +88,14 @@ public class IntroSequenceController : MonoBehaviour
         ResolveReferences();
         CacheTrashItemsOnce();
 
-        bool alreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
-        SetTrashVisible(alreadyDone, false, alreadyDone
+        bool alreadyDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        bool questDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
+        bool showTrashAtAwake = alreadyDone && !questDone;
+        SetTrashVisible(showTrashAtAwake, false, showTrashAtAwake
             ? "Returning player at Awake (EcoQuest_TabTipDone == 1)"
-            : "Fresh start at Awake - hiding trash until Step 6 (FreePlay)");
+            : (alreadyDone
+                ? "Returning player at Awake (Forest quest already completed)"
+                : "Fresh start at Awake - hiding trash until Step 6 (FreePlay)"));
     }
 
     private void OnEnable()
@@ -115,13 +119,23 @@ public class IntroSequenceController : MonoBehaviour
         // Trash & Flow gating:
         // Fresh start (EcoQuest_TabTipDone == 0): trash and quest tab stay hidden for Steps 1-5 until Step 6.
         // Returning player (EcoQuest_TabTipDone == 1): skip tutorial and enable quest tab & trash right at scene start.
-        bool alreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
+        bool alreadyDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        bool questDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
         if (alreadyDone)
         {
             hasRunIntro = true;
-            NPCInteraction.IsAnyQuestActive = true;
-            SetTrashVisible(true, false, "Returning player at Scene Start (EcoQuest_TabTipDone == 1)");
-            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "Returning player at Scene Start (EcoQuest_TabTipDone == 1)");
+            NPCInteraction.IsAnyQuestActive = !questDone;
+            SetTrashVisible(!questDone, false, questDone
+                ? "Returning player at Scene Start (Forest quest already completed)"
+                : "Returning player at Scene Start (EcoQuest_TabTipDone == 1)");
+            if (questDone && questHud != null)
+            {
+                questHud.SetVisibleImmediate(false);
+            }
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay,
+                questDone
+                    ? "Returning player at Scene Start (Forest quest already completed)"
+                    : "Returning player at Scene Start (EcoQuest_TabTipDone == 1)");
         }
         else
         {

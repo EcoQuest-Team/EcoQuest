@@ -149,26 +149,45 @@ public class NPCInteraction : MonoBehaviour
         SetContinueHintActive(false);
         
         if (questCanvas != null && IntroSequenceController.Instance == null) questCanvas.SetActive(false);
-        bool tabTipAlreadyDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
+        bool tabTipAlreadyDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
         bool questAlreadyAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
-        if (tabTipAlreadyDone || questAlreadyAccepted)
+        bool trashQuestDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
+
+        if (trashQuestDone)
+        {
+            hasCompletedFirstQuest = true;
+            hasAcceptedQuest = false;
+            IsAnyQuestActive = false;
+            if (questAlreadyAccepted)
+            {
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0);
+                PlayerPrefs.Save();
+            }
+            ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+        }
+        else if (tabTipAlreadyDone || questAlreadyAccepted)
         {
             hasAcceptedQuest = true;
-        PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
-        PlayerPrefs.Save();
-        OnQuestAccepted?.Invoke();
-        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+            if (!questAlreadyAccepted)
+            {
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
+                PlayerPrefs.Save();
+            }
+            OnQuestAccepted?.Invoke();
+            ObjectiveMarkerService.Instance?.RefreshTargetFromState();
             IsAnyQuestActive = true;
         }
+
+        bool showTrashNow = (tabTipAlreadyDone || questAlreadyAccepted) && !trashQuestDone;
         if (IntroSequenceController.Instance != null)
         {
-            IntroSequenceController.Instance.SetTrashVisible(tabTipAlreadyDone, false, "NPCInteraction.Start");
+            IntroSequenceController.Instance.SetTrashVisible(showTrashNow, false, "NPCInteraction.Start");
         }
         else
         {
-            TrashItem.AreTrashItemsAllowed = tabTipAlreadyDone;
-            if (trashContainer != null) trashContainer.SetActive(tabTipAlreadyDone);
-            MinimapIcon.SetTrashIconsActive(tabTipAlreadyDone);
+            TrashItem.AreTrashItemsAllowed = showTrashNow;
+            if (trashContainer != null) trashContainer.SetActive(showTrashNow);
+            MinimapIcon.SetTrashIconsActive(showTrashNow);
         }
 
         if (tutorialNotification != null) tutorialNotification.SetActive(true);
@@ -492,9 +511,14 @@ public class NPCInteraction : MonoBehaviour
 
     public bool IsTutorialLocked()
     {
+        if (PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1 ||
+            PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 1)
+        {
+            return false;
+        }
         if (SequentialWASDTutorial.Instance != null)
         {
-            return !SequentialWASDTutorial.Instance.IsCompleted;
+            return !SequentialWASDTutorial.IsTutorialCompleted;
         }
         var tut = FindFirstObjectByType<SequentialWASDTutorial>();
         if (tut != null)
@@ -957,10 +981,6 @@ public class NPCInteraction : MonoBehaviour
         if (accepted)
         {
             hasAcceptedQuest = true;
-        PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
-        PlayerPrefs.Save();
-        OnQuestAccepted?.Invoke();
-        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
             IsAnyQuestActive = true;
             PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
             PlayerPrefs.Save();
@@ -1347,6 +1367,7 @@ public class NPCInteraction : MonoBehaviour
         isRepeatOfferDialogue = false;
         IsAnyGuardianFlowRunning = false;
         hasAcceptedQuest = true;
+        IsAnyQuestActive = true;
         PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 1);
         PlayerPrefs.Save();
         OnQuestAccepted?.Invoke();
