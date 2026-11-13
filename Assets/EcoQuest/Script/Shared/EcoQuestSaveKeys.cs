@@ -28,6 +28,11 @@ public static class EcoQuestSaveKeys
     public const string CityRobinCooldownRemaining = "EcoQuest_City_RobinCooldownRemaining";
     public const string CityRobinCooldownLegacyUntil = "EcoQuest_RobinCooldownUntil";
 
+    // Survival / Needs Keys
+    public const string PlayerHungerRemaining = "EcoQuest_Player_HungerRemaining";
+    public const string PlayerHungerRumble20Shown = "EcoQuest_Player_HungerRumble20Shown";
+    public const string PlayerHungerRumble0Shown = "EcoQuest_Player_HungerRumble0Shown";
+
     // Inventory Keys
     public const string InventorySlots = "EcoQuest_Inventory_Slots";
     public const string InventorySeenNew = "EcoQuest_Inventory_SeenNew";
@@ -54,6 +59,9 @@ public static class EcoQuestSaveKeys
         CityLastSeed,
         CityRobinCooldownRemaining,
         CityRobinCooldownLegacyUntil,
+        PlayerHungerRemaining,
+        PlayerHungerRumble20Shown,
+        PlayerHungerRumble0Shown,
         InventorySlots,
         InventorySeenNew
     };

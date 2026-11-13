@@ -351,14 +351,6 @@ namespace EcoQuest.Inventory
 
                 bool isHungerFull = stats.CurrentHunger >= (stats.maxHunger - 1.0f);
                 bool isStaminaFull = stats.CurrentStamina >= (stats.maxStamina - 1.0f);
-                bool hungerDrainDisabled = stats.hungerDepletionPerSec <= 0f && stats.sprintHungerDepletionPerSec <= 0f;
-
-                // When passive hunger drain is disabled, food snacks act as stamina recovery treats instead of failing as "full"
-                if (hungerDrainDisabled && isHungerFull && hungerGain > 0f && staminaGain <= 0f)
-                {
-                    staminaGain = hungerGain;
-                    hungerGain = 0f;
-                }
 
                 if (blockUseWhenFull)
                 {

@@ -83,6 +83,7 @@ public static class EcoQuestEditorAutoReset
         SequentialWASDTutorial.AllowedState = SequentialWASDTutorial.TutorialState.All;
         TravelGate.ResetStaticState();
         EcoQuest.CityQuest.CityTrashDetectiveManager.ClearCooldownCache();
+        PlayerSurvivalStats.ClearSavedNeedsState();
     }
 }
 #endif

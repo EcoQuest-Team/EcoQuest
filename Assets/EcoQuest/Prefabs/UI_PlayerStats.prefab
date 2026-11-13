@@ -524,6 +524,7 @@ MonoBehaviour:
   _staminaText: {fileID: 3612652430765236510}
   _staminaBadge: {fileID: 3581598002654973201}
   _hungerNormalColor: {r: 1, g: 0.58, b: 0.12, a: 1}
+  _hungerWarningColor: {r: 1, g: 0.84, b: 0.18, a: 1}
   _hungerCriticalColor: {r: 0.92, g: 0.22, b: 0.2, a: 1}
   _staminaNormalColor: {r: 0.3, g: 0.85, b: 0.25, a: 1}
   _staminaExhaustedColor: {r: 0.92, g: 0.22, b: 0.2, a: 1}

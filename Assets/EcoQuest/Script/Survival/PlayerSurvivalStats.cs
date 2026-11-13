@@ -16,10 +16,10 @@ public class PlayerSurvivalStats : MonoBehaviour
     public float maxHunger = 100f;
     [Tooltip("Current hunger value.")]
     public float currentHunger = 100f;
-    [Tooltip("Passive hunger drain rate per second (0 = disabled for kid-friendly focus).")]
-    public float hungerDepletionPerSec = 0f;
-    [Tooltip("Extra hunger drain rate per second while actively sprinting (0 = disabled).")]
-    public float sprintHungerDepletionPerSec = 0f;
+    [Tooltip("Passive hunger drain rate per second (default 1/15 = 1% every 15s, ~25 mins full-to-empty).")]
+    public float hungerDepletionPerSec = 1f / 15f;
+    [Tooltip("Extra hunger drain rate per second while actively sprinting (capped at +50% of passive rate).")]
+    public float sprintHungerDepletionPerSec = 1f / 30f;
 
     [Header("Stamina Settings")]
     [Tooltip("Maximum stamina value.")]
@@ -53,6 +53,41 @@ public class PlayerSurvivalStats : MonoBehaviour
     public event Action<float, float> OnStaminaChanged;
     public event Action OnExhausted;
     public event Action OnExhaustionRecovered;
+    public static event Action<int> OnHungerRumbleWarning;
+
+    private bool _rumble20Shown;
+    private bool _rumble0Shown;
+    private float _lastHungerSaveUnscaledTime = -999f;
+
+    // Cached scene references so Update() never calls FindFirstObjectByType.
+    private UIOrchestrator _cachedOrchestrator;
+    private ModalManager _cachedModalManager;
+    private DialoguePresenter _cachedDialoguePresenter;
+    private HudVisibilityService _cachedHudVisibility;
+    private EcoQuest.Inventory.UI_EcoShop _cachedEcoShop;
+    private IntroSequenceController _cachedIntroController;
+    private ExplorerCinematicController _cachedExplorerCinematic;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticNeedsState()
+    {
+        Instance = null;
+        OnHungerRumbleWarning = null;
+    }
+
+    public static void ClearSavedNeedsState()
+    {
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRemaining);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRumble20Shown);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRumble0Shown);
+        if (Instance != null)
+        {
+            Instance._rumble20Shown = false;
+            Instance._rumble0Shown = false;
+            Instance.currentHunger = Instance.maxHunger;
+            Instance.OnHungerChanged?.Invoke(Instance.currentHunger, Instance.maxHunger);
+        }
+    }
 
     public bool CanSprint => !_isExhausted && currentStamina > 0.5f;
     public bool IsSprinting => _isSprinting;
@@ -97,12 +132,46 @@ public class PlayerSurvivalStats : MonoBehaviour
         }
         Instance = this;
 
-        currentHunger = Mathf.Clamp(currentHunger, 0f, maxHunger);
+        maxHunger = Mathf.Max(1f, maxHunger);
+        maxStamina = Mathf.Max(1f, maxStamina);
+        currentHunger = PlayerPrefs.HasKey(EcoQuestSaveKeys.PlayerHungerRemaining)
+            ? Mathf.Clamp(PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, maxHunger), 0f, maxHunger)
+            : Mathf.Clamp(currentHunger, 0f, maxHunger);
+        _rumble20Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, 0) == 1 || currentHunger <= 20f;
+        _rumble0Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, 0) == 1 || currentHunger <= 0f;
         currentStamina = Mathf.Clamp(currentStamina, 0f, maxStamina);
+    }
+
+    private void Start()
+    {
+        _cachedOrchestrator = UnityEngine.Object.FindFirstObjectByType<UIOrchestrator>(FindObjectsInactive.Include);
+        _cachedModalManager = UnityEngine.Object.FindFirstObjectByType<ModalManager>(FindObjectsInactive.Include);
+        _cachedDialoguePresenter = UnityEngine.Object.FindFirstObjectByType<DialoguePresenter>(FindObjectsInactive.Include);
+        _cachedHudVisibility = UnityEngine.Object.FindFirstObjectByType<HudVisibilityService>(FindObjectsInactive.Include);
+        _cachedEcoShop = UnityEngine.Object.FindFirstObjectByType<EcoQuest.Inventory.UI_EcoShop>(FindObjectsInactive.Include);
+        _cachedIntroController = UnityEngine.Object.FindFirstObjectByType<IntroSequenceController>(FindObjectsInactive.Include);
+        _cachedExplorerCinematic = UnityEngine.Object.FindFirstObjectByType<ExplorerCinematicController>(FindObjectsInactive.Include);
+        OnHungerChanged?.Invoke(currentHunger, maxHunger);
+    }
+
+    private void OnDisable()
+    {
+        FlushNeedsSave();
+    }
+
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus) FlushNeedsSave();
+    }
+
+    private void OnApplicationQuit()
+    {
+        FlushNeedsSave();
     }
 
     private void OnDestroy()
     {
+        FlushNeedsSave();
         if (Instance == this)
         {
             Instance = null;
@@ -140,23 +209,105 @@ public class PlayerSurvivalStats : MonoBehaviour
         }
     }
 
+    public bool IsHungerDrainPaused()
+    {
+        if (!Application.isPlaying) return true;
+        if (PauseMenuController.IsPaused || Time.timeScale <= 0.001f) return true;
+        if (LoadingScreenController.IsLoading) return true;
+        if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen) return true;
+        if (_cachedEcoShop != null && _cachedEcoShop.IsOpen) return true;
+        if ((_cachedDialoguePresenter != null && _cachedDialoguePresenter.IsInDialogue) ||
+            LitterbugQuestManager.IsDialogueOpen ||
+            NPCInteraction.IsAnyGuardianFlowRunning) return true;
+        if (QuizUIController.IsAnyQuizOpen) return true;
+        if (_cachedHudVisibility != null && _cachedHudVisibility.IsHUDHidden) return true;
+        if (_cachedModalManager != null && _cachedModalManager.IsAnyModalActuallyVisible()) return true;
+        if (_cachedIntroController != null && _cachedIntroController.CurrentState != IntroSequenceController.IntroState.Gameplay) return true;
+        if (_cachedExplorerCinematic != null && _cachedExplorerCinematic.IsInCinematic) return true;
+        if (_cachedOrchestrator != null && (_cachedOrchestrator.AreModalsOpen || _cachedOrchestrator.IsOverlayActive)) return true;
+        if (UIOrchestrator.IsCityScavengerOverlayOpenHook != null && UIOrchestrator.IsCityScavengerOverlayOpenHook()) return true;
+        return false;
+    }
+
     private void UpdateHunger(float dt)
     {
-        if (currentHunger > 0f)
+        if (IsHungerDrainPaused()) return;
+        if (StepHungerDrain(dt, _isSprinting))
         {
-            float rate = hungerDepletionPerSec;
-            if (_isSprinting)
+            if (Time.unscaledTime - _lastHungerSaveUnscaledTime >= 1.0f || currentHunger <= 0f)
             {
-                rate += sprintHungerDepletionPerSec;
-            }
-
-            float prev = currentHunger;
-            currentHunger = Mathf.Max(0f, currentHunger - rate * dt);
-            if (!Mathf.Approximately(prev, currentHunger))
-            {
-                OnHungerChanged?.Invoke(currentHunger, maxHunger);
+                FlushNeedsSave();
             }
         }
+    }
+
+    /// <summary>
+    /// Advances hunger depletion by <paramref name="dt"/> seconds using serialized rates and threshold notifications.
+    /// Returns true if currentHunger changed.
+    /// </summary>
+    public bool StepHungerDrain(float dt, bool isSprinting)
+    {
+        if (dt <= 0f || currentHunger <= 0f) return false;
+
+        float baseRate = Mathf.Max(0f, hungerDepletionPerSec);
+        if (baseRate <= 0f) return false;
+
+        float rate = baseRate;
+        if (isSprinting && sprintHungerDepletionPerSec > 0f)
+        {
+            // Sprinting adds up to +50% faster drain over the passive rate.
+            rate += Mathf.Min(sprintHungerDepletionPerSec, baseRate * 0.5f);
+        }
+
+        float prev = currentHunger;
+        currentHunger = Mathf.Max(0f, currentHunger - rate * dt);
+        if (Mathf.Approximately(prev, currentHunger)) return false;
+
+        EvaluateRumbleWarnings(prev, currentHunger);
+        OnHungerChanged?.Invoke(currentHunger, maxHunger);
+        return true;
+    }
+
+    private void EvaluateRumbleWarnings(float prevHunger, float nextHunger)
+    {
+        if (prevHunger > 20f && nextHunger <= 20f && nextHunger > 0f && !_rumble20Shown)
+        {
+            _rumble20Shown = true;
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, 1);
+            OnHungerRumbleWarning?.Invoke(20);
+        }
+        if (prevHunger > 0f && nextHunger <= 0f && !_rumble0Shown)
+        {
+            _rumble0Shown = true;
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, 1);
+            OnHungerRumbleWarning?.Invoke(0);
+        }
+    }
+
+    public void FlushNeedsSave()
+    {
+        if (!Application.isPlaying) return;
+        _lastHungerSaveUnscaledTime = Time.unscaledTime;
+        PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, Mathf.Clamp(currentHunger, 0f, maxHunger));
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, _rumble20Shown ? 1 : 0);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, _rumble0Shown ? 1 : 0);
+    }
+
+    public void SetHungerImmediate(float targetHunger, bool persistNow = true)
+    {
+        float prev = currentHunger;
+        currentHunger = Mathf.Clamp(targetHunger, 0f, maxHunger);
+        if (currentHunger > 20f) _rumble20Shown = false;
+        if (currentHunger > 0f) _rumble0Shown = false;
+        EvaluateRumbleWarnings(prev, currentHunger);
+        if (persistNow)
+        {
+            PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, currentHunger);
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, _rumble20Shown ? 1 : 0);
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, _rumble0Shown ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+        OnHungerChanged?.Invoke(currentHunger, maxHunger);
     }
 
     private void UpdateStamina(float dt)
@@ -228,6 +379,9 @@ public class PlayerSurvivalStats : MonoBehaviour
     public void AddHunger(float amount)
     {
         currentHunger = Mathf.Clamp(currentHunger + amount, 0f, maxHunger);
+        if (currentHunger > 20f) _rumble20Shown = false;
+        if (currentHunger > 0f) _rumble0Shown = false;
+        FlushNeedsSave();
         OnHungerChanged?.Invoke(currentHunger, maxHunger);
     }
 

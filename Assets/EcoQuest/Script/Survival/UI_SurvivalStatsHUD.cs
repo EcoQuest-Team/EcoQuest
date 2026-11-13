@@ -19,8 +19,9 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     [SerializeField] private RectTransform _staminaBadge;
 
     [Header("Color Schemes")]
-    [SerializeField] private Color _hungerNormalColor = Color.white;
-    [SerializeField] private Color _hungerCriticalColor = new Color(1.0f, 0.4f, 0.35f, 1f);
+    [SerializeField] private Color _hungerNormalColor = new Color(1.0f, 0.58f, 0.12f, 1f);
+    [SerializeField] private Color _hungerWarningColor = new Color(1.0f, 0.84f, 0.18f, 1f);
+    [SerializeField] private Color _hungerCriticalColor = new Color(0.92f, 0.22f, 0.20f, 1f);
     [SerializeField] private Color _staminaNormalColor = Color.white;
     [SerializeField] private Color _staminaExhaustedColor = new Color(1.0f, 0.4f, 0.35f, 1f);
 
@@ -45,6 +46,33 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     private float _displayStamina = 1f;
     private Vector3 _hungerBadgeBaseScale = Vector3.one;
     private Vector3 _staminaBadgeBaseScale = Vector3.one;
+    private GameObject _needsToastGo;
+    private CanvasGroup _needsToastGroup;
+    private TextMeshProUGUI _needsToastText;
+    private Coroutine _needsToastRoutine;
+
+    private void OnEnable()
+    {
+        PlayerSurvivalStats.OnHungerRumbleWarning -= HandleHungerRumbleWarning;
+        PlayerSurvivalStats.OnHungerRumbleWarning += HandleHungerRumbleWarning;
+    }
+
+    private void OnDisable()
+    {
+        PlayerSurvivalStats.OnHungerRumbleWarning -= HandleHungerRumbleWarning;
+        if (_needsToastRoutine != null)
+        {
+            StopCoroutine(_needsToastRoutine);
+            _needsToastRoutine = null;
+        }
+        if (_needsToastGroup != null) _needsToastGroup.alpha = 0f;
+        if (_needsToastGo != null) _needsToastGo.SetActive(false);
+    }
+
+    private void HandleHungerRumbleWarning(int thresholdPercent)
+    {
+        ShowNeedsToast("Your tummy is rumbling! Eat something from your bag.", 4.0f);
+    }
 
     private void Awake()
     {
@@ -87,10 +115,19 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         if (_hungerFillImage != null)
         {
             _hungerFillImage.fillAmount = _displayHunger;
-            bool isLowHunger = targetHunger <= _criticalThreshold;
-            _hungerFillImage.color = isLowHunger
-                ? Color.Lerp(_hungerNormalColor, _hungerCriticalColor, Mathf.PingPong(Time.time * 3f, 1f))
-                : _hungerNormalColor;
+            if (targetHunger < 0.15f)
+            {
+                Color deepRed = new Color(0.78f, 0.14f, 0.14f, 1f);
+                _hungerFillImage.color = Color.Lerp(deepRed, _hungerCriticalColor, Mathf.PingPong(Time.unscaledTime * 3f, 1f));
+            }
+            else if (targetHunger < 0.30f)
+            {
+                _hungerFillImage.color = _hungerWarningColor;
+            }
+            else
+            {
+                _hungerFillImage.color = _hungerNormalColor;
+            }
         }
 
         if (_hungerText != null)
@@ -101,9 +138,9 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         // Pulse hunger badge if low
         if (_hungerBadge != null)
         {
-            if (targetHunger <= _criticalThreshold)
+            if (targetHunger < 0.15f)
             {
-                float pulse = 1f + Mathf.Sin(Time.time * 6f) * 0.08f;
+                float pulse = 1f + Mathf.Sin(Time.unscaledTime * 6f) * 0.08f;
                 _hungerBadge.localScale = _hungerBadgeBaseScale * pulse;
             }
             else
@@ -120,7 +157,7 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
             _staminaFillImage.fillAmount = _displayStamina;
             bool isExhausted = stats.IsExhausted || targetStamina <= _criticalThreshold;
             _staminaFillImage.color = isExhausted
-                ? Color.Lerp(_staminaNormalColor, _staminaExhaustedColor, Mathf.PingPong(Time.time * 4f, 1f))
+                ? Color.Lerp(_staminaNormalColor, _staminaExhaustedColor, Mathf.PingPong(Time.unscaledTime * 4f, 1f))
                 : _staminaNormalColor;
         }
 
@@ -134,7 +171,7 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         {
             if (stats.IsExhausted)
             {
-                float pulse = 1f + Mathf.Sin(Time.time * 8f) * 0.10f;
+                float pulse = 1f + Mathf.Sin(Time.unscaledTime * 8f) * 0.10f;
                 _staminaBadge.localScale = _staminaBadgeBaseScale * pulse;
             }
             else
@@ -425,5 +462,129 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         }
 
         if (go != null) Destroy(go);
+    }
+
+    public void RefreshImmediateFromStats()
+    {
+        PlayerSurvivalStats stats = PlayerSurvivalStats.Instance;
+        if (stats == null) return;
+        _displayHunger = stats.HungerNormalized;
+        _displayStamina = stats.StaminaNormalized;
+        if (_hungerFillImage != null) _hungerFillImage.fillAmount = _displayHunger;
+        if (_staminaFillImage != null) _staminaFillImage.fillAmount = _displayStamina;
+        if (_hungerText != null) _hungerText.text = $"{_hungerTextPrefix}{Mathf.CeilToInt(stats.CurrentHunger)}%";
+        if (_staminaText != null) _staminaText.text = $"{_staminaTextPrefix}{Mathf.CeilToInt(stats.CurrentStamina)}%";
+    }
+
+    public void ShowNeedsToast(string message, float duration = 4.0f)
+    {
+        if (string.IsNullOrEmpty(message)) return;
+        EnsureNeedsToastSetup();
+        if (_needsToastGo == null || _needsToastText == null) return;
+
+        _needsToastText.text = message;
+        Debug.Log($"[Needs] {message}");
+
+        if (!isActiveAndEnabled || !Application.isPlaying) return;
+        if (_needsToastRoutine != null) StopCoroutine(_needsToastRoutine);
+        _needsToastGo.SetActive(true);
+        _needsToastRoutine = StartCoroutine(NeedsToastRoutine(duration));
+    }
+
+    private void EnsureNeedsToastSetup()
+    {
+        if (_needsToastGo != null) return;
+
+        Transform existing = transform.Find("SurvivalToastBanner");
+        if (existing != null)
+        {
+            _needsToastGo = existing.gameObject;
+            _needsToastGroup = _needsToastGo.GetComponent<CanvasGroup>();
+            _needsToastText = _needsToastGo.GetComponentInChildren<TextMeshProUGUI>(true);
+            return;
+        }
+
+        UITheme theme = UITheme.Instance;
+        _needsToastGo = new GameObject("SurvivalToastBanner", typeof(RectTransform), typeof(CanvasGroup), typeof(Image), typeof(Outline));
+        _needsToastGo.transform.SetParent(transform, false);
+
+        var rt = _needsToastGo.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 1f);
+        rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, -24f);
+        rt.sizeDelta = new Vector2(620f, 48f);
+
+        _needsToastGroup = _needsToastGo.GetComponent<CanvasGroup>();
+        _needsToastGroup.blocksRaycasts = false;
+        _needsToastGroup.interactable = false;
+        _needsToastGroup.alpha = 0f;
+
+        var bg = _needsToastGo.GetComponent<Image>();
+        bg.color = theme != null ? theme.panelColor : new Color(0.043f, 0.141f, 0.098f, 0.97f);
+        if (theme != null && theme.panelBackgroundSprite != null)
+        {
+            bg.sprite = theme.panelBackgroundSprite;
+            bg.type = Image.Type.Sliced;
+        }
+        bg.raycastTarget = false;
+
+        var outline = _needsToastGo.GetComponent<Outline>();
+        outline.effectColor = theme != null ? theme.borderColor : new Color(0.427f, 0.745f, 0.427f, 1f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        var txtGo = new GameObject("ToastText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        txtGo.transform.SetParent(_needsToastGo.transform, false);
+        var trt = txtGo.GetComponent<RectTransform>();
+        trt.anchorMin = Vector2.zero;
+        trt.anchorMax = Vector2.one;
+        trt.offsetMin = new Vector2(18f, 6f);
+        trt.offsetMax = new Vector2(-18f, -6f);
+
+        _needsToastText = txtGo.GetComponent<TextMeshProUGUI>();
+        if (_hungerText != null && _hungerText.font != null) _needsToastText.font = _hungerText.font;
+        else if (theme != null && theme.GetBodyFont() != null) _needsToastText.font = theme.GetBodyFont();
+        _needsToastText.fontSize = 20f;
+        _needsToastText.fontStyle = FontStyles.Bold;
+        _needsToastText.alignment = TextAlignmentOptions.Center;
+        _needsToastText.color = new Color(0.96f, 0.95f, 0.92f, 1f);
+        _needsToastText.textWrappingMode = TextWrappingModes.Normal;
+        _needsToastText.enableAutoSizing = true;
+        _needsToastText.fontSizeMin = 14f;
+        _needsToastText.fontSizeMax = 20f;
+        _needsToastText.raycastTarget = false;
+
+        _needsToastGo.SetActive(false);
+    }
+
+    private System.Collections.IEnumerator NeedsToastRoutine(float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < 0.2f && _needsToastGroup != null)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            _needsToastGroup.alpha = Mathf.Clamp01(elapsed / 0.2f);
+            yield return null;
+        }
+        if (_needsToastGroup != null) _needsToastGroup.alpha = 1f;
+
+        float hold = 0f;
+        while (hold < duration)
+        {
+            hold += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        elapsed = 0f;
+        while (elapsed < 0.3f && _needsToastGroup != null)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            _needsToastGroup.alpha = 1f - Mathf.Clamp01(elapsed / 0.3f);
+            yield return null;
+        }
+
+        if (_needsToastGroup != null) _needsToastGroup.alpha = 0f;
+        if (_needsToastGo != null) _needsToastGo.SetActive(false);
+        _needsToastRoutine = null;
     }
 }

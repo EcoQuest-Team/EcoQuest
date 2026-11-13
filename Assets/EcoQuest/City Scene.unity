@@ -159287,6 +159287,7 @@ MonoBehaviour:
   _staminaText: {fileID: 2031843232}
   _staminaBadge: {fileID: 61551001}
   _hungerNormalColor: {r: 1, g: 0.58, b: 0.12, a: 1}
+  _hungerWarningColor: {r: 1, g: 0.84, b: 0.18, a: 1}
   _hungerCriticalColor: {r: 0.92, g: 0.22, b: 0.2, a: 1}
   _staminaNormalColor: {r: 0.3, g: 0.85, b: 0.25, a: 1}
   _staminaExhaustedColor: {r: 0.92, g: 0.22, b: 0.2, a: 1}
@@ -328782,8 +328783,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSurvivalStats
   maxHunger: 100
   currentHunger: 100
-  hungerDepletionPerSec: 0
-  sprintHungerDepletionPerSec: 0
+  hungerDepletionPerSec: 0.06666667
+  sprintHungerDepletionPerSec: 0.03333334
   maxStamina: 100
   currentStamina: 100
   staminaDrainPerSec: 22
