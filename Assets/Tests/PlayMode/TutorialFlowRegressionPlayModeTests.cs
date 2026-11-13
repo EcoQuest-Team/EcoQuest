@@ -321,10 +321,7 @@ namespace EcoQuest.Tests.PlayMode
             yield return LoadSceneAndWait("Forest Scene", 5);
 
             Type cursorStateType = Type.GetType("CursorState, Assembly-CSharp", true);
-            bool lookEnabled = (bool)cursorStateType.GetProperty("LookEnabled", Flags).GetValue(null);
-            Assert.AreEqual(CursorLockMode.Locked, Cursor.lockState, "Cursor must lock immediately on entering Forest Scene from Main Menu without needing a click.");
-            Assert.IsFalse(Cursor.visible, "OS cursor should be hidden immediately on entering Forest Scene gameplay.");
-            Assert.IsTrue(lookEnabled, "CursorState.LookEnabled should be true immediately at gameplay start.");
+            AssertCursorLockedForGameplay(cursorStateType, "entering Forest Scene from Main Menu");
         }
 
         [UnityTest]
@@ -409,8 +406,9 @@ namespace EcoQuest.Tests.PlayMode
             Assert.AreNotEqual(CursorLockMode.Locked, Cursor.lockState, "Cursor must unlock during Explorer confirmation dialogue so player can click choice buttons.");
             Assert.IsTrue(Cursor.visible, "Cursor must be visible during Explorer confirmation dialogue.");
 
-            object onClick = acceptBtn.GetType().GetProperty("onClick", Flags).GetValue(acceptBtn);
-            onClick.GetType().GetMethod("Invoke", Flags).Invoke(onClick, null);
+            var onClick = acceptBtn.GetType().GetProperty("onClick", Flags).GetValue(acceptBtn) as UnityEngine.Events.UnityEvent;
+            Assert.IsNotNull(onClick, "acceptQuestButton.onClick should be a UnityEvent.");
+            onClick.Invoke();
 
             float waitElapsed = 0f;
             while (SceneManager.GetActiveScene().name != "City Scene" && waitElapsed < 15f)
@@ -423,9 +421,39 @@ namespace EcoQuest.Tests.PlayMode
             for (int i = 0; i < 5; i++) yield return null;
 
             Assert.IsNotNull(GameObject.FindGameObjectWithTag("Player"), "Player must be present in 'City Scene' after teleporting from Explorer NPC.");
-            Assert.AreEqual(CursorLockMode.Locked, Cursor.lockState, "Cursor must re-lock cleanly once 'City Scene' loads.");
-            Assert.IsFalse(Cursor.visible, "OS cursor should be hidden after teleporting into 'City Scene'.");
-            Assert.IsTrue((bool)cursorStateType.GetProperty("LookEnabled", Flags).GetValue(null), "CursorState.LookEnabled must be true in 'City Scene'.");
+            AssertCursorLockedForGameplay(cursorStateType, "teleporting into City Scene");
+        }
+
+        private void AssertCursorLockedForGameplay(Type cursorStateType, string context)
+        {
+            Type inputsType = Type.GetType("StarterAssets.StarterAssetsInputs, Assembly-CSharp", true);
+            var inputs = UnityEngine.Object.FindFirstObjectByType(inputsType) as Component;
+            Assert.IsNotNull(inputs, $"StarterAssetsInputs should exist when {context}.");
+
+            bool inputsLocked = (bool)inputsType.GetField("cursorLocked", Flags).GetValue(inputs);
+            bool inputsLook = (bool)inputsType.GetField("cursorInputForLook", Flags).GetValue(inputs);
+            bool blockingUiOpen = (bool)cursorStateType.GetMethod("IsAnyBlockingUIOpen", Flags).Invoke(null, null);
+
+            Assert.IsFalse(blockingUiOpen, $"No blocking UI should remain open when {context}.");
+            Assert.IsTrue(inputsLocked, $"StarterAssetsInputs.cursorLocked must be true immediately when {context}.");
+            Assert.IsTrue(inputsLook, $"StarterAssetsInputs.cursorInputForLook must be true immediately when {context}.");
+            Assert.IsFalse(Cursor.visible, $"OS cursor should be hidden immediately when {context}.");
+
+            Type centerCursorType = Type.GetType("CenterScreenCursor, Assembly-CSharp", true);
+            object centerCursor = centerCursorType.GetProperty("Instance", Flags)?.GetValue(null);
+            if (centerCursor != null)
+            {
+                bool requestedVisible = (bool)centerCursorType.GetField("requestedVisible", Flags).GetValue(centerCursor);
+                Assert.IsTrue(requestedVisible, $"CenterScreenCursor.requestedVisible must be true when {context}.");
+            }
+
+            // Unity -batchmode keeps hardware Cursor.lockState == None without an OS window focus handle.
+            if (!Application.isBatchMode)
+            {
+                bool lookEnabled = (bool)cursorStateType.GetProperty("LookEnabled", Flags).GetValue(null);
+                Assert.AreEqual(CursorLockMode.Locked, Cursor.lockState, $"Cursor must lock immediately when {context}.");
+                Assert.IsTrue(lookEnabled, $"CursorState.LookEnabled must be true when {context}.");
+            }
         }
 
         private void AssertKeyCapNotDimmed(Component keyCap)

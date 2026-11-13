@@ -279,21 +279,28 @@ public class TravelGate : MonoBehaviour
             return false;
         }
 
-        // Expected order: Forest Scene at Index 0, City Scene at Index 1
-        if (scenes[0].path != "Assets/EcoQuest/Forest Scene.unity" || !scenes[0].enabled)
+        // Expected entry scene at index 0: Main Menu (full build) or Forest Scene (direct scene test),
+        // with both Forest Scene and City Scene enabled in EditorBuildSettings.
+        bool validEntry = scenes[0].enabled &&
+            (scenes[0].path == "Assets/EcoQuest/Main Menu.unity" || scenes[0].path == "Assets/EcoQuest/Forest Scene.unity");
+        if (!validEntry)
         {
-            errorMessage = $"Expected 'Assets/EcoQuest/Forest Scene.unity' as enabled scene at index 0, but found '{scenes[0].path}' (enabled={scenes[0].enabled})!";
+            errorMessage = $"Expected enabled 'Assets/EcoQuest/Main Menu.unity' or 'Assets/EcoQuest/Forest Scene.unity' at index 0, but found '{scenes[0].path}' (enabled={scenes[0].enabled})!";
             return false;
         }
 
+        bool forestFound = false;
         bool cityFound = false;
         for (int i = 0; i < scenes.Length; i++)
         {
-            if (scenes[i].path == "Assets/EcoQuest/City Scene.unity" && scenes[i].enabled)
-            {
-                cityFound = true;
-                break;
-            }
+            if (!scenes[i].enabled) continue;
+            if (scenes[i].path == "Assets/EcoQuest/Forest Scene.unity") forestFound = true;
+            else if (scenes[i].path == "Assets/EcoQuest/City Scene.unity") cityFound = true;
+        }
+        if (!forestFound)
+        {
+            errorMessage = "Required scene 'Assets/EcoQuest/Forest Scene.unity' is missing or disabled in EditorBuildSettings!";
+            return false;
         }
         if (!cityFound)
         {

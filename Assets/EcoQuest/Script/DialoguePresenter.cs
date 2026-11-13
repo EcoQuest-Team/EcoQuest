@@ -239,6 +239,9 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
 
     private void OnDestroy()
     {
+        if (fadeRoutine != null) { StopRunningCoroutine(fadeRoutine); fadeRoutine = null; }
+        if (typewriterRoutine != null) { StopRunningCoroutine(typewriterRoutine); typewriterRoutine = null; }
+        if (punchRoutine != null) { StopRunningCoroutine(punchRoutine); punchRoutine = null; }
         if (Instance == this) Instance = null;
     }
 
@@ -929,6 +932,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
 
         while (elapsed < duration)
         {
+            if (this == null || dialogueCanvasGroup == null) yield break;
             if (isSuspended)
             {
                 dialogueCanvasGroup.alpha = 0f;
@@ -953,7 +957,10 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
                 dialoguePanelRect.localScale = new Vector3(s, s, 1f);
             }
             yield return null;
+            if (this == null || dialogueCanvasGroup == null) yield break;
         }
+
+        if (this == null || dialogueCanvasGroup == null) yield break;
 
         if (isSuspended)
         {
@@ -996,13 +1003,17 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
 
         while (elapsed < duration)
         {
+            if (this == null || speakerTabRect == null) yield break;
             elapsed += Time.unscaledDeltaTime;
             float t = elapsed / duration;
             float s = 1f + 0.10f * Mathf.Sin(t * Mathf.PI);
             speakerTabRect.localScale = new Vector3(s, s, 1f);
             yield return null;
         }
-        speakerTabRect.localScale = baseScale;
+        if (this != null && speakerTabRect != null)
+        {
+            speakerTabRect.localScale = baseScale;
+        }
     }
 
     private void FadeHud(bool show)

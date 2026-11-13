@@ -387,10 +387,26 @@ public class UIOrchestrator : MonoBehaviour
         }
     }
 
+    private static GameObject FindActiveSceneRootByName(string rootName)
+    {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (!activeScene.IsValid() || !activeScene.isLoaded) return null;
+        var roots = activeScene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            var go = roots[i];
+            if (go != null && go.activeInHierarchy && go.name == rootName)
+            {
+                return go;
+            }
+        }
+        return null;
+    }
+
     public void ResolveReferences()
     {
         elementGroups.Clear();
-        var uiRoot = GameObject.Find("--- UI ---");
+        var uiRoot = FindActiveSceneRootByName("--- UI ---");
         if (uiRoot == null) return;
 
         gearGroup = FindOrAddCG(uiRoot, "UI_HUD_SettingsButton");
@@ -399,7 +415,9 @@ public class UIOrchestrator : MonoBehaviour
         crosshairGroup = FindOrAddCG(uiRoot, "UI_Crosshair");
         if (crosshairGroup == null)
         {
-            var dotCanvas = GameObject.Find("CenterCursorCanvas");
+            var dotCanvas = CenterScreenCursor.Instance != null
+                ? CenterScreenCursor.Instance.gameObject
+                : FindActiveSceneRootByName("CenterCursorCanvas");
             if (dotCanvas != null)
             {
                 crosshairGroup = dotCanvas.GetComponent<CanvasGroup>() ?? dotCanvas.AddComponent<CanvasGroup>();
