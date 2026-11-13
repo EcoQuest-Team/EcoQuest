@@ -117,6 +117,7 @@ namespace EcoQuest.Inventory
                 {
                     buyButtonOutline.enabled = false;
                 }
+                RefreshBuyButtonFit();
             }
             else
             {
@@ -159,6 +160,7 @@ namespace EcoQuest.Inventory
                     buyButtonOutline.effectColor = new Color(0.47f, 0.86f, 0.56f, 0.90f); // #78DB8E
                     buyButtonOutline.effectDistance = new Vector2(1.5f, -1.5f);
                 }
+                RefreshBuyButtonFit();
             }
 
             if (coinIcon != null && coinSprite != null)
@@ -167,6 +169,27 @@ namespace EcoQuest.Inventory
             }
 
             SetHoverVisual(false);
+        }
+
+        private void RefreshBuyButtonFit()
+        {
+            if (buyButton == null || buyButtonText == null) return;
+            var rtb = ResponsiveTextButton.AttachOrGet(buyButton);
+            rtb.Configure(
+                labelRef: buyButtonText,
+                backgroundRef: buyButtonBg != null ? buyButtonBg : buyButton.GetComponent<Image>(),
+                minFont: 14f,
+                maxFont: 20f,
+                minBtnHeight: 42f,
+                maxBtnHeight: 84f,
+                minBtnWidth: 88f,
+                maxBtnWidth: 220f,
+                fitWidth: false,
+                allowHeightGrow: true,
+                padLeft: 12f,
+                padRight: 12f,
+                padVertical: 8f,
+                manageMargins: true);
         }
 
         public void OnPointerEnter(PointerEventData eventData)

@@ -438,34 +438,11 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
             continueKeyCap.OnPromptClicked += HandleAdvanceOrConfirm;
         }
 
-        if (acceptQuestButton != null)
-        {
-            acceptQuestButton.onClick.RemoveAllListeners();
-            acceptQuestButton.onClick.AddListener(HandleAccept);
-            var rt = acceptQuestButton.GetComponent<RectTransform>();
-            if (rt != null && acceptKeyCap != null && acceptKeyCap.ActionLabelText != null)
-            {
-                float textWidth = acceptKeyCap.ActionLabelText.GetPreferredValues(acceptLabel).x;
-                float w = Mathf.Max(140f, textWidth + 76f);
-                rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
-                var le = acceptQuestButton.GetComponent<LayoutElement>();
-                if (le != null) { le.minWidth = w; le.preferredWidth = w; }
-            }
-        }
-        if (notNowButton != null)
-        {
-            notNowButton.onClick.RemoveAllListeners();
-            notNowButton.onClick.AddListener(HandleDecline);
-            var rt = notNowButton.GetComponent<RectTransform>();
-            if (rt != null && notNowKeyCap != null && notNowKeyCap.ActionLabelText != null)
-            {
-                float textWidth = notNowKeyCap.ActionLabelText.GetPreferredValues(declineLabel).x;
-                float w = Mathf.Max(140f, textWidth + 76f);
-                rt.sizeDelta = new Vector2(w, rt.sizeDelta.y > 10f ? rt.sizeDelta.y : 52f);
-                var le = notNowButton.GetComponent<LayoutElement>();
-                if (le != null) { le.minWidth = w; le.preferredWidth = w; }
-            }
-        }
+        float containerW = choiceButtonsRoot != null ? choiceButtonsRoot.rect.width : 0f;
+        float maxChoiceW = containerW > 200f ? Mathf.Clamp((containerW - 18f) * 0.5f, 180f, 430f) : 400f;
+        ConfigureChoiceButton(acceptQuestButton, acceptKeyCap, acceptLabel, HandleAccept, maxChoiceW);
+        ConfigureChoiceButton(notNowButton, notNowKeyCap, declineLabel, HandleDecline, maxChoiceW);
+        if (choiceButtonsRoot != null) LayoutRebuilder.ForceRebuildLayoutImmediate(choiceButtonsRoot);
 
         // Setup speaker
         SetSpeakerDisplay(speakerName);
@@ -485,6 +462,37 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         OnDialogueStarted?.Invoke();
 
         ShowPage(currentPageIndex);
+    }
+
+    private static void ConfigureChoiceButton(Button btn, KeyCapPrompt keyCap, string labelText, UnityEngine.Events.UnityAction onClick, float maxBtnWidth)
+    {
+        if (btn == null) return;
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(onClick);
+
+        TMP_Text tmp = keyCap != null && keyCap.ActionLabelText != null
+            ? keyCap.ActionLabelText
+            : btn.GetComponentInChildren<TMP_Text>(true);
+        if (tmp == null) return;
+
+        bool hasVisibleBadge = btn.transform.Find("KeycapBadge")?.gameObject.activeSelf ?? (keyCap != null);
+        var rtb = ResponsiveTextButton.AttachOrGet(btn);
+        rtb.Configure(
+            labelRef: tmp,
+            backgroundRef: btn.GetComponent<Image>(),
+            minFont: 15f,
+            maxFont: 22f,
+            minBtnHeight: 52f,
+            maxBtnHeight: 120f,
+            minBtnWidth: 140f,
+            maxBtnWidth: maxBtnWidth,
+            fitWidth: true,
+            allowHeightGrow: true,
+            padLeft: hasVisibleBadge ? 64f : 22f,
+            padRight: 22f,
+            padVertical: 14f,
+            manageMargins: false);
+        rtb.SetText(labelText);
     }
 
     private void SetSpeakerDisplay(string speaker)

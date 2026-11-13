@@ -904,6 +904,7 @@ namespace EcoQuest.Inventory
             {
                 useButtonText.text = label;
             }
+            RefreshUseButtonFit();
         }
 
         private void SetUseButtonState(bool isEnabled)
@@ -921,6 +922,29 @@ namespace EcoQuest.Inventory
             {
                 useButtonText.color = isEnabled ? Color.white : new Color(0.92f, 0.94f, 0.90f, 0.88f);
             }
+
+            RefreshUseButtonFit();
+        }
+
+        private void RefreshUseButtonFit()
+        {
+            if (useButton == null || useButtonText == null) return;
+            var rtb = ResponsiveTextButton.AttachOrGet(useButton);
+            rtb.Configure(
+                labelRef: useButtonText,
+                backgroundRef: useButtonBg != null ? useButtonBg : useButton.GetComponent<Image>(),
+                minFont: 14f,
+                maxFont: 22f,
+                minBtnHeight: 52f,
+                maxBtnHeight: 90f,
+                minBtnWidth: 180f,
+                maxBtnWidth: 260f,
+                fitWidth: true,
+                allowHeightGrow: true,
+                padLeft: 16f,
+                padRight: 16f,
+                padVertical: 10f,
+                manageMargins: true);
         }
 
         public void OnUseButtonClicked()

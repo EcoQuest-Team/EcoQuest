@@ -116,6 +116,7 @@ public class UITheme : ScriptableObject
     public Sprite panelBackgroundSprite;
     public Sprite speakerTabGreenSprite;
     public Sprite speakerTabTealSprite;
+    public Sprite roundedButtonSprite;
     public Sprite imageFrameBorderSprite;
     public Sprite keycapFaceSprite;
     public Sprite keycapBaseSprite;

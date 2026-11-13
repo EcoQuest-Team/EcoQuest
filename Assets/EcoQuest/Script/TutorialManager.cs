@@ -369,25 +369,39 @@ public class TutorialManager : MonoBehaviour
             bodyRt.offsetMin = Vector2.zero;
             bodyRt.offsetMax = Vector2.zero;
             body.color = UITheme.Instance != null ? UITheme.Instance.textMuted : new Color(0.890f, 0.960f, 0.890f, 1f);
+            body.textWrappingMode = TextWrappingModes.Normal;
             body.enableAutoSizing = true;
-            body.fontSizeMin = 22f;
+            body.fontSizeMin = 17f;
             body.fontSizeMax = 28f;
             body.maxVisibleLines = int.MaxValue;
             body.overflowMode = TextOverflowModes.Overflow;
 
-            // Expand card height up to 70% screen height so full text is visible
             var cardRt = card.GetComponent<RectTransform>();
             if (cardRt != null)
             {
-                float maxHeight = Mathf.Min(Screen.height * 0.70f, 540f);
-                if (cardRt.sizeDelta.y < 520f)
+                float targetCardH = Mathf.Max(520f, cardRt.sizeDelta.y);
+                cardRt.sizeDelta = new Vector2(cardRt.sizeDelta.x, targetCardH);
+
+                // Check if even at min readable body size (17pt) text exceeds body height; expand card up to 74% screen height
+                float cardW = cardRt.rect.width > 10f ? cardRt.rect.width : (cardRt.sizeDelta.x > 10f ? cardRt.sizeDelta.x : 960f);
+                float bodyW = Mathf.Max(180f, cardW * 0.58f);
+                float bodyH = Mathf.Max(120f, targetCardH * 0.42f);
+                body.enableAutoSizing = false;
+                body.fontSize = 17f;
+                float neededBodyH = body.GetPreferredValues(body.text ?? string.Empty, bodyW, 0f).y;
+                if (neededBodyH > bodyH)
                 {
-                    cardRt.sizeDelta = new Vector2(cardRt.sizeDelta.x, 520f);
+                    float extraH = neededBodyH - bodyH + 16f;
+                    float maxAllowedH = Mathf.Clamp(Screen.height * 0.74f, 520f, 700f);
+                    float expandedH = Mathf.Clamp(targetCardH + extraH, targetCardH, maxAllowedH);
+                    cardRt.sizeDelta = new Vector2(cardRt.sizeDelta.x, expandedH);
+                    body.overflowMode = (expandedH * 0.42f < neededBodyH) ? TextOverflowModes.Ellipsis : TextOverflowModes.Overflow;
                 }
+                body.enableAutoSizing = true;
             }
         }
 
-        // 5. Shared HintRow footer bottom-right: [E] keycap and "Continue" on one level row
+        // 5. Shared HintRow footer bottom-right: [E] keycap and responsive "Continue" on one level row
         var kcp = card.GetComponentInChildren<KeyCapPrompt>(true);
         if (kcp == null)
         {
@@ -416,7 +430,6 @@ public class TutorialManager : MonoBehaviour
                 kcpRt.anchorMax = new Vector2(1f, 0f);
                 kcpRt.pivot = new Vector2(1f, 0f);
                 kcpRt.anchoredPosition = new Vector2(-32f, 20f);
-                kcpRt.sizeDelta = new Vector2(210f, 48f);
             }
 
             var hlg = kcp.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
@@ -440,15 +453,27 @@ public class TutorialManager : MonoBehaviour
             }
             if (label != null)
             {
-                var leL = label.GetComponent<UnityEngine.UI.LayoutElement>() ?? label.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-                leL.preferredWidth = 130f;
-                leL.preferredHeight = 48f;
                 var tmp = label.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     tmp.alignment = TextAlignmentOptions.MidlineLeft;
-                    tmp.fontSize = 24f;
                     tmp.color = Color.white;
+                    var rtb = ResponsiveTextButton.AttachOrGet(kcp);
+                    rtb.Configure(
+                        labelRef: tmp,
+                        minFont: 15f,
+                        maxFont: 24f,
+                        minBtnHeight: 48f,
+                        maxBtnHeight: 88f,
+                        minBtnWidth: 160f,
+                        maxBtnWidth: 340f,
+                        fitWidth: true,
+                        allowHeightGrow: true,
+                        padLeft: 64f,
+                        padRight: 10f,
+                        padVertical: 8f,
+                        manageMargins: false);
+                    rtb.RefreshFit();
                 }
             }
 

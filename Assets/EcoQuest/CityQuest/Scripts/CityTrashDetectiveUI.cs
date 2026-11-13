@@ -839,8 +839,7 @@ namespace EcoQuest.CityQuest
                     quizRt.anchorMin = new Vector2(0.5f, 0f);
                     quizRt.anchorMax = new Vector2(0.5f, 0f);
                     quizRt.pivot = new Vector2(0.5f, 0.5f);
-                    quizRt.anchoredPosition = new Vector2(0f, 108f);
-                    quizRt.sizeDelta = new Vector2(440f, 44f);
+                    quizRt.anchoredPosition = new Vector2(0f, 114f);
                 }
 
                 if (resultsTakeQuizKeyCap == null) resultsTakeQuizKeyCap = resultsTakeQuizButton.GetComponent<KeyCapPrompt>();
@@ -854,6 +853,16 @@ namespace EcoQuest.CityQuest
                 {
                     resultsTakeQuizButtonText.text = "<b>[E]</b> Take Bonus Quiz (+70 Coins Max)";
                 }
+
+                ConfigureResponsiveResultsButton(
+                    resultsTakeQuizButton,
+                    resultsTakeQuizKeyCap,
+                    resultsTakeQuizButtonText,
+                    resultsTakeQuizKeyCap != null,
+                    minW: 320f,
+                    maxW: 540f,
+                    minH: 46f,
+                    maxH: 96f);
             }
 
             RefreshResultsRetryCooldownUI(forceUpdate: true);
@@ -900,22 +909,24 @@ namespace EcoQuest.CityQuest
                 }
 
                 var rt = resultsPlayAgainButton.GetComponent<RectTransform>();
+                bool twoUpRow = cooldownActive || resultsCanTakeBonusQuiz;
                 if (rt != null)
                 {
                     rt.anchorMin = new Vector2(0.5f, 0f);
                     rt.anchorMax = new Vector2(0.5f, 0f);
                     rt.pivot = new Vector2(0.5f, 0.5f);
-                    if (cooldownActive || resultsCanTakeBonusQuiz)
-                    {
-                        rt.anchoredPosition = new Vector2(-145f, 48f);
-                        rt.sizeDelta = new Vector2(260f, 44f);
-                    }
-                    else
-                    {
-                        rt.anchoredPosition = new Vector2(0f, 60f);
-                        rt.sizeDelta = new Vector2(320f, 46f);
-                    }
+                    rt.anchoredPosition = twoUpRow ? new Vector2(-145f, 48f) : new Vector2(0f, 60f);
                 }
+
+                ConfigureResponsiveResultsButton(
+                    resultsPlayAgainButton,
+                    resultsPlayAgainKeyCap,
+                    resultsPlayAgainButtonText,
+                    !cooldownActive,
+                    minW: twoUpRow ? 220f : 280f,
+                    maxW: twoUpRow ? 276f : 440f,
+                    minH: twoUpRow ? 44f : 46f,
+                    maxH: 96f);
             }
 
             if (resultsSkipCloseButton != null)
@@ -938,10 +949,47 @@ namespace EcoQuest.CityQuest
                         srt.anchorMax = new Vector2(0.5f, 0f);
                         srt.pivot = new Vector2(0.5f, 0.5f);
                         srt.anchoredPosition = new Vector2(145f, 48f);
-                        srt.sizeDelta = new Vector2(260f, 44f);
                     }
+
+                    ConfigureResponsiveResultsButton(
+                        resultsSkipCloseButton,
+                        resultsSkipCloseKeyCap,
+                        resultsSkipCloseButtonText,
+                        true,
+                        minW: 220f,
+                        maxW: 276f,
+                        minH: 44f,
+                        maxH: 96f);
                 }
             }
+        }
+
+        private static void ConfigureResponsiveResultsButton(
+            Button btn, KeyCapPrompt kcp, TextMeshProUGUI fallbackTmp, bool badgeVisible,
+            float minW, float maxW, float minH, float maxH)
+        {
+            if (btn == null) return;
+            TMP_Text tmp = kcp != null && kcp.ActionLabelText != null ? kcp.ActionLabelText : fallbackTmp;
+            if (tmp == null) tmp = btn.GetComponentInChildren<TMP_Text>(true);
+            if (tmp == null) return;
+
+            var rtb = ResponsiveTextButton.AttachOrGet(btn);
+            rtb.Configure(
+                labelRef: tmp,
+                backgroundRef: btn.GetComponent<Image>(),
+                minFont: 13f,
+                maxFont: 19f,
+                minBtnHeight: minH,
+                maxBtnHeight: maxH,
+                minBtnWidth: minW,
+                maxBtnWidth: maxW,
+                fitWidth: true,
+                allowHeightGrow: true,
+                padLeft: badgeVisible ? 48f : 18f,
+                padRight: 18f,
+                padVertical: 10f,
+                manageMargins: kcp == null);
+            rtb.RefreshFit();
         }
 
         private static void ApplyResultsButtonLabel(Button btn, KeyCapPrompt kcp, TextMeshProUGUI fallbackTmp, string keyStr, string labelText, bool showBadge)

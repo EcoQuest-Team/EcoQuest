@@ -85,6 +85,12 @@ public class QuizUIController : MonoBehaviour
     private Coroutine rewardGiftCoroutine;
     private Vector2 rewardGiftBasePos = new Vector2(-675f, 14f);
     private bool hasRecordedGiftBasePos = false;
+    private bool hasRecordedAnswersBaseRect = false;
+    private float answersBaseTopY;
+    private float answersBaseHeight;
+    private Vector2 answersBaseAnchoredPos;
+    private Vector2 answersBaseOffsetMin;
+    private Vector2 answersBaseOffsetMax;
 
     private void Awake()
     {
@@ -232,7 +238,25 @@ public class QuizUIController : MonoBehaviour
                         btnTxt.fontSize = 24f;
                         btnTxt.fontStyle = FontStyles.Bold;
                     }
+                    var nextRtb = ResponsiveTextButton.AttachOrGet(nextQuestionButton);
+                    nextRtb.Configure(
+                        labelRef: btnTxt,
+                        backgroundRef: btnImg,
+                        minFont: 15f,
+                        maxFont: 22f,
+                        minBtnHeight: 46f,
+                        maxBtnHeight: 84f,
+                        minBtnWidth: 132f,
+                        maxBtnWidth: 220f,
+                        fitWidth: true,
+                        allowHeightGrow: true,
+                        padLeft: 18f,
+                        padRight: 18f,
+                        padVertical: 10f,
+                        manageMargins: true);
                 }
+
+                ConfigureAnswerButtonsLayout();
             }
 
             if (resultsPanel != null)
@@ -330,6 +354,22 @@ public class QuizUIController : MonoBehaviour
                         btnTxt.fontSize = 24f;
                         btnTxt.fontStyle = FontStyles.Bold;
                     }
+                    var contRtb = ResponsiveTextButton.AttachOrGet(continueButton);
+                    contRtb.Configure(
+                        labelRef: btnTxt,
+                        backgroundRef: btnImg,
+                        minFont: 16f,
+                        maxFont: 22f,
+                        minBtnHeight: 50f,
+                        maxBtnHeight: 96f,
+                        minBtnWidth: 180f,
+                        maxBtnWidth: 360f,
+                        fitWidth: true,
+                        allowHeightGrow: true,
+                        padLeft: 24f,
+                        padRight: 24f,
+                        padVertical: 12f,
+                        manageMargins: true);
                 }
             }
 
@@ -750,18 +790,17 @@ public class QuizUIController : MonoBehaviour
             if (questionContainerCanvasGroup != null) questionContainerCanvasGroup.alpha = 0f;
         }
 
+        ConfigureAnswerButtonsLayout();
+
+        int activeCount = 0;
         for (int i = 0; i < answerButtons.Length; i++)
         {
             if (options != null && i < options.Length)
             {
+                activeCount++;
                 answerButtons[i].gameObject.SetActive(true);
                 answerButtons[i].interactable = false;
-                if (answerButtonTexts[i] != null)
-                {
-                    string prefix = $"{(char)('A' + i)}) ";
-                    answerButtonTexts[i].text = options[i].StartsWith(prefix) ? options[i] : prefix + options[i];
-                    answerButtonTexts[i].color = normalTextColor;
-                }
+                SetAnswerButtonText(i, options[i]);
                 if (answerButtonImages[i] != null) answerButtonImages[i].color = normalButtonColor;
                 if (answerCheckmarks != null && i < answerCheckmarks.Length && answerCheckmarks[i] != null)
                     answerCheckmarks[i].SetActive(false);
@@ -775,6 +814,7 @@ public class QuizUIController : MonoBehaviour
                 answerButtons[i].gameObject.SetActive(false);
             }
         }
+        ResizeAnswersContainerToFit(activeCount);
     }
 
     /// <summary>
@@ -948,6 +988,8 @@ public class QuizUIController : MonoBehaviour
             }
         }
 
+        ConfigureAnswerButtonsLayout();
+
         // Reset and populate answer buttons
         for (int i = 0; i < answerButtons.Length; i++)
         {
@@ -960,12 +1002,7 @@ public class QuizUIController : MonoBehaviour
 
                 answerButtons[i].gameObject.SetActive(true);
                 answerButtons[i].interactable = true;
-                if (answerButtonTexts[i] != null)
-                {
-                    string prefix = $"{(char)('A' + i)}) ";
-                    answerButtonTexts[i].text = options[i].StartsWith(prefix) ? options[i] : prefix + options[i];
-                    answerButtonTexts[i].color = normalTextColor;
-                }
+                SetAnswerButtonText(i, options[i]);
                 if (answerButtonImages[i] != null)
                 {
                     answerButtonImages[i].color = normalButtonColor;
@@ -988,6 +1025,8 @@ public class QuizUIController : MonoBehaviour
                 if (answerButtons[i] != null) answerButtons[i].gameObject.SetActive(false);
             }
         }
+
+        ResizeAnswersContainerToFit(options.Length);
 
         // Slide in question container from right
         if (questionContainerRect != null)
@@ -1021,6 +1060,130 @@ public class QuizUIController : MonoBehaviour
     {
         if (isAnimating) return;
         onAnswerSelectedCallback?.Invoke(optionIndex);
+    }
+
+    private void ConfigureAnswerButtonsLayout()
+    {
+        if (answersContainer != null)
+        {
+            var vlg = answersContainer.GetComponent<VerticalLayoutGroup>();
+            if (vlg == null) vlg = answersContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.spacing = 8f;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+
+            if (!hasRecordedAnswersBaseRect)
+            {
+                answersBaseAnchoredPos = answersContainer.anchoredPosition;
+                answersBaseHeight = answersContainer.rect.height > 10f ? answersContainer.rect.height : answersContainer.sizeDelta.y;
+                answersBaseOffsetMin = answersContainer.offsetMin;
+                answersBaseOffsetMax = answersContainer.offsetMax;
+                answersBaseTopY = answersBaseAnchoredPos.y + (1f - answersContainer.pivot.y) * answersBaseHeight;
+                hasRecordedAnswersBaseRect = true;
+            }
+        }
+
+        if (answerButtons == null) return;
+        Sprite slicedRounded = UITheme.Instance != null ? UITheme.Instance.roundedButtonSprite : null;
+        for (int i = 0; i < answerButtons.Length; i++)
+        {
+            Button btn = answerButtons[i];
+            if (btn == null) continue;
+
+            // Clear scene transform tilt and stray Z offset artifacts
+            btn.transform.localRotation = Quaternion.identity;
+            TMP_Text txt = (answerButtonTexts != null && i < answerButtonTexts.Length) ? answerButtonTexts[i] : btn.GetComponentInChildren<TMP_Text>(true);
+            if (txt != null)
+            {
+                Vector3 lp = txt.rectTransform.localPosition;
+                if (Mathf.Abs(lp.z) > 0.01f) txt.rectTransform.localPosition = new Vector3(lp.x, lp.y, 0f);
+                txt.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+
+            Image bg = (answerButtonImages != null && i < answerButtonImages.Length && answerButtonImages[i] != null)
+                ? answerButtonImages[i]
+                : btn.GetComponent<Image>();
+
+            var rtb = ResponsiveTextButton.AttachOrGet(btn);
+            rtb.Configure(
+                labelRef: txt,
+                backgroundRef: bg,
+                minFont: 16f,
+                maxFont: 23f,
+                minBtnHeight: 54f,
+                maxBtnHeight: 136f,
+                minBtnWidth: 260f,
+                maxBtnWidth: 960f,
+                fitWidth: false,
+                allowHeightGrow: true,
+                padLeft: 24f,
+                padRight: 58f,
+                padVertical: 14f,
+                manageMargins: true,
+                useSharedRounded: true,
+                slicedSprite: slicedRounded);
+        }
+    }
+
+    private void SetAnswerButtonText(int index, string rawOption)
+    {
+        if (answerButtons == null || index < 0 || index >= answerButtons.Length || answerButtons[index] == null) return;
+        string prefix = $"{(char)('A' + index)}) ";
+        string formatted = (!string.IsNullOrEmpty(rawOption) && rawOption.StartsWith(prefix)) ? rawOption : prefix + (rawOption ?? string.Empty);
+
+        if (answerButtonTexts != null && index < answerButtonTexts.Length && answerButtonTexts[index] != null)
+        {
+            answerButtonTexts[index].color = normalTextColor;
+        }
+
+        var rtb = ResponsiveTextButton.AttachOrGet(answerButtons[index]);
+        rtb.SetText(formatted);
+    }
+
+    private void ResizeAnswersContainerToFit(int activeCount)
+    {
+        if (answersContainer == null || answerButtons == null) return;
+
+        var vlg = answersContainer.GetComponent<VerticalLayoutGroup>();
+        float spacing = vlg != null ? vlg.spacing : 8f;
+        float padV = vlg != null ? (vlg.padding.top + vlg.padding.bottom) : 0f;
+
+        float totalH = padV;
+        int visible = 0;
+        for (int i = 0; i < answerButtons.Length && i < activeCount; i++)
+        {
+            if (answerButtons[i] == null || !answerButtons[i].gameObject.activeSelf) continue;
+            var rtb = answerButtons[i].GetComponent<ResponsiveTextButton>();
+            float h = rtb != null && rtb.LastMetrics.TargetHeight > 1f ? rtb.LastMetrics.TargetHeight : 58f;
+            totalH += h;
+            visible++;
+        }
+        if (visible > 1) totalH += (visible - 1) * spacing;
+
+        float targetH = Mathf.Max(58f, totalH);
+        if (Mathf.Approximately(answersContainer.anchorMin.y, answersContainer.anchorMax.y))
+        {
+            float pivY = answersContainer.pivot.y;
+            float baseTop = hasRecordedAnswersBaseRect
+                ? answersBaseTopY
+                : answersContainer.anchoredPosition.y + (1f - pivY) * answersContainer.sizeDelta.y;
+            answersContainer.sizeDelta = new Vector2(answersContainer.sizeDelta.x, targetH);
+            answersContainer.anchoredPosition = new Vector2(answersContainer.anchoredPosition.x, baseTop - (1f - pivY) * targetH);
+        }
+        else if (hasRecordedAnswersBaseRect)
+        {
+            var parentRt = answersContainer.parent as RectTransform;
+            float parentH = parentRt != null && parentRt.rect.height > 10f ? parentRt.rect.height : 572f;
+            float topY = answersContainer.anchorMax.y * parentH + answersBaseOffsetMax.y;
+            float minAnchorY = answersContainer.anchorMin.y * parentH;
+            answersContainer.offsetMax = answersBaseOffsetMax;
+            answersContainer.offsetMin = new Vector2(answersBaseOffsetMin.x, topY - targetH - minAnchorY);
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(answersContainer);
     }
 
     /// <summary>
