@@ -129,6 +129,9 @@ public class ObjectiveMarkerService : MonoBehaviour
     private ExplorerGateController cachedExplorerGate;
     private MinimapIcon cachedExplorerMinimap;
 
+    private LitterbugQuestManager cachedLitterbugManager;
+    private EcoQuest.CityQuest.CityTrashDetectiveManager cachedDetectiveManager;
+
     private void Awake()
     {
         if (instance != null && instance != this)
@@ -200,6 +203,8 @@ public class ObjectiveMarkerService : MonoBehaviour
         UIOrchestrator.OnFlowStateChanged += HandleFlowStateChanged;
         NPCInteraction.OnQuestAccepted += HandleQuestAccepted;
         SequentialWASDTutorial.OnStep6Reached += HandleTutorialStep6Reached;
+        LitterbugQuestManager.OnCityQuestStateChanged += HandleCityQuestStateChanged;
+        EcoQuest.CityQuest.CityTrashDetectiveManager.OnDetectiveQuestStateChanged += HandleCityQuestStateChanged;
     }
 
     private void UnsubscribeEvents()
@@ -213,6 +218,8 @@ public class ObjectiveMarkerService : MonoBehaviour
         UIOrchestrator.OnFlowStateChanged -= HandleFlowStateChanged;
         NPCInteraction.OnQuestAccepted -= HandleQuestAccepted;
         SequentialWASDTutorial.OnStep6Reached -= HandleTutorialStep6Reached;
+        LitterbugQuestManager.OnCityQuestStateChanged -= HandleCityQuestStateChanged;
+        EcoQuest.CityQuest.CityTrashDetectiveManager.OnDetectiveQuestStateChanged -= HandleCityQuestStateChanged;
     }
 
     private static void DestroySafe(UnityEngine.Object obj)
@@ -243,6 +250,8 @@ public class ObjectiveMarkerService : MonoBehaviour
         cachedExplorer = null;
         cachedExplorerGate = null;
         cachedExplorerMinimap = null;
+        cachedLitterbugManager = null;
+        cachedDetectiveManager = null;
     }
 
     public void CacheSceneReferences()
@@ -283,6 +292,14 @@ public class ObjectiveMarkerService : MonoBehaviour
             cachedExplorerGate = explorerGo.GetComponent<ExplorerGateController>();
             cachedExplorerMinimap = explorerGo.GetComponent<MinimapIcon>();
         }
+
+        // Cache City Quest managers
+        cachedLitterbugManager = LitterbugQuestManager.Instance != null
+            ? LitterbugQuestManager.Instance
+            : FindFirstObjectByType<LitterbugQuestManager>(FindObjectsInactive.Include);
+        cachedDetectiveManager = EcoQuest.CityQuest.CityTrashDetectiveManager.Instance != null
+            ? EcoQuest.CityQuest.CityTrashDetectiveManager.Instance
+            : FindFirstObjectByType<EcoQuest.CityQuest.CityTrashDetectiveManager>(FindObjectsInactive.Include);
     }
 
     // -------------------------------------------------------------------------
@@ -292,7 +309,7 @@ public class ObjectiveMarkerService : MonoBehaviour
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         CacheSceneReferences();
-        if (scene.name != "Forest Scene")
+        if (scene.name != "Forest Scene" && scene.name != "City Scene")
         {
             ClearTarget();
         }
@@ -328,6 +345,11 @@ public class ObjectiveMarkerService : MonoBehaviour
         RefreshTargetFromState();
     }
 
+    private void HandleCityQuestStateChanged()
+    {
+        RefreshTargetFromState();
+    }
+
     // -------------------------------------------------------------------------
     // Single Source of Truth Target Gating
     // -------------------------------------------------------------------------
@@ -339,9 +361,15 @@ public class ObjectiveMarkerService : MonoBehaviour
     public void RefreshTargetFromState()
     {
         string sceneName = SceneManager.GetActiveScene().name;
+        if (sceneName == "City Scene")
+        {
+            RefreshCityTargetFromState();
+            return;
+        }
+
         if (sceneName != "Forest Scene")
         {
-            currentReason = $"Scene is '{sceneName}' (Not Forest) -> No markers";
+            currentReason = $"Scene is '{sceneName}' (No active guide markers)";
             ClearTarget();
             return;
         }
@@ -416,6 +444,101 @@ public class ObjectiveMarkerService : MonoBehaviour
         ClearTarget();
     }
 
+    private void RefreshCityTargetFromState()
+    {
+        if (cachedLitterbugManager == null && cachedDetectiveManager == null)
+        {
+            CacheSceneReferences();
+        }
+
+        // 1. ReadyToTurnIn objectives always take highest priority
+        if (cachedLitterbugManager != null
+            && cachedLitterbugManager.QuestState == LitterbugQuestState.ReadyToTurnIn
+            && cachedLitterbugManager.QuestGiverTransform != null)
+        {
+            currentReason = "City Litterbug quest ready to turn in -> Guide to Fountain Guardian";
+            SetTarget(cachedLitterbugManager.QuestGiverTransform, "Return to Guardian");
+            return;
+        }
+
+        if (cachedDetectiveManager != null
+            && cachedDetectiveManager.QuestState == EcoQuest.CityQuest.CityDetectiveState.ReadyToTurnIn
+            && cachedDetectiveManager.rangerRobinTransform != null)
+        {
+            currentReason = "City Detective quest ready to turn in -> Guide to Ranger Robin";
+            SetTarget(cachedDetectiveManager.rangerRobinTransform, "Return to Ranger Robin");
+            return;
+        }
+
+        // 2. While either City quest is actively in progress, hide NPC offer arrows
+        bool anyQuestActive =
+            (cachedLitterbugManager != null && cachedLitterbugManager.QuestState == LitterbugQuestState.Active)
+            || (cachedDetectiveManager != null && cachedDetectiveManager.QuestState == EcoQuest.CityQuest.CityDetectiveState.Active);
+
+        if (anyQuestActive)
+        {
+            currentReason = "City quest active -> Quest HUD is guide; No NPC arrow";
+            ClearTarget();
+            return;
+        }
+
+        // 3. Available quest givers off cooldown
+        Transform fountainTarget = (cachedLitterbugManager != null && cachedLitterbugManager.IsQuestGiverReadyForArrow)
+            ? cachedLitterbugManager.QuestGiverTransform
+            : null;
+        Transform robinTarget = (cachedDetectiveManager != null && cachedDetectiveManager.IsRobinReadyForArrow)
+            ? cachedDetectiveManager.rangerRobinTransform
+            : null;
+
+        if (fountainTarget != null && robinTarget != null)
+        {
+            // Keep existing valid offer target to prevent target flip-flops while moving around mid-city
+            if (currentTarget == fountainTarget)
+            {
+                currentReason = "City both quests available off-cooldown -> Keeping Fountain Guardian";
+                return;
+            }
+            if (currentTarget == robinTarget)
+            {
+                currentReason = "City both quests available off-cooldown -> Keeping Ranger Robin";
+                return;
+            }
+
+            Vector3 refPos = playerTransform != null ? playerTransform.position : (mainCam != null ? mainCam.transform.position : Vector3.zero);
+            float sqrFountain = (playerTransform != null || mainCam != null) ? (fountainTarget.position - refPos).sqrMagnitude : 0f;
+            float sqrRobin = (playerTransform != null || mainCam != null) ? (robinTarget.position - refPos).sqrMagnitude : float.MaxValue;
+
+            if (sqrRobin < sqrFountain)
+            {
+                currentReason = "City both quests available -> Nearest is Ranger Robin";
+                SetTarget(robinTarget, "Talk to Ranger Robin");
+            }
+            else
+            {
+                currentReason = "City both quests available -> Guide to Fountain Guardian";
+                SetTarget(fountainTarget, "Talk to Guardian");
+            }
+            return;
+        }
+
+        if (fountainTarget != null)
+        {
+            currentReason = "City Litterbug quest available off-cooldown -> Guide to Fountain Guardian";
+            SetTarget(fountainTarget, "Talk to Guardian");
+            return;
+        }
+
+        if (robinTarget != null)
+        {
+            currentReason = "City Detective quest available off-cooldown -> Guide to Ranger Robin";
+            SetTarget(robinTarget, "Talk to Ranger Robin");
+            return;
+        }
+
+        currentReason = "City all quests on cooldown / no NPC objective";
+        ClearTarget();
+    }
+
     /// <summary>
     /// Explicitly sets the active objective target, automatically updating minimap and clearing old markers.
     /// </summary>
@@ -424,6 +547,12 @@ public class ObjectiveMarkerService : MonoBehaviour
         if (target == null)
         {
             ClearTarget();
+            return;
+        }
+
+        if (currentTarget == target && currentLabel == label)
+        {
+            SyncMinimapAndOverheadMarkers();
             return;
         }
 

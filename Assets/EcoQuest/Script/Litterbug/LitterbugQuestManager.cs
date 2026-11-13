@@ -212,11 +212,25 @@ public class LitterbugQuestManager : MonoBehaviour
     private bool cameraCullingMaskModified;
     private GameObject hiddenCarriedItem;
 
+    public static event System.Action OnCityQuestStateChanged;
+
+    private bool lastGuardianCooldownActive;
+    private float nextCooldownCheckTime;
+
     public LitterbugQuestState QuestState => questState;
     public bool IsPanelAnimating => panelAnimCoroutine != null;
     public int CurrentRound => currentRound;
     public Transform PlayerTransform => playerTransform;
     public Transform QuestGiverTransform => questGiverTransform;
+    public bool IsQuestGiverReadyForArrow =>
+        questState == LitterbugQuestState.ReadyToTurnIn
+        || (questState == LitterbugQuestState.Available && !IsOnGuardianCooldown(out _));
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetLitterbugEvents()
+    {
+        OnCityQuestStateChanged = null;
+    }
     public float QuestGiverInteractRadius => questGiverInteractRadius;
     public float AdvanceLockTimer => advanceLockTimer;
     public bool CanInteractFountain => canInteractFountain;
@@ -276,6 +290,10 @@ public class LitterbugQuestManager : MonoBehaviour
             minimapTracker.ClearAll();
             minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
         }
+
+        lastGuardianCooldownActive = IsOnGuardianCooldown(out _);
+        OnCityQuestStateChanged?.Invoke();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
     }
 
     private void CacheSceneReferences()
@@ -484,6 +502,15 @@ public class LitterbugQuestManager : MonoBehaviour
     private void Update()
     {
         float dt = Time.deltaTime;
+        if (lastGuardianCooldownActive && Time.unscaledTime >= nextCooldownCheckTime)
+        {
+            nextCooldownCheckTime = Time.unscaledTime + 0.5f;
+            if (!IsOnGuardianCooldown(out _))
+            {
+                lastGuardianCooldownActive = false;
+                OnCityQuestStateChanged?.Invoke();
+            }
+        }
         AnimateQuestGiverOverhead();
         AnimateCleanlinessBar(dt);
 
@@ -740,8 +767,11 @@ public class LitterbugQuestManager : MonoBehaviour
             ? Vector3.Distance(questGiverTransform.position, playerTransform.position)
             : 999f;
 
-        // Hide marker during dialogue, when not available/ready, or within InteractRadius + 1.0m
+        // Hide marker during dialogue, blocking UI, cooldown, when not available/ready, or within InteractRadius + 1.0m
+        bool onCooldown = questState == LitterbugQuestState.Available && IsOnGuardianCooldown(out _);
         bool shouldHide = IsDialogueOpen
+            || CursorState.IsAnyBlockingUIOpen()
+            || onCooldown
             || (questState != LitterbugQuestState.Available && questState != LitterbugQuestState.ReadyToTurnIn)
             || (distToPlayer <= (questGiverInteractRadius + 1.0f));
 
@@ -818,6 +848,7 @@ public class LitterbugQuestManager : MonoBehaviour
         currentRound = completedRounds + 1;
         persuadedCount = 0;
         questState = LitterbugQuestState.Active;
+        OnCityQuestStateChanged?.Invoke();
         displayedCleanliness = 0f;
         targetCleanliness = 0f;
         lastDisplayedDistanceMeters = -999;
@@ -1762,6 +1793,8 @@ public class LitterbugQuestManager : MonoBehaviour
 
             if (minimapTracker != null)
                 minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
+
+            OnCityQuestStateChanged?.Invoke();
         }
         else
         {
@@ -1809,11 +1842,13 @@ public class LitterbugQuestManager : MonoBehaviour
 
         // Immediately transition Completed -> Available so Guide checks cooldown when talked to
         questState = LitterbugQuestState.Available;
+        lastGuardianCooldownActive = true;
         if (minimapTracker != null)
         {
             minimapTracker.ClearAll();
             minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
         }
+        OnCityQuestStateChanged?.Invoke();
     }
 
     private void CloseDialogueImmediateOrFade()

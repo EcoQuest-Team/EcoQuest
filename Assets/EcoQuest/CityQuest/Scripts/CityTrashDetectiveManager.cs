@@ -135,7 +135,12 @@ namespace EcoQuest.CityQuest
         [SerializeField] private int currentRunPickupCoins = 0;
         [SerializeField] private int lastRunStars = 0;
 
+        public static event System.Action OnDetectiveQuestStateChanged;
+
         public CityDetectiveState QuestState => questState;
+        public bool IsRobinReadyForArrow =>
+            questState == CityDetectiveState.ReadyToTurnIn
+            || ((questState == CityDetectiveState.NotStarted || questState == CityDetectiveState.Completed) && !IsOnRobinCooldown(out _));
         public float RemainingSeconds => remainingSeconds;
         public int CollectedCount => collectedCount;
         public int RemainingHintCharges => remainingHintCharges;
@@ -170,6 +175,12 @@ namespace EcoQuest.CityQuest
         private static int _lastCooldownTickFrame = -1;
         private static float _lastCooldownSaveUnscaledTime = -100f;
         private static Sprite _fallbackHourglassSprite;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetDetectiveEvents()
+        {
+            OnDetectiveQuestStateChanged = null;
+        }
 
         public static bool IsRobinCooldownDialogueOpen { get; private set; }
 
@@ -258,6 +269,8 @@ namespace EcoQuest.CityQuest
             CachePickupPool();
             EnsureRobinHeadMarker();
             UpdateRobinMarkerVisibility();
+            OnDetectiveQuestStateChanged?.Invoke();
+            ObjectiveMarkerService.Instance?.RefreshTargetFromState();
         }
 
         private Transform ResolvePlayerTransform()
@@ -492,10 +505,11 @@ namespace EcoQuest.CityQuest
             if (robinHeadMarker == null) EnsureRobinHeadMarker();
             if (robinHeadMarker == null) return;
 
-            bool isDialogue = (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue);
-            bool show = !isDialogue && (questState == CityDetectiveState.NotStarted ||
-                                        questState == CityDetectiveState.ReadyToTurnIn ||
-                                        questState == CityDetectiveState.Completed);
+            bool isBlocked = (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue)
+                || CursorState.IsAnyBlockingUIOpen();
+            bool show = !isBlocked && (questState == CityDetectiveState.NotStarted ||
+                                       questState == CityDetectiveState.ReadyToTurnIn ||
+                                       questState == CityDetectiveState.Completed);
 
             robinHeadMarker.gameObject.SetActive(show);
 
@@ -859,6 +873,7 @@ namespace EcoQuest.CityQuest
             _lastCooldownSaveUnscaledTime = Time.unscaledTime;
             SaveCooldownRemainingImmediate();
             UpdateRobinMarkerVisibility();
+            OnDetectiveQuestStateChanged?.Invoke();
         }
 
         public static void SkipRobinCooldown()
@@ -878,6 +893,7 @@ namespace EcoQuest.CityQuest
             {
                 Instance.UpdateRobinMarkerVisibility();
             }
+            OnDetectiveQuestStateChanged?.Invoke();
         }
 
         public static void FlushRobinCooldownSave()
@@ -952,6 +968,7 @@ namespace EcoQuest.CityQuest
                 {
                     Instance.UpdateRobinMarkerVisibility();
                 }
+                OnDetectiveQuestStateChanged?.Invoke();
             }
             else if (Time.unscaledTime - _lastCooldownSaveUnscaledTime >= 1.0f)
             {
@@ -1392,6 +1409,7 @@ namespace EcoQuest.CityQuest
 
             questState = CityDetectiveState.Active;
             UpdateRobinMarkerVisibility();
+            OnDetectiveQuestStateChanged?.Invoke();
 
             if (UIOrchestrator.Instance != null)
             {
@@ -1428,6 +1446,7 @@ namespace EcoQuest.CityQuest
             ui?.HideChecklist();
             ui?.UpdateCompassHud(false, Vector3.zero, Vector3.forward, Vector3.zero, "", CityDistrict.Park, 0f);
             UpdateRobinMarkerVisibility();
+            OnDetectiveQuestStateChanged?.Invoke();
 
             if (UIOrchestrator.Instance != null)
             {
@@ -1672,6 +1691,7 @@ namespace EcoQuest.CityQuest
             {
                 questState = CityDetectiveState.ReadyToTurnIn;
                 UpdateRobinMarkerVisibility();
+                OnDetectiveQuestStateChanged?.Invoke();
                 rangerRobinController?.PlayReaction("Cheer");
                 if (!isFinalizingQuest)
                 {
@@ -1852,6 +1872,7 @@ namespace EcoQuest.CityQuest
                         modalCloseCooldownTimer = 0.25f;
                         questState = CityDetectiveState.NotStarted;
                         UpdateRobinMarkerVisibility();
+                        OnDetectiveQuestStateChanged?.Invoke();
                         UIOrchestrator.Instance?.ApplyCurrentProfile(0.20f);
                     },
                     () =>
