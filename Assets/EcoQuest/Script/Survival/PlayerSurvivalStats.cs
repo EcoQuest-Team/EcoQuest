@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Manages player survival stats: Hunger and Stamina.
@@ -20,6 +21,11 @@ public class PlayerSurvivalStats : MonoBehaviour
     public float hungerDepletionPerSec = 1f / 15f;
     [Tooltip("Extra hunger drain rate per second while actively sprinting (capped at +50% of passive rate).")]
     public float sprintHungerDepletionPerSec = 1f / 30f;
+
+    [Header("Tutorial Drain Balance")]
+    [Tooltip("Drain multiplier applied to hunger decay and sprint stamina drain during the Forest tutorial (0.2 = 5x slower).")]
+    [Range(0.05f, 1f)]
+    public float tutorialDrainMultiplier = 0.2f;
 
     [Header("Stamina Settings")]
     [Tooltip("Maximum stamina value.")]
@@ -305,6 +311,41 @@ public class PlayerSurvivalStats : MonoBehaviour
     }
 
     /// <summary>
+    /// Returns true only while actively in the Forest Scene AND before the tutorial completes.
+    /// Guarantees normal 1.0x drain in City, Beach, Main Menu, and post-tutorial free roam.
+    /// </summary>
+    public bool IsTutorialDrainSlowdownActive()
+    {
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (!activeScene.IsValid() || !string.Equals(activeScene.name, "Forest Scene", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1 ||
+            PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 1 ||
+            PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1)
+        {
+            return false;
+        }
+
+        if (SequentialWASDTutorial.Instance != null && SequentialWASDTutorial.Instance.IsFullTutorialCompleted)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Effective drain multiplier for hunger and sprint stamina drain (0.2x during Forest tutorial, 1.0x otherwise).
+    /// </summary>
+    public float GetEffectiveTutorialDrainMultiplier()
+    {
+        return IsTutorialDrainSlowdownActive() ? Mathf.Clamp(tutorialDrainMultiplier, 0f, 1f) : 1f;
+    }
+
+    /// <summary>
     /// Advances hunger depletion by <paramref name="dt"/> seconds using serialized rates and threshold notifications.
     /// Returns true if currentHunger changed.
     /// </summary>
@@ -321,6 +362,9 @@ public class PlayerSurvivalStats : MonoBehaviour
             // Sprinting adds up to +50% faster drain over the passive rate.
             rate += Mathf.Min(sprintHungerDepletionPerSec, baseRate * 0.5f);
         }
+
+        rate *= GetEffectiveTutorialDrainMultiplier();
+        if (rate <= 0f) return false;
 
         float prev = currentHunger;
         currentHunger = Mathf.Max(0f, currentHunger - rate * dt);
@@ -382,6 +426,16 @@ public class PlayerSurvivalStats : MonoBehaviour
 
     private void UpdateStamina(float dt)
     {
+        StepStaminaUpdate(dt);
+    }
+
+    /// <summary>
+    /// Advances stamina drain (while sprinting) or stamina regeneration (while resting) by <paramref name="dt"/> seconds.
+    /// </summary>
+    public void StepStaminaUpdate(float dt)
+    {
+        if (dt <= 0f) return;
+
         // When Stamina Recovery buff is active:
         // - Stamina drain while sprinting is reduced by 30% (Tier 1) to 50% (Tier 2)
         // - Stamina recovery rate is boosted by +40% (Tier 1) to +75% (Tier 2) with near-instant regen delay
@@ -402,7 +456,8 @@ public class PlayerSurvivalStats : MonoBehaviour
             _timeSinceLastSprint = 0f;
             if (currentStamina > 0f)
             {
-                currentStamina = Mathf.Max(0f, currentStamina - (staminaDrainPerSec * drainMultiplier) * dt);
+                float tutorialDrainMult = GetEffectiveTutorialDrainMultiplier();
+                currentStamina = Mathf.Max(0f, currentStamina - (staminaDrainPerSec * drainMultiplier * tutorialDrainMult) * dt);
                 OnStaminaChanged?.Invoke(currentStamina, maxStamina);
 
                 if (currentStamina <= 0f && !_isExhausted)

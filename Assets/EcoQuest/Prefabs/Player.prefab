@@ -1105,6 +1105,7 @@ MonoBehaviour:
   currentHunger: 100
   hungerDepletionPerSec: 0.06666667
   sprintHungerDepletionPerSec: 0.03333334
+  tutorialDrainMultiplier: 0.2
   maxStamina: 100
   currentStamina: 100
   staminaDrainPerSec: 22
