@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -370,6 +371,33 @@ public class SettingsManager : MonoBehaviour
             if (vol.gameObject.name.IndexOf("Blur", StringComparison.OrdinalIgnoreCase) >= 0) continue;
             vol.enabled = enableScenePost;
         }
+
+        Camera mainCam = Camera.main;
+        if (mainCam != null)
+        {
+            UniversalAdditionalCameraData uac = mainCam.GetUniversalAdditionalCameraData();
+            if (uac != null && uac.renderPostProcessing)
+            {
+                if (qualityIndex <= 0)
+                {
+                    uac.antialiasing = AntialiasingMode.None;
+                }
+                else if (qualityIndex == 1)
+                {
+                    uac.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+                }
+                else if (qualityIndex == 2)
+                {
+                    uac.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+                    uac.antialiasingQuality = AntialiasingQuality.Medium;
+                }
+                else
+                {
+                    uac.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+                    uac.antialiasingQuality = AntialiasingQuality.High;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -383,6 +411,8 @@ public class SettingsManager : MonoBehaviour
         int q = Mathf.Clamp(qualityIndex, 0, 3);
         float pixelError;
         float basemapDist;
+        float detailDist;
+        float detailDensity;
         float treeDist;
         float billboardDist;
         float crossFadeLen;
@@ -394,37 +424,45 @@ public class SettingsManager : MonoBehaviour
             case 0: // Low
                 pixelError = 12f;
                 basemapDist = 400f;
+                detailDist = 35f;
+                detailDensity = 0.35f;
                 treeDist = 45f;
                 billboardDist = 30f;
                 crossFadeLen = 5f;
-                maxMeshTrees = 150;
+                maxMeshTrees = 80;
                 terrainShadowMode = ShadowCastingMode.Off;
                 break;
             case 1: // Medium
                 pixelError = 8f;
                 basemapDist = 600f;
+                detailDist = 50f;
+                detailDensity = 0.60f;
                 treeDist = 60f;
                 billboardDist = 40f;
                 crossFadeLen = 5f;
-                maxMeshTrees = 250;
+                maxMeshTrees = 120;
                 terrainShadowMode = ShadowCastingMode.TwoSided;
                 break;
             case 3: // Ultra
                 pixelError = 4f;
                 basemapDist = 1000f;
+                detailDist = 90f;
+                detailDensity = 1.0f;
                 treeDist = 95f;
                 billboardDist = 70f;
                 crossFadeLen = 10f;
-                maxMeshTrees = 600;
+                maxMeshTrees = 300;
                 terrainShadowMode = ShadowCastingMode.TwoSided;
                 break;
             default: // High (2)
                 pixelError = 5f;
                 basemapDist = 800f;
+                detailDist = 70f;
+                detailDensity = 0.85f;
                 treeDist = 80f;
                 billboardDist = 55f;
                 crossFadeLen = 8f;
-                maxMeshTrees = 400;
+                maxMeshTrees = 200;
                 terrainShadowMode = ShadowCastingMode.TwoSided;
                 break;
         }
@@ -435,8 +473,8 @@ public class SettingsManager : MonoBehaviour
             if (t == null) continue;
             t.heightmapPixelError = pixelError;
             t.basemapDistance = basemapDist;
-            t.detailObjectDistance = 0f;
-            t.detailObjectDensity = 0f;
+            t.detailObjectDistance = detailDist;
+            t.detailObjectDensity = detailDensity;
             t.treeDistance = treeDist;
             t.treeBillboardDistance = billboardDist;
             t.treeCrossFadeLength = crossFadeLen;

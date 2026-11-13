@@ -14834,14 +14834,14 @@ Terrain:
   m_Enabled: 1
   serializedVersion: 6
   m_TerrainData: {fileID: 15600000, guid: b08daa719aa904f4a8a291e3b16a1f50, type: 2}
-  m_TreeDistance: 106
-  m_TreeBillboardDistance: 50
+  m_TreeDistance: 60
+  m_TreeBillboardDistance: 40
   m_TreeCrossFadeLength: 5
-  m_TreeMaximumFullLODCount: 50
-  m_DetailObjectDistance: 249
-  m_DetailObjectDensity: 1
-  m_HeightmapPixelError: 5
-  m_SplatMapDistance: 1000
+  m_TreeMaximumFullLODCount: 120
+  m_DetailObjectDistance: 50
+  m_DetailObjectDensity: 0.6
+  m_HeightmapPixelError: 8
+  m_SplatMapDistance: 600
   m_HeightmapMinimumLODSimplification: 0
   m_HeightmapMaximumLOD: 0
   m_ShadowCastingMode: 2
