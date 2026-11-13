@@ -94,6 +94,10 @@ MonoBehaviour:
   speakerTabTealSprite: {fileID: 21300000, guid: 322ed388e45b96c488b419f12ce9e158, type: 3}
   roundedButtonSprite: {fileID: 21300000, guid: a1b2c3d4e5f647899102b3c4d5e6f701, type: 3}
   imageFrameBorderSprite: {fileID: 0}
+  categoryBioIcon: {fileID: 21300000, guid: 4d7ce702ef3247cdbf50eeaad5960984, type: 3}
+  categoryNonBioIcon: {fileID: 21300000, guid: 5cd5d49569fc4c56966fdc42ff42bca5, type: 3}
+  categoryRecycleIcon: {fileID: 21300000, guid: ee98c6181d54432c8f4c66962ace2908, type: 3}
+  categoryHazardIcon: {fileID: 21300000, guid: 6eb9be37c31b4776adf6c16325f11b10, type: 3}
   keycapFaceSprite: {fileID: 21300000, guid: 094b90579ebc7c74583c3abe1d9ad9d0, type: 3}
   keycapBaseSprite: {fileID: 21300000, guid: 99992d033318df04ab0c9d1151f447d3, type: 3}
   buttonHoverSound: {fileID: 0}

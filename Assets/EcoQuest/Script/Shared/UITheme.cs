@@ -118,6 +118,10 @@ public class UITheme : ScriptableObject
     public Sprite speakerTabTealSprite;
     public Sprite roundedButtonSprite;
     public Sprite imageFrameBorderSprite;
+    public Sprite categoryBioIcon;
+    public Sprite categoryNonBioIcon;
+    public Sprite categoryRecycleIcon;
+    public Sprite categoryHazardIcon;
     public Sprite keycapFaceSprite;
     public Sprite keycapBaseSprite;
 
