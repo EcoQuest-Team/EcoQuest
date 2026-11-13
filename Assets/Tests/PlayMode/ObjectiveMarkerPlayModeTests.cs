@@ -24,6 +24,7 @@ namespace EcoQuest.Tests.PlayMode
         private Camera testCamera;
         private bool initialPaused;
         private float initialTimeScale;
+        private Scene? tempCityScene;
 
         [OneTimeSetUp]
         public void OneTimeSetUp()
@@ -225,6 +226,89 @@ namespace EcoQuest.Tests.PlayMode
             Assert.IsFalse(GetProp<bool>("IsSuppressed"));
             Assert.IsTrue(GetProp<bool>("IsWorldArrowActive"));
             Assert.IsTrue(GetProp<bool>("IsDistanceTextActive"));
+        }
+
+        [UnityTest]
+        public IEnumerator CityScene_OptionalFountainGuardianHasNoArrowWhenAvailable_OnlyWhenReadyToTurnIn()
+        {
+            yield return null;
+
+            Scene originalScene = SceneManager.GetActiveScene();
+            Scene cityScene = SceneManager.GetSceneByName("City Scene");
+            bool createdCityScene = false;
+            if (!cityScene.IsValid() || !cityScene.isLoaded)
+            {
+                cityScene = SceneManager.CreateScene("City Scene");
+                createdCityScene = true;
+            }
+
+            try
+            {
+                if (createdCityScene)
+            {
+                tempCityScene = cityScene;
+            }
+            SceneManager.SetActiveScene(cityScene);
+
+                Type litterbugType = Type.GetType("LitterbugQuestManager, Assembly-CSharp", true);
+                Type litterbugStateType = Type.GetType("LitterbugQuestState, Assembly-CSharp", true);
+
+                var fountainGo = new GameObject("FountainQuestGiver");
+                fountainGo.transform.position = new Vector3(0f, 1.6f, 21f);
+                SceneManager.MoveGameObjectToScene(fountainGo, cityScene);
+                createdObjects.Add(fountainGo);
+
+                var lqmGo = new GameObject("LitterbugQuestManager");
+                Component lqm = lqmGo.AddComponent(litterbugType);
+                litterbugType.GetField("questGiverTransform", InstanceFlags).SetValue(lqm, fountainGo.transform);
+                SceneManager.MoveGameObjectToScene(lqmGo, cityScene);
+                createdObjects.Add(lqmGo);
+
+                yield return null;
+
+                InvokeInstance(markerService, "CacheSceneReferences");
+                InvokeInstance(markerService, "RefreshTargetFromState");
+                yield return WaitFrames(3);
+
+                bool readyForArrow = (bool)litterbugType.GetProperty("IsQuestGiverReadyForArrow", InstanceFlags).GetValue(lqm);
+                Assert.IsFalse(readyForArrow, "Optional Fountain Guardian quest should not expose an offer arrow when Available.");
+                Assert.AreNotSame(fountainGo.transform, GetProp<Transform>("CurrentTarget"),
+                    "ObjectiveMarkerService must not target optional Fountain Guardian when quest is Available.");
+                Assert.IsFalse(GetProp<bool>("IsWorldArrowActive"));
+
+                object readyState = Enum.Parse(litterbugStateType, "ReadyToTurnIn");
+                litterbugType.GetField("questState", InstanceFlags).SetValue(lqm, readyState);
+                InvokeInstance(markerService, "RefreshTargetFromState");
+                yield return WaitFrames(3);
+
+                Assert.AreSame(fountainGo.transform, GetProp<Transform>("CurrentTarget"),
+                    "Once player completes an accepted Fountain quest round (ReadyToTurnIn), arrow may guide turn-in.");
+            }
+            finally
+            {
+                if (originalScene.IsValid() && originalScene.isLoaded)
+                {
+                    SceneManager.SetActiveScene(originalScene);
+                }
+            }
+        }
+
+        [UnityTearDown]
+        public IEnumerator UnityTearDown()
+        {
+            if (tempCityScene.HasValue)
+            {
+                Scene s = tempCityScene.Value;
+                tempCityScene = null;
+                if (s.IsValid() && s.isLoaded)
+                {
+                    AsyncOperation unloadOp = SceneManager.UnloadSceneAsync(s);
+                    while (unloadOp != null && !unloadOp.isDone)
+                    {
+                        yield return null;
+                    }
+                }
+            }
         }
 
         private static IEnumerator WaitFrames(int count)

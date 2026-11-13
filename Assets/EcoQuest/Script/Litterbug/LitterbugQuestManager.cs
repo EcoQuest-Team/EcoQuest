@@ -222,9 +222,8 @@ public class LitterbugQuestManager : MonoBehaviour
     public int CurrentRound => currentRound;
     public Transform PlayerTransform => playerTransform;
     public Transform QuestGiverTransform => questGiverTransform;
-    public bool IsQuestGiverReadyForArrow =>
-        questState == LitterbugQuestState.ReadyToTurnIn
-        || (questState == LitterbugQuestState.Available && !IsOnGuardianCooldown(out _));
+    // Fountain Guardian's city quest is optional; only show the guide arrow when returning to turn in an accepted round.
+    public bool IsQuestGiverReadyForArrow => questState == LitterbugQuestState.ReadyToTurnIn;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetLitterbugEvents()
