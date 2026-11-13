@@ -156,7 +156,10 @@ namespace EcoQuest.CityTraffic
             {
                 rumbleAudioSource.outputAudioMixerGroup = AudioManager.Instance.GetSFXGroup();
             }
-            rumbleAudioSource.clip = GetOrCreateTrainRumbleClip();
+            if (rumbleAudioSource.clip == null || rumbleAudioSource.clip.length <= 0.01f)
+            {
+                rumbleAudioSource.clip = GetOrCreateTrainRumbleClip();
+            }
 
             _waitingInTunnel = false;
             _waitTimer = 0f;

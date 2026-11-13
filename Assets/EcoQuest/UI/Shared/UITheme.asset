@@ -100,10 +100,10 @@ MonoBehaviour:
   categoryHazardIcon: {fileID: 21300000, guid: 6eb9be37c31b4776adf6c16325f11b10, type: 3}
   keycapFaceSprite: {fileID: 21300000, guid: 094b90579ebc7c74583c3abe1d9ad9d0, type: 3}
   keycapBaseSprite: {fileID: 21300000, guid: 99992d033318df04ab0c9d1151f447d3, type: 3}
-  buttonHoverSound: {fileID: 0}
-  buttonClickSound: {fileID: 0}
-  modalOpenSound: {fileID: 0}
-  modalCloseSound: {fileID: 0}
-  quizCorrectSound: {fileID: 0}
-  quizWrongSound: {fileID: 0}
-  coinPickupSound: {fileID: 0}
+  buttonHoverSound: {fileID: 8300000, guid: 01f97bbed0b81f0459648487c04b998a, type: 3}
+  buttonClickSound: {fileID: 8300000, guid: 56c831b72b1e74545954efdb5d3e3029, type: 3}
+  modalOpenSound: {fileID: 8300000, guid: f20bdcd9e3f8ea74991dfcec95d414d6, type: 3}
+  modalCloseSound: {fileID: 8300000, guid: ecfe03eabc71cde419b9262310082ead, type: 3}
+  quizCorrectSound: {fileID: 8300000, guid: b076f6b53675fb947bb66ce4a39400b4, type: 3}
+  quizWrongSound: {fileID: 8300000, guid: 1da41e8c47af8c84aa7beabd561e0b72, type: 3}
+  coinPickupSound: {fileID: 8300000, guid: dfcf8b78f95621f439d355729bba938d, type: 3}

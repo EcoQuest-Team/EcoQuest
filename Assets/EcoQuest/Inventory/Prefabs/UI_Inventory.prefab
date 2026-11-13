@@ -2925,10 +2925,10 @@ MonoBehaviour:
   btnHoverSprite: {fileID: 21300000, guid: e0705518715814e44897215a16e9177a, type: 3}
   btnDisabledSprite: {fileID: 21300000, guid: 102c5a506210efa4cbb15696078c1bfa, type: 3}
   audioSource: {fileID: 0}
-  openSound: {fileID: 0}
-  closeSound: {fileID: 0}
-  selectSound: {fileID: 0}
-  useItemSound: {fileID: 0}
+  openSound: {fileID: 8300000, guid: f20bdcd9e3f8ea74991dfcec95d414d6, type: 3}
+  closeSound: {fileID: 8300000, guid: ecfe03eabc71cde419b9262310082ead, type: 3}
+  selectSound: {fileID: 8300000, guid: 56c831b72b1e74545954efdb5d3e3029, type: 3}
+  useItemSound: {fileID: 8300000, guid: 743c7c87bf0b0f94e87a4bb64bf6baf0, type: 3}
   useCooldownDuration: 0.35
 --- !u!114 &1193163583381746807
 MonoBehaviour:

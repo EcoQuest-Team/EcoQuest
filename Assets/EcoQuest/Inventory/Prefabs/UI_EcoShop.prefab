@@ -6495,10 +6495,10 @@ MonoBehaviour:
   toastGroup: {fileID: 1800295985818995783}
   toastText: {fileID: 7796945316437376867}
   audioSource: {fileID: 0}
-  openSound: {fileID: 0}
-  closeSound: {fileID: 0}
-  buySound: {fileID: 0}
-  errorSound: {fileID: 0}
+  openSound: {fileID: 8300000, guid: f20bdcd9e3f8ea74991dfcec95d414d6, type: 3}
+  closeSound: {fileID: 8300000, guid: ecfe03eabc71cde419b9262310082ead, type: 3}
+  buySound: {fileID: 8300000, guid: b0fce141421a6b64aafb0994a153dc0b, type: 3}
+  errorSound: {fileID: 8300000, guid: 2c2f8dfac9bee6a408fe2f0f56f2ec34, type: 3}
 --- !u!82 &8946838043740153293
 AudioSource:
   m_ObjectHideFlags: 0
@@ -6508,7 +6508,7 @@ AudioSource:
   m_GameObject: {fileID: 4430003769561560967}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 796839878322629771, guid: 7fb313ddd0036934481ebf307cbeb166, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1

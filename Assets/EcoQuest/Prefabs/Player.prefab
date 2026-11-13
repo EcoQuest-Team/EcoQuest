@@ -775,8 +775,12 @@ MonoBehaviour:
   TopClamp: 89
   BottomClamp: -89
   FootstepAudioSource: {fileID: 4401734302043140137}
-  LandingAudioClip: {fileID: 0}
-  FootstepAudioClips: []
+  LandingAudioClip: {fileID: 8300000, guid: 13d28d169ad9d48409e83b791f4cabf6, type: 3}
+  FootstepAudioClips:
+  - {fileID: 8300000, guid: 7ac43c99bbd708c42acf6f4060770f64, type: 3}
+  - {fileID: 8300000, guid: 32f4d669ffcd58044a18b3a707199855, type: 3}
+  - {fileID: 8300000, guid: 73045a21da081bd45a8a86f8a509663c, type: 3}
+  - {fileID: 8300000, guid: 63c3b0f8785be454aadf497fb84f967b, type: 3}
   FootstepAudioVolume: 0.5
   FootstepInterval: 0.45
 --- !u!114 &769055661671401014
@@ -1119,6 +1123,12 @@ MonoBehaviour:
   _isSprinting: 0
   _isExhausted: 0
   _timeSinceLastSprint: 0
+  _staminaBuffRemaining: 0
+  _staminaBuffDuration: 0
+  _staminaBuffPercent: 0
+  _speedBuffRemaining: 0
+  _speedBuffDuration: 0
+  _speedBuffPercent: 0
 --- !u!1 &870882826156474581
 GameObject:
   m_ObjectHideFlags: 0

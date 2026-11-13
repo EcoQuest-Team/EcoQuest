@@ -237,8 +237,8 @@ MonoBehaviour:
   tipsDatabase: {fileID: 11400000, guid: 6471fe9546f9b6a41a0b3e66eaee810c, type: 2}
   ambientAudioSource: {fileID: 52250947049209981}
   ambientLoopClip: {fileID: 0}
-  readyChimeClip: {fileID: 0}
-  tipChangeClip: {fileID: 0}
+  readyChimeClip: {fileID: 8300000, guid: 7ed3dd0b230eb044bbbd653a059aac34, type: 3}
+  tipChangeClip: {fileID: 8300000, guid: f015216f049b5aa4c97495707db41410, type: 3}
   rootCanvas: {fileID: 6454494825441939524}
   rootCanvasGroup: {fileID: 2154035402978426690}
   canvasScaler: {fileID: 8725677521896380137}
@@ -343,7 +343,7 @@ AudioSource:
   m_GameObject: {fileID: 1811864091842318438}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 796839878322629771, guid: 7fb313ddd0036934481ebf307cbeb166, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0

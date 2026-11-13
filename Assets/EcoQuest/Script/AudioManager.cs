@@ -226,11 +226,19 @@ public class AudioManager : MonoBehaviour
 #endif
         if (mainMixer != null)
         {
-            masterGroup ??= FindGroup("Master");
-            musicGroup ??= FindGroup("Music");
-            sfxGroup ??= FindGroup("SFX");
-            uiGroup ??= FindGroup("UI") ?? sfxGroup;
-            ambienceGroup ??= FindGroup("Ambience") ?? sfxGroup;
+            if (masterGroup == null) masterGroup = FindGroup("Master");
+            if (musicGroup == null) musicGroup = FindGroup("Music");
+            if (sfxGroup == null) sfxGroup = FindGroup("SFX");
+            if (uiGroup == null)
+            {
+                uiGroup = FindGroup("UI");
+                if (uiGroup == null) uiGroup = sfxGroup;
+            }
+            if (ambienceGroup == null)
+            {
+                ambienceGroup = FindGroup("Ambience");
+                if (ambienceGroup == null) ambienceGroup = sfxGroup;
+            }
         }
 
         musicSource = EnsureChildSource("MusicSource", true, musicGroup, false);
@@ -292,50 +300,55 @@ public class AudioManager : MonoBehaviour
         return src;
     }
 
+    private static void Pick<T>(ref T target, T fallback) where T : UnityEngine.Object
+    {
+        if (target == null && fallback != null) target = fallback;
+    }
+
     private void FillNullRefsFrom(AudioManager src)
     {
-        mainMixer ??= src.mainMixer;
-        masterGroup ??= src.masterGroup;
-        musicGroup ??= src.musicGroup;
-        sfxGroup ??= src.sfxGroup;
-        uiGroup ??= src.uiGroup;
-        ambienceGroup ??= src.ambienceGroup;
-        uiThemeAsset ??= src.uiThemeAsset;
+        Pick(ref mainMixer, src.mainMixer);
+        Pick(ref masterGroup, src.masterGroup);
+        Pick(ref musicGroup, src.musicGroup);
+        Pick(ref sfxGroup, src.sfxGroup);
+        Pick(ref uiGroup, src.uiGroup);
+        Pick(ref ambienceGroup, src.ambienceGroup);
+        Pick(ref uiThemeAsset, src.uiThemeAsset);
 
-        defaultMusicClip ??= src.defaultMusicClip;
-        bgmMainMenu ??= src.bgmMainMenu;
-        bgmForest ??= src.bgmForest;
-        bgmCity ??= src.bgmCity;
-        ambForest ??= src.ambForest;
-        ambCity ??= src.ambCity;
+        Pick(ref defaultMusicClip, src.defaultMusicClip);
+        Pick(ref bgmMainMenu, src.bgmMainMenu);
+        Pick(ref bgmForest, src.bgmForest);
+        Pick(ref bgmCity, src.bgmCity);
+        Pick(ref ambForest, src.ambForest);
+        Pick(ref ambCity, src.ambCity);
 
-        buttonClickClip ??= src.buttonClickClip;
-        buttonHoverClip ??= src.buttonHoverClip;
-        sliderChangeClip ??= src.sliderChangeClip;
-        uiModalOpenClip ??= src.uiModalOpenClip;
-        uiModalCloseClip ??= src.uiModalCloseClip;
-        uiPanelWhooshClip ??= src.uiPanelWhooshClip;
-        uiDialogueBlipClip ??= src.uiDialogueBlipClip;
-        uiNotificationClip ??= src.uiNotificationClip;
-        uiTutorialStepClip ??= src.uiTutorialStepClip;
-        uiHungerWarningClip ??= src.uiHungerWarningClip;
-        uiShopBuyClip ??= src.uiShopBuyClip;
-        uiShopErrorClip ??= src.uiShopErrorClip;
-        uiItemUseClip ??= src.uiItemUseClip;
+        Pick(ref buttonClickClip, src.buttonClickClip);
+        Pick(ref buttonHoverClip, src.buttonHoverClip);
+        Pick(ref sliderChangeClip, src.sliderChangeClip);
+        Pick(ref uiModalOpenClip, src.uiModalOpenClip);
+        Pick(ref uiModalCloseClip, src.uiModalCloseClip);
+        Pick(ref uiPanelWhooshClip, src.uiPanelWhooshClip);
+        Pick(ref uiDialogueBlipClip, src.uiDialogueBlipClip);
+        Pick(ref uiNotificationClip, src.uiNotificationClip);
+        Pick(ref uiTutorialStepClip, src.uiTutorialStepClip);
+        Pick(ref uiHungerWarningClip, src.uiHungerWarningClip);
+        Pick(ref uiShopBuyClip, src.uiShopBuyClip);
+        Pick(ref uiShopErrorClip, src.uiShopErrorClip);
+        Pick(ref uiItemUseClip, src.uiItemUseClip);
 
-        sfxTrashPickup ??= src.sfxTrashPickup;
-        sfxTrashDrop ??= src.sfxTrashDrop;
-        sfxTrashDepositCorrect ??= src.sfxTrashDepositCorrect;
-        sfxTrashDepositWrong ??= src.sfxTrashDepositWrong;
-        sfxQuizCorrect ??= src.sfxQuizCorrect;
-        sfxQuizWrong ??= src.sfxQuizWrong;
-        sfxCoinEarn ??= src.sfxCoinEarn;
-        sfxQuestComplete ??= src.sfxQuestComplete;
-        sfxJump ??= src.sfxJump;
-        sfxLand ??= src.sfxLand;
-        sfxLoadingReady ??= src.sfxLoadingReady;
-        sfxLitterThrow ??= src.sfxLitterThrow;
-        sfxLitterLand ??= src.sfxLitterLand;
+        Pick(ref sfxTrashPickup, src.sfxTrashPickup);
+        Pick(ref sfxTrashDrop, src.sfxTrashDrop);
+        Pick(ref sfxTrashDepositCorrect, src.sfxTrashDepositCorrect);
+        Pick(ref sfxTrashDepositWrong, src.sfxTrashDepositWrong);
+        Pick(ref sfxQuizCorrect, src.sfxQuizCorrect);
+        Pick(ref sfxQuizWrong, src.sfxQuizWrong);
+        Pick(ref sfxCoinEarn, src.sfxCoinEarn);
+        Pick(ref sfxQuestComplete, src.sfxQuestComplete);
+        Pick(ref sfxJump, src.sfxJump);
+        Pick(ref sfxLand, src.sfxLand);
+        Pick(ref sfxLoadingReady, src.sfxLoadingReady);
+        Pick(ref sfxLitterThrow, src.sfxLitterThrow);
+        Pick(ref sfxLitterLand, src.sfxLitterLand);
 
         if ((footstepGrassClips == null || footstepGrassClips.Length == 0) && src.footstepGrassClips != null && src.footstepGrassClips.Length > 0)
         {
