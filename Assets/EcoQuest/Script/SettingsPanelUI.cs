@@ -234,6 +234,8 @@ public class SettingsPanelUI : MonoBehaviour
         // Graphics live dependency callbacks
         if (vsyncToggle != null)
             vsyncToggle.onValueChanged.AddListener(_ => OnVSyncToggleChanged());
+        if (fpsLimitDropdown != null)
+            fpsLimitDropdown.onValueChanged.AddListener(OnFPSLimitDropdownChanged);
         if (resolutionDropdown != null)
             resolutionDropdown.onValueChanged.AddListener(OnResolutionDropdownChanged);
         if (fullscreenToggle != null)
@@ -444,6 +446,26 @@ public class SettingsPanelUI : MonoBehaviour
         }
     }
 
+    private void OnFPSLimitDropdownChanged(int index)
+    {
+        if (suppressCallbacks) return;
+
+        int selectedFps = (index >= 0 && index < fpsOptions.Length) ? fpsOptions[index] : -1;
+        // Selecting a finite FPS cap automatically disables VSync so Application.targetFrameRate takes effect.
+        if (selectedFps > 0 && vsyncToggle != null && vsyncToggle.isOn)
+        {
+            suppressCallbacks = true;
+            vsyncToggle.isOn = false;
+            suppressCallbacks = false;
+        }
+
+        UpdateFPSLimitInteractable();
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayButtonClick();
+        }
+    }
+
     private void OnResolutionDropdownChanged(int index)
     {
         if (suppressCallbacks) return;
@@ -482,15 +504,16 @@ public class SettingsPanelUI : MonoBehaviour
 
     private void UpdateFPSLimitInteractable()
     {
-        bool vsyncOn = vsyncToggle != null && vsyncToggle.isOn;
         if (fpsLimitDropdown != null)
         {
-            fpsLimitDropdown.interactable = !vsyncOn;
+            fpsLimitDropdown.interactable = true;
             var cg = fpsLimitDropdown.GetComponent<CanvasGroup>();
-            if (cg == null) cg = fpsLimitDropdown.gameObject.AddComponent<CanvasGroup>();
-            cg.alpha = vsyncOn ? 0.5f : 1f;
-            cg.interactable = !vsyncOn;
-            cg.blocksRaycasts = !vsyncOn;
+            if (cg != null)
+            {
+                cg.alpha = 1f;
+                cg.interactable = true;
+                cg.blocksRaycasts = true;
+            }
         }
     }
 
