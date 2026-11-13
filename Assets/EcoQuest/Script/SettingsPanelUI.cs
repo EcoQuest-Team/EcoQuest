@@ -61,6 +61,8 @@ public class SettingsPanelUI : MonoBehaviour
 
     private List<Vector2Int> availableResolutions = new List<Vector2Int>();
     private readonly int[] fpsOptions = new[] { 30, 60, 120, -1 };
+    private int previousResolutionIndex = 0;
+    private bool lastNonBorderlessFullscreen = true;
 
     private bool suppressCallbacks = false;
     private bool isInitialized = false;
@@ -274,12 +276,12 @@ public class SettingsPanelUI : MonoBehaviour
             EnsureDropdownTemplateLayout(qualityDropdown, 180f);
         }
 
-        // 2. Dynamic monitor-supported resolutions + "Auto (Fit Screen)"
+        // 2. Dynamic monitor-supported resolutions + "Auto (Fit Screen)" + "Borderless"
         availableResolutions = SettingsManager.GetUniqueValidResolutions();
         if (resolutionDropdown != null)
         {
             resolutionDropdown.ClearOptions();
-            List<string> resLabels = new List<string> { "Auto (Fit Screen)" };
+            List<string> resLabels = new List<string> { "Auto (Fit Screen)", "Borderless" };
             for (int i = 0; i < availableResolutions.Count; i++)
             {
                 resLabels.Add($"{availableResolutions[i].x} x {availableResolutions[i].y}");
@@ -346,19 +348,31 @@ public class SettingsPanelUI : MonoBehaviour
             qualityDropdown.value = Mathf.Clamp(sm.QualityIndex, 0, Mathf.Max(0, qualityDropdown.options.Count - 1));
             qualityDropdown.RefreshShownValue();
         }
-        if (fullscreenToggle != null) fullscreenToggle.isOn = sm.IsAutoResolution ? true : sm.Fullscreen;
+        int targetOptionIndex = 0; // "Auto (Fit Screen)"
+        if (sm.DisplayMode == ResolutionDisplayMode.Borderless)
+        {
+            targetOptionIndex = 1;
+        }
+        else if (sm.DisplayMode == ResolutionDisplayMode.Custom && availableResolutions.Count > 0)
+        {
+            int idx = availableResolutions.FindIndex(r => r.x == sm.ResolutionWidth && r.y == sm.ResolutionHeight);
+            if (idx >= 0) targetOptionIndex = idx + 2;
+        }
 
         if (resolutionDropdown != null && resolutionDropdown.options.Count > 0)
         {
-            int targetOptionIndex = 0; // "Auto (Fit Screen)"
-            if (!sm.IsAutoResolution && availableResolutions.Count > 0)
-            {
-                int idx = availableResolutions.FindIndex(r => r.x == sm.ResolutionWidth && r.y == sm.ResolutionHeight);
-                if (idx >= 0) targetOptionIndex = idx + 1;
-            }
-            resolutionDropdown.value = Mathf.Clamp(targetOptionIndex, 0, resolutionDropdown.options.Count - 1);
+            targetOptionIndex = Mathf.Clamp(targetOptionIndex, 0, resolutionDropdown.options.Count - 1);
+            resolutionDropdown.value = targetOptionIndex;
             resolutionDropdown.RefreshShownValue();
         }
+
+        lastNonBorderlessFullscreen = sm.Fullscreen;
+        previousResolutionIndex = targetOptionIndex;
+        if (fullscreenToggle != null)
+        {
+            fullscreenToggle.isOn = (targetOptionIndex == 1) ? true : sm.Fullscreen;
+        }
+        UpdateFullscreenToggleForResolutionOption(targetOptionIndex, restorePreviousValue: false);
 
         if (vsyncToggle != null) vsyncToggle.isOn = sm.VSync;
 
@@ -469,12 +483,17 @@ public class SettingsPanelUI : MonoBehaviour
     private void OnResolutionDropdownChanged(int index)
     {
         if (suppressCallbacks) return;
-        if (index == 0 && fullscreenToggle != null && !fullscreenToggle.isOn)
+
+        bool wasBorderless = previousResolutionIndex == 1;
+        bool isBorderless = index == 1;
+        if (!wasBorderless && isBorderless && fullscreenToggle != null)
         {
-            suppressCallbacks = true;
-            fullscreenToggle.isOn = true;
-            suppressCallbacks = false;
+            lastNonBorderlessFullscreen = fullscreenToggle.isOn;
         }
+
+        UpdateFullscreenToggleForResolutionOption(index, restorePreviousValue: wasBorderless && !isBorderless);
+        previousResolutionIndex = index;
+
         if (AudioManager.Instance != null)
         {
             AudioManager.Instance.PlayButtonClick();
@@ -484,22 +503,50 @@ public class SettingsPanelUI : MonoBehaviour
     private void OnFullscreenToggleChanged(bool isFullscreen)
     {
         if (suppressCallbacks) return;
-        // When explicitly unchecking Fullscreen while "Auto (Fit Screen)" is selected,
-        // switch resolution selection to the matching monitor resolution so Windowed mode applies cleanly.
-        if (!isFullscreen && resolutionDropdown != null && resolutionDropdown.value == 0 && availableResolutions.Count > 0)
+
+        // Borderless always owns FullscreenWindow covering the display; guard against stale UI events.
+        if (resolutionDropdown != null && resolutionDropdown.value == 1)
         {
-            Vector2Int nativeRes = SettingsManager.GetCurrentDisplayNativeResolution();
-            int idx = availableResolutions.FindIndex(r => r.x == nativeRes.x && r.y == nativeRes.y);
-            if (idx < 0) idx = availableResolutions.Count - 1;
             suppressCallbacks = true;
-            resolutionDropdown.value = idx + 1;
-            resolutionDropdown.RefreshShownValue();
+            if (fullscreenToggle != null) fullscreenToggle.isOn = true;
             suppressCallbacks = false;
+            return;
         }
+
+        lastNonBorderlessFullscreen = isFullscreen;
         if (AudioManager.Instance != null)
         {
             AudioManager.Instance.PlayButtonClick();
         }
+    }
+
+    private void UpdateFullscreenToggleForResolutionOption(int resolutionOptionIndex, bool restorePreviousValue)
+    {
+        if (fullscreenToggle == null) return;
+
+        bool isBorderless = resolutionOptionIndex == 1;
+        fullscreenToggle.interactable = !isBorderless;
+
+        GameObject dimTarget = (fullscreenToggle.transform.parent != null && fullscreenToggle.transform.parent.name == "FullscreenRow")
+            ? fullscreenToggle.transform.parent.gameObject
+            : fullscreenToggle.gameObject;
+        CanvasGroup cg = dimTarget.GetComponent<CanvasGroup>();
+        if (cg == null) cg = dimTarget.AddComponent<CanvasGroup>();
+        cg.alpha = isBorderless ? 0.50f : 1f;
+        cg.interactable = !isBorderless;
+        cg.blocksRaycasts = !isBorderless;
+
+        bool prevSuppress = suppressCallbacks;
+        suppressCallbacks = true;
+        if (isBorderless)
+        {
+            fullscreenToggle.isOn = true;
+        }
+        else if (restorePreviousValue)
+        {
+            fullscreenToggle.isOn = lastNonBorderlessFullscreen;
+        }
+        suppressCallbacks = prevSuppress;
     }
 
     private void UpdateFPSLimitInteractable()
@@ -571,25 +618,41 @@ public class SettingsPanelUI : MonoBehaviour
         if (SettingsManager.Instance == null) return;
 
         int qIdx = qualityDropdown != null ? qualityDropdown.value : SettingsManager.DefaultQuality;
-        bool fs = fullscreenToggle == null || fullscreenToggle.isOn;
+        int ddVal = resolutionDropdown != null ? resolutionDropdown.value : 0;
 
-        bool isAuto = resolutionDropdown == null || resolutionDropdown.value <= 0 || availableResolutions.Count == 0;
+        ResolutionDisplayMode displayMode;
+        if (ddVal == 1)
+        {
+            displayMode = ResolutionDisplayMode.Borderless;
+        }
+        else if (ddVal >= 2 && availableResolutions.Count > 0)
+        {
+            displayMode = ResolutionDisplayMode.Custom;
+        }
+        else
+        {
+            displayMode = ResolutionDisplayMode.Auto;
+        }
+
         Vector2Int nativeRes = SettingsManager.GetCurrentDisplayNativeResolution();
         int resW = nativeRes.x;
         int resH = nativeRes.y;
-        if (!isAuto && availableResolutions.Count > 0)
+        if (displayMode == ResolutionDisplayMode.Custom && availableResolutions.Count > 0)
         {
-            int rIdx = Mathf.Clamp(resolutionDropdown.value - 1, 0, availableResolutions.Count - 1);
+            int rIdx = Mathf.Clamp(ddVal - 2, 0, availableResolutions.Count - 1);
             resW = availableResolutions[rIdx].x;
             resH = availableResolutions[rIdx].y;
         }
-        if (isAuto) fs = true;
+
+        bool fs = displayMode == ResolutionDisplayMode.Borderless
+            ? lastNonBorderlessFullscreen
+            : (fullscreenToggle == null || fullscreenToggle.isOn);
 
         bool vsync = vsyncToggle != null && vsyncToggle.isOn;
         int fpsIdx = fpsLimitDropdown != null ? Mathf.Clamp(fpsLimitDropdown.value, 0, fpsOptions.Length - 1) : 3;
         int fpsLimit = fpsOptions[fpsIdx];
 
-        SettingsManager.Instance.SetAndApplyGraphics(qIdx, fs, isAuto, resW, resH, vsync, fpsLimit, true);
+        SettingsManager.Instance.SetAndApplyDisplayGraphics(qIdx, fs, displayMode, resW, resH, vsync, fpsLimit, true);
 
         if (AudioManager.Instance != null)
         {

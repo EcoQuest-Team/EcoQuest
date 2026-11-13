@@ -21,9 +21,20 @@ namespace EcoQuest.Tests.PlayMode
         private bool hadSavedQuality;
         private bool hadSavedAutoRes;
         private int savedAutoRes;
+        private bool hadSavedFullscreen;
         private int savedFullscreen;
         private int savedResW;
         private int savedResH;
+        private bool hadSavedDisplayMode;
+        private int savedDisplayMode;
+        private bool hadSavedDisplayModeMigrated;
+        private int savedDisplayModeMigrated;
+        private bool hadSavedRealAutoRes;
+        private int savedRealAutoRes;
+        private bool hadSavedRealResW;
+        private int savedRealResW;
+        private bool hadSavedRealResH;
+        private int savedRealResH;
 
         [OneTimeSetUp]
         public void OneTimeSetUp()
@@ -39,11 +50,23 @@ namespace EcoQuest.Tests.PlayMode
             savedQuality = PlayerPrefs.GetInt("EcoQuest_Settings_Quality", 2);
             hadSavedAutoRes = PlayerPrefs.HasKey("EcoQuest_Settings_AutoRes");
             savedAutoRes = PlayerPrefs.GetInt("EcoQuest_Settings_AutoRes", 1);
+            hadSavedFullscreen = PlayerPrefs.HasKey("EcoQuest_Settings_Fullscreen");
             savedFullscreen = PlayerPrefs.GetInt("EcoQuest_Settings_Fullscreen", 1);
             savedResW = PlayerPrefs.GetInt("EcoQuest_Settings_ResW", Screen.width);
             savedResH = PlayerPrefs.GetInt("EcoQuest_Settings_ResH", Screen.height);
             savedVsync = PlayerPrefs.GetInt("EcoQuest_Settings_VSync", 1);
             savedFps = PlayerPrefs.GetInt("EcoQuest_Settings_FPSLimit", -1);
+
+            hadSavedDisplayMode = PlayerPrefs.HasKey("EcoQuest_Settings_DisplayMode");
+            savedDisplayMode = PlayerPrefs.GetInt("EcoQuest_Settings_DisplayMode", 0);
+            hadSavedDisplayModeMigrated = PlayerPrefs.HasKey("EcoQuest_Settings_DisplayMode_v2_Migrated");
+            savedDisplayModeMigrated = PlayerPrefs.GetInt("EcoQuest_Settings_DisplayMode_v2_Migrated", 0);
+            hadSavedRealAutoRes = PlayerPrefs.HasKey("EcoQuest_Settings_ResolutionAuto");
+            savedRealAutoRes = PlayerPrefs.GetInt("EcoQuest_Settings_ResolutionAuto", 1);
+            hadSavedRealResW = PlayerPrefs.HasKey("EcoQuest_Settings_ResolutionWidth");
+            savedRealResW = PlayerPrefs.GetInt("EcoQuest_Settings_ResolutionWidth", Screen.width);
+            hadSavedRealResH = PlayerPrefs.HasKey("EcoQuest_Settings_ResolutionHeight");
+            savedRealResH = PlayerPrefs.GetInt("EcoQuest_Settings_ResolutionHeight", Screen.height);
         }
 
         [TearDown]
@@ -53,11 +76,18 @@ namespace EcoQuest.Tests.PlayMode
             else PlayerPrefs.DeleteKey("EcoQuest_Settings_Quality");
             if (hadSavedAutoRes) PlayerPrefs.SetInt("EcoQuest_Settings_AutoRes", savedAutoRes);
             else PlayerPrefs.DeleteKey("EcoQuest_Settings_AutoRes");
-            PlayerPrefs.SetInt("EcoQuest_Settings_Fullscreen", savedFullscreen);
+            if (hadSavedFullscreen) PlayerPrefs.SetInt("EcoQuest_Settings_Fullscreen", savedFullscreen);
+            else PlayerPrefs.DeleteKey("EcoQuest_Settings_Fullscreen");
             PlayerPrefs.SetInt("EcoQuest_Settings_ResW", savedResW);
             PlayerPrefs.SetInt("EcoQuest_Settings_ResH", savedResH);
             PlayerPrefs.SetInt("EcoQuest_Settings_VSync", savedVsync);
             PlayerPrefs.SetInt("EcoQuest_Settings_FPSLimit", savedFps);
+
+            RestoreIntPref("EcoQuest_Settings_DisplayMode", hadSavedDisplayMode, savedDisplayMode);
+            RestoreIntPref("EcoQuest_Settings_DisplayMode_v2_Migrated", hadSavedDisplayModeMigrated, savedDisplayModeMigrated);
+            RestoreIntPref("EcoQuest_Settings_ResolutionAuto", hadSavedRealAutoRes, savedRealAutoRes);
+            RestoreIntPref("EcoQuest_Settings_ResolutionWidth", hadSavedRealResW, savedRealResW);
+            RestoreIntPref("EcoQuest_Settings_ResolutionHeight", hadSavedRealResH, savedRealResH);
             PlayerPrefs.Save();
 
             object sm = settingsManagerType.GetProperty("Instance", Flags)?.GetValue(null);
@@ -66,6 +96,12 @@ namespace EcoQuest.Tests.PlayMode
                 settingsManagerType.GetMethod("LoadSettings", Flags)?.Invoke(sm, null);
                 settingsManagerType.GetMethod("ApplyGraphicsSettings", Flags)?.Invoke(sm, new object[] { false });
             }
+        }
+
+        private static void RestoreIntPref(string key, bool hadKey, int savedVal)
+        {
+            if (hadKey) PlayerPrefs.SetInt(key, savedVal);
+            else PlayerPrefs.DeleteKey(key);
         }
 
         [UnityTest]
@@ -261,6 +297,123 @@ namespace EcoQuest.Tests.PlayMode
                     }
                 }
             }
+        }
+
+        [UnityTest]
+        public IEnumerator ResolutionDropdown_IncludesBorderlessAfterAuto_LocksFullscreenAndPersistsAcrossReload()
+        {
+            var loadMenu = SceneManager.LoadSceneAsync("Main Menu");
+            while (loadMenu != null && !loadMenu.isDone) yield return null;
+            yield return null;
+            yield return null;
+
+            object sm = settingsManagerType.GetProperty("Instance", Flags)?.GetValue(null);
+            Assert.IsNotNull(sm, "SettingsManager.Instance should exist in Main Menu.");
+
+            Type displayModeType = Type.GetType("ResolutionDisplayMode, Assembly-CSharp", true);
+            object modeAuto = Enum.Parse(displayModeType, "Auto");
+            object modeBorderless = Enum.Parse(displayModeType, "Borderless");
+            MethodInfo setDisplay = settingsManagerType.GetMethod("SetAndApplyDisplayGraphics", Flags);
+            Assert.IsNotNull(setDisplay, "SetAndApplyDisplayGraphics must exist on SettingsManager.");
+
+            // Start at Auto + Windowed (Fullscreen=false) so toggling to Borderless proves lock + auto-check + restore.
+            setDisplay.Invoke(sm, new object[] { 2, false, modeAuto, Screen.width, Screen.height, true, -1, true });
+            yield return null;
+
+            Component panelComp = FindFirstSettingsPanel();
+            Assert.IsNotNull(panelComp, "SettingsPanelUI should exist in Main Menu scene.");
+            panelComp.gameObject.SetActive(true);
+            yield return null;
+            yield return null;
+
+            object resDropdown = settingsPanelType.GetField("resolutionDropdown", Flags)?.GetValue(panelComp);
+            object fsToggle = settingsPanelType.GetField("fullscreenToggle", Flags)?.GetValue(panelComp);
+            Assert.IsNotNull(resDropdown, "resolutionDropdown must be wired on SettingsPanelUI.");
+            Assert.IsNotNull(fsToggle, "fullscreenToggle must be wired on SettingsPanelUI.");
+
+            var optionsList = resDropdown.GetType().GetProperty("options").GetValue(resDropdown) as System.Collections.IList;
+            Assert.IsNotNull(optionsList);
+            Assert.GreaterOrEqual(optionsList.Count, 2, "Resolution dropdown should include Auto and Borderless.");
+            PropertyInfo optionTextProp = optionsList[0].GetType().GetProperty("text");
+            Assert.AreEqual("Auto (Fit Screen)", optionTextProp.GetValue(optionsList[0]));
+            Assert.AreEqual("Borderless", optionTextProp.GetValue(optionsList[1]));
+
+            PropertyInfo ddValueProp = resDropdown.GetType().GetProperty("value");
+            PropertyInfo toggleOnProp = fsToggle.GetType().GetProperty("isOn");
+            PropertyInfo toggleInteractableProp = fsToggle.GetType().GetProperty("interactable");
+
+            Assert.AreEqual(0, (int)ddValueProp.GetValue(resDropdown), "Should open on Auto (index 0).");
+            Assert.IsFalse((bool)toggleOnProp.GetValue(fsToggle), "Auto mode started Windowed.");
+            Assert.IsTrue((bool)toggleInteractableProp.GetValue(fsToggle), "Auto mode must keep Fullscreen toggle editable.");
+
+            // Switch to Borderless (index 1) -> Fullscreen locks checked & dimmed
+            ddValueProp.SetValue(resDropdown, 1);
+            yield return null;
+
+            Assert.IsTrue((bool)toggleOnProp.GetValue(fsToggle), "Borderless should force Fullscreen toggle checked.");
+            Assert.IsFalse((bool)toggleInteractableProp.GetValue(fsToggle), "Borderless must lock Fullscreen toggle.");
+
+            // Switch back to Auto (index 0) before saving -> restores Windowed state and unlocks toggle
+            ddValueProp.SetValue(resDropdown, 0);
+            yield return null;
+
+            Assert.IsTrue((bool)toggleInteractableProp.GetValue(fsToggle), "Leaving Borderless must unlock Fullscreen toggle.");
+            Assert.IsFalse((bool)toggleOnProp.GetValue(fsToggle), "Leaving Borderless should restore prior non-Borderless Fullscreen choice.");
+
+            // Pick Borderless again and Apply
+            ddValueProp.SetValue(resDropdown, 1);
+            yield return null;
+            MethodInfo applyMethod = settingsPanelType.GetMethod("OnApplyGraphicsClicked", Flags);
+            Assert.IsNotNull(applyMethod);
+            applyMethod.Invoke(panelComp, null);
+            yield return null;
+
+            Assert.AreEqual(modeBorderless, settingsManagerType.GetProperty("DisplayMode", Flags).GetValue(sm));
+            Assert.IsTrue((bool)settingsManagerType.GetProperty("IsBorderless", Flags).GetValue(sm));
+            Assert.AreEqual(1, PlayerPrefs.GetInt("EcoQuest_Settings_DisplayMode", -1));
+
+            // Simulate relaunch / scene transition into Forest Scene & back to Main Menu
+            var loadForest = SceneManager.LoadSceneAsync("Forest Scene");
+            while (loadForest != null && !loadForest.isDone) yield return null;
+            yield return null;
+            sm = settingsManagerType.GetProperty("Instance", Flags)?.GetValue(null);
+            settingsManagerType.GetMethod("LoadSettings", Flags)?.Invoke(sm, null);
+            settingsManagerType.GetMethod("ApplyGraphicsSettings", Flags)?.Invoke(sm, new object[] { false });
+            Assert.AreEqual(modeBorderless, settingsManagerType.GetProperty("DisplayMode", Flags).GetValue(sm), "Borderless should persist cleanly into Forest Scene & across LoadSettings.");
+
+            var loadMenuAgain = SceneManager.LoadSceneAsync("Main Menu");
+            while (loadMenuAgain != null && !loadMenuAgain.isDone) yield return null;
+            yield return null;
+
+            panelComp = FindFirstSettingsPanel();
+            Assert.IsNotNull(panelComp);
+            panelComp.gameObject.SetActive(true);
+            yield return null;
+            yield return null;
+
+            resDropdown = settingsPanelType.GetField("resolutionDropdown", Flags)?.GetValue(panelComp);
+            fsToggle = settingsPanelType.GetField("fullscreenToggle", Flags)?.GetValue(panelComp);
+            Assert.AreEqual(1, (int)ddValueProp.GetValue(resDropdown), "UI should reopen with Borderless selected.");
+            Assert.IsTrue((bool)toggleOnProp.GetValue(fsToggle));
+            Assert.IsFalse((bool)toggleInteractableProp.GetValue(fsToggle), "Fullscreen toggle must stay locked when Borderless reloads.");
+
+            // ResetToDefaults restores Auto (Fit Screen) and unlocks Fullscreen toggle
+            settingsManagerType.GetMethod("ResetToDefaults", Flags)?.Invoke(sm, null);
+            settingsPanelType.GetMethod("RefreshUIFromSettings", Flags)?.Invoke(panelComp, null);
+            yield return null;
+
+            Assert.AreEqual(modeAuto, settingsManagerType.GetProperty("DisplayMode", Flags).GetValue(sm));
+            Assert.AreEqual(0, (int)ddValueProp.GetValue(resDropdown), "ResetToDefaults must restore Auto (Fit Screen).");
+            Assert.IsTrue((bool)toggleInteractableProp.GetValue(fsToggle));
+        }
+
+        private Component FindFirstSettingsPanel()
+        {
+            foreach (var obj in UnityEngine.Object.FindObjectsByType(settingsPanelType, FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (obj is Component comp) return comp;
+            }
+            return null;
         }
     }
 }

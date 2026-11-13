@@ -6,6 +6,13 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
+public enum ResolutionDisplayMode
+{
+    Auto = 0,
+    Borderless = 1,
+    Custom = 2
+}
+
 /// <summary>
 /// Persistent SettingsManager singleton (DontDestroyOnLoad) that saves and loads all settings
 /// in PlayerPrefs using the EcoQuest_Settings_ prefix and applies them before the first frame
@@ -25,6 +32,8 @@ public class SettingsManager : MonoBehaviour
     public const string KeyResolutionWidth = "EcoQuest_Settings_ResolutionWidth";
     public const string KeyResolutionHeight = "EcoQuest_Settings_ResolutionHeight";
     public const string KeyResolutionAuto = "EcoQuest_Settings_ResolutionAuto";
+    public const string KeyDisplayMode = "EcoQuest_Settings_DisplayMode";
+    private const string KeyDisplayModeV2Migrated = "EcoQuest_Settings_DisplayMode_v2_Migrated";
     public const string KeyVSync = "EcoQuest_Settings_VSync";
     public const string KeyFPSLimit = "EcoQuest_Settings_FPSLimit";
     public const string KeyMouseSensitivity = "EcoQuest_Settings_MouseSensitivity";
@@ -52,7 +61,9 @@ public class SettingsManager : MonoBehaviour
 
     public int QualityIndex { get; private set; } = DefaultQuality;
     public bool Fullscreen { get; private set; } = DefaultFullscreen;
+    public ResolutionDisplayMode DisplayMode { get; private set; } = ResolutionDisplayMode.Auto;
     public bool IsAutoResolution { get; private set; } = DefaultResolutionAuto;
+    public bool IsBorderless => DisplayMode == ResolutionDisplayMode.Borderless;
     public int ResolutionWidth { get; private set; }
     public int ResolutionHeight { get; private set; }
     public bool VSync { get; private set; } = DefaultVSync;
@@ -190,17 +201,52 @@ public class SettingsManager : MonoBehaviour
             QualityIndex = recommendedQual;
             PlayerPrefs.SetInt(KeyQuality, QualityIndex);
         }
-        IsAutoResolution = PlayerPrefs.GetInt(KeyResolutionAuto, DefaultResolutionAuto ? 1 : 0) == 1;
+        Vector2Int nativeRes = GetCurrentDisplayNativeResolution();
+
+        // One-time migration from pre-Borderless PlayerPrefs so old Auto/Custom indices never select Borderless or crash.
+        if (PlayerPrefs.GetInt(KeyDisplayModeV2Migrated, 0) == 0)
+        {
+            if (!PlayerPrefs.HasKey(KeyDisplayMode))
+            {
+                bool legacyAuto = !PlayerPrefs.HasKey(KeyResolutionAuto) || PlayerPrefs.GetInt(KeyResolutionAuto, 1) == 1;
+                int legacyW = PlayerPrefs.GetInt(KeyResolutionWidth, 0);
+                int legacyH = PlayerPrefs.GetInt(KeyResolutionHeight, 0);
+                bool validLegacyCustom = !legacyAuto && IsResolutionValidForDisplay(legacyW, legacyH, nativeRes);
+
+                if (validLegacyCustom)
+                {
+                    PlayerPrefs.SetInt(KeyDisplayMode, (int)ResolutionDisplayMode.Custom);
+                }
+                else
+                {
+                    PlayerPrefs.SetInt(KeyDisplayMode, (int)ResolutionDisplayMode.Auto);
+                    PlayerPrefs.SetInt(KeyResolutionAuto, 1);
+                    PlayerPrefs.SetInt(KeyResolutionWidth, nativeRes.x);
+                    PlayerPrefs.SetInt(KeyResolutionHeight, nativeRes.y);
+                }
+            }
+            PlayerPrefs.SetInt(KeyDisplayModeV2Migrated, 1);
+            PlayerPrefs.Save();
+        }
+
+        int rawDisplayMode = PlayerPrefs.GetInt(KeyDisplayMode, (int)ResolutionDisplayMode.Auto);
+        DisplayMode = Enum.IsDefined(typeof(ResolutionDisplayMode), rawDisplayMode)
+            ? (ResolutionDisplayMode)rawDisplayMode
+            : ResolutionDisplayMode.Auto;
         Fullscreen = PlayerPrefs.GetInt(KeyFullscreen, DefaultFullscreen ? 1 : 0) == 1;
 
-        Vector2Int nativeRes = GetCurrentDisplayNativeResolution();
         int savedW = PlayerPrefs.GetInt(KeyResolutionWidth, nativeRes.x);
         int savedH = PlayerPrefs.GetInt(KeyResolutionHeight, nativeRes.y);
-        if (savedW < 800 || savedH < 600)
+        if (!IsResolutionValidForDisplay(savedW, savedH, nativeRes))
         {
             savedW = nativeRes.x;
             savedH = nativeRes.y;
+            if (DisplayMode == ResolutionDisplayMode.Custom)
+            {
+                DisplayMode = ResolutionDisplayMode.Auto;
+            }
         }
+        IsAutoResolution = DisplayMode == ResolutionDisplayMode.Auto;
         ResolutionWidth = savedW;
         ResolutionHeight = savedH;
 
@@ -232,9 +278,11 @@ public class SettingsManager : MonoBehaviour
 
         PlayerPrefs.SetInt(KeyQuality, QualityIndex);
         PlayerPrefs.SetInt(KeyFullscreen, Fullscreen ? 1 : 0);
+        PlayerPrefs.SetInt(KeyDisplayMode, (int)DisplayMode);
         PlayerPrefs.SetInt(KeyResolutionAuto, IsAutoResolution ? 1 : 0);
         PlayerPrefs.SetInt(KeyResolutionWidth, ResolutionWidth);
         PlayerPrefs.SetInt(KeyResolutionHeight, ResolutionHeight);
+        PlayerPrefs.SetInt(KeyDisplayModeV2Migrated, 1);
         PlayerPrefs.SetInt(KeyVSync, VSync ? 1 : 0);
         PlayerPrefs.SetInt(KeyFPSLimit, FPSLimit);
 
@@ -292,10 +340,24 @@ public class SettingsManager : MonoBehaviour
 
     public void SetAndApplyGraphics(int qualityIndex, bool fullscreen, bool isAutoResolution, int resWidth, int resHeight, bool vsync, int fpsLimit, bool save = true)
     {
+        SetAndApplyDisplayGraphics(
+            qualityIndex,
+            fullscreen,
+            isAutoResolution ? ResolutionDisplayMode.Auto : ResolutionDisplayMode.Custom,
+            resWidth,
+            resHeight,
+            vsync,
+            fpsLimit,
+            save);
+    }
+
+    public void SetAndApplyDisplayGraphics(int qualityIndex, bool fullscreen, ResolutionDisplayMode displayMode, int resWidth, int resHeight, bool vsync, int fpsLimit, bool save = true)
+    {
         int maxQuality = Mathf.Max(0, QualitySettings.names.Length - 1);
         QualityIndex = Mathf.Clamp(qualityIndex, 0, maxQuality);
-        IsAutoResolution = isAutoResolution;
-        Fullscreen = isAutoResolution ? true : fullscreen;
+        DisplayMode = Enum.IsDefined(typeof(ResolutionDisplayMode), displayMode) ? displayMode : ResolutionDisplayMode.Auto;
+        IsAutoResolution = DisplayMode == ResolutionDisplayMode.Auto;
+        Fullscreen = fullscreen;
         ResolutionWidth = Mathf.Max(800, resWidth);
         ResolutionHeight = Mathf.Max(600, resHeight);
         VSync = vsync;
@@ -307,9 +369,11 @@ public class SettingsManager : MonoBehaviour
         {
             PlayerPrefs.SetInt(KeyQuality, QualityIndex);
             PlayerPrefs.SetInt(KeyFullscreen, Fullscreen ? 1 : 0);
+            PlayerPrefs.SetInt(KeyDisplayMode, (int)DisplayMode);
             PlayerPrefs.SetInt(KeyResolutionAuto, IsAutoResolution ? 1 : 0);
             PlayerPrefs.SetInt(KeyResolutionWidth, ResolutionWidth);
             PlayerPrefs.SetInt(KeyResolutionHeight, ResolutionHeight);
+            PlayerPrefs.SetInt(KeyDisplayModeV2Migrated, 1);
             PlayerPrefs.SetInt(KeyVSync, VSync ? 1 : 0);
             PlayerPrefs.SetInt(KeyFPSLimit, FPSLimit);
             PlayerPrefs.Save();
@@ -337,16 +401,7 @@ public class SettingsManager : MonoBehaviour
         Application.targetFrameRate = VSync ? -1 : FPSLimit;
 
         Vector2Int nativeRes = GetCurrentDisplayNativeResolution();
-        int targetW = IsAutoResolution ? nativeRes.x : ResolutionWidth;
-        int targetH = IsAutoResolution ? nativeRes.y : ResolutionHeight;
-        if (targetW < 800 || targetH < 600)
-        {
-            targetW = nativeRes.x;
-            targetH = nativeRes.y;
-        }
-        FullScreenMode mode = IsAutoResolution
-            ? FullScreenMode.FullScreenWindow
-            : (Fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed);
+        ResolveDisplayTarget(DisplayMode, Fullscreen, ResolutionWidth, ResolutionHeight, nativeRes, out int targetW, out int targetH, out FullScreenMode mode);
 
         if (applyResolution)
         {
@@ -354,7 +409,49 @@ public class SettingsManager : MonoBehaviour
             string qName = (QualitySettings.names != null && clampedQ < QualitySettings.names.Length)
                 ? QualitySettings.names[clampedQ]
                 : clampedQ.ToString();
-            Debug.Log($"[SettingsManager] Applied Graphics -> Quality: {qName} ({clampedQ}), Auto: {IsAutoResolution}, Resolution: {targetW}x{targetH}, Mode: {mode}, VSync: {VSync}, FPSLimit: {Application.targetFrameRate}");
+            Debug.Log($"[SettingsManager] Applied Graphics -> Quality: {qName} ({clampedQ}), DisplayMode: {DisplayMode}, Resolution: {targetW}x{targetH}, Mode: {mode}, VSync: {VSync}, FPSLimit: {Application.targetFrameRate}");
+        }
+    }
+
+    public static bool IsResolutionValidForDisplay(int width, int height, Vector2Int nativeRes)
+    {
+        if (width < 800 || height < 600) return false;
+        if (nativeRes.x >= 800 && nativeRes.y >= 600 && (width > nativeRes.x || height > nativeRes.y)) return false;
+        return true;
+    }
+
+    public static void ResolveDisplayTarget(
+        ResolutionDisplayMode displayMode,
+        bool fullscreen,
+        int customWidth,
+        int customHeight,
+        Vector2Int nativeRes,
+        out int targetWidth,
+        out int targetHeight,
+        out FullScreenMode screenMode)
+    {
+        int safeNativeW = Mathf.Max(800, nativeRes.x);
+        int safeNativeH = Mathf.Max(600, nativeRes.y);
+
+        switch (displayMode)
+        {
+            case ResolutionDisplayMode.Borderless:
+                targetWidth = safeNativeW;
+                targetHeight = safeNativeH;
+                screenMode = FullScreenMode.FullScreenWindow;
+                break;
+
+            case ResolutionDisplayMode.Custom:
+                targetWidth = customWidth >= 800 ? customWidth : safeNativeW;
+                targetHeight = customHeight >= 600 ? customHeight : safeNativeH;
+                screenMode = fullscreen ? FullScreenMode.ExclusiveFullScreen : FullScreenMode.Windowed;
+                break;
+
+            default: // Auto (Fit Screen): native resolution of current display in user's current fullscreen/windowed choice
+                targetWidth = safeNativeW;
+                targetHeight = safeNativeH;
+                screenMode = fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
+                break;
         }
     }
 
@@ -642,6 +739,7 @@ public class SettingsManager : MonoBehaviour
 
         int maxQuality = Mathf.Max(0, QualitySettings.names.Length - 1);
         QualityIndex = Mathf.Clamp(DetectRecommendedQualityIndex(), 0, maxQuality);
+        DisplayMode = ResolutionDisplayMode.Auto;
         IsAutoResolution = DefaultResolutionAuto;
         Fullscreen = DefaultFullscreen;
         ResolutionWidth = nativeRes.x;
