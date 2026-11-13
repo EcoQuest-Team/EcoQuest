@@ -167,6 +167,9 @@ public class UIOrchestrator : MonoBehaviour
     public bool IsQuestPanelUserHidden => isQuestPanelUserHidden;
     public string LastWriter { get; private set; } = "Initial";
 
+    public static readonly Vector2 SharedQuestPanelHomePos = new Vector2(40f, -192f);
+    public static readonly Vector2 SharedQuestPanelHiddenPos = new Vector2(-400f, -192f);
+
     private Coroutine questPanelSlideRoutine;
     private Vector2 questPanelBasePos;
     private bool hasQuestPanelBasePos = false;
@@ -390,7 +393,7 @@ public class UIOrchestrator : MonoBehaviour
                 }
             }
         }
-        questPanelBasePos = new Vector2(40f, -145f);
+        questPanelBasePos = SharedQuestPanelHomePos;
         hasQuestPanelBasePos = true;
         if (questPanelGroup != null)
         {
@@ -913,7 +916,7 @@ public class UIOrchestrator : MonoBehaviour
             return;
         }
 
-        questPanelBasePos = new Vector2(40f, -145f);
+        questPanelBasePos = SharedQuestPanelHomePos;
         hasQuestPanelBasePos = true;
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(0f, 1f);
@@ -1033,7 +1036,7 @@ public class UIOrchestrator : MonoBehaviour
             {
                 if (!hasQuestPanelBasePos)
                 {
-                    questPanelBasePos = cg.gameObject.name == "ChecklistPanel" ? EcoQuest.CityQuest.CityTrashDetectiveUI.ChecklistHomePos : rt.anchoredPosition;
+                    questPanelBasePos = SharedQuestPanelHomePos;
                     hasQuestPanelBasePos = true;
                 }
                 rt.anchoredPosition = visible ? questPanelBasePos : (questPanelBasePos + new Vector2(40f, 0f));

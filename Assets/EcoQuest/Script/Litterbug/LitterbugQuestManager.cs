@@ -251,7 +251,7 @@ public class LitterbugQuestManager : MonoBehaviour
         for (int c = 0; c < CategoryCount; c++)
             categoryShuffleBags[c] = new Queue<int>(3);
 
-        questPanelShownAnchoredPos = new Vector2(40f, -145f);
+        questPanelShownAnchoredPos = UIOrchestrator.SharedQuestPanelHomePos;
         if (questPanelRect != null)
         {
             questPanelRect.anchorMin = new Vector2(0f, 1f);
@@ -2093,7 +2093,7 @@ public class LitterbugQuestManager : MonoBehaviour
     private IEnumerator SlideInQuestPanelRoutine()
     {
         if (questPanelGroup == null || questPanelRect == null) yield break;
-        questPanelShownAnchoredPos = new Vector2(40f, -145f);
+        questPanelShownAnchoredPos = UIOrchestrator.SharedQuestPanelHomePos;
         questPanelRect.anchorMin = new Vector2(0f, 1f);
         questPanelRect.anchorMax = new Vector2(0f, 1f);
         questPanelRect.pivot = new Vector2(0f, 1f);
@@ -2129,7 +2129,7 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (questPanelGroup == null) yield break;
 
-        questPanelShownAnchoredPos = new Vector2(40f, -145f);
+        questPanelShownAnchoredPos = UIOrchestrator.SharedQuestPanelHomePos;
         questPanelGroup.gameObject.SetActive(true);
         questPanelGroup.alpha = 1f;
         if (questPanelRect != null)

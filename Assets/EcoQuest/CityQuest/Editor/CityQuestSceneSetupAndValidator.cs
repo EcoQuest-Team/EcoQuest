@@ -254,7 +254,7 @@ namespace EcoQuest.CityQuest.Editor
                     rt.anchorMin = new Vector2(0f, 1f);
                     rt.anchorMax = new Vector2(0f, 1f);
                     rt.pivot = new Vector2(0f, 1f);
-                    rt.anchoredPosition = new Vector2(40f, -145f);
+                    rt.anchoredPosition = UIOrchestrator.SharedQuestPanelHomePos;
                     rt.sizeDelta = new Vector2(395f, rt.sizeDelta.y);
                     EditorUtility.SetDirty(rt);
                 }
@@ -270,7 +270,7 @@ namespace EcoQuest.CityQuest.Editor
                     rt.anchorMin = new Vector2(0f, 1f);
                     rt.anchorMax = new Vector2(0f, 1f);
                     rt.pivot = new Vector2(0f, 1f);
-                    rt.anchoredPosition = new Vector2(40f, -145f);
+                    rt.anchoredPosition = UIOrchestrator.SharedQuestPanelHomePos;
                     rt.sizeDelta = new Vector2(395f, 480f);
                     EditorUtility.SetDirty(rt);
                 }
@@ -545,7 +545,7 @@ namespace EcoQuest.CityQuest.Editor
             ui.categoryHazardSprite = catHazardSprite;
 
             // -----------------------------------------------------------------
-            // 1. FIELD CHECKLIST PANEL (Top-Left 395x480, margin left 40, top -145)
+            // 1. FIELD CHECKLIST PANEL (Top-Left 395x480, margin left 40, top -192)
             // -----------------------------------------------------------------
             GameObject checklistGo = CreateSlicedPanel(canvasGo.transform, "ChecklistPanel",
                 new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),

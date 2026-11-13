@@ -253,8 +253,8 @@ namespace EcoQuest.CityQuest
         // =====================================================================
 
         // Single source of truth for the checklist placement (anchor/pivot top-left). Hidden = slid off-screen left.
-        public static readonly Vector2 ChecklistHomePos = new Vector2(40f, -145f);
-        public static readonly Vector2 ChecklistHiddenPos = new Vector2(-400f, -145f);
+        public static Vector2 ChecklistHomePos => UIOrchestrator.SharedQuestPanelHomePos;
+        public static Vector2 ChecklistHiddenPos => UIOrchestrator.SharedQuestPanelHiddenPos;
 
         public void ShowChecklist(List<CityTrashDetectiveManager.ChecklistSlot> slots, int collectedCount, float remainingSeconds, int hintCharges, float hintCooldown)
         {
