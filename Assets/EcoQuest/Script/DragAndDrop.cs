@@ -80,9 +80,6 @@ public class DragAndDrop : MonoBehaviour
         playerCC = null;
         lastHoveredBinRenderers = null;
         binPropBlock = null;
-        crosshairRect = null;
-        crosshairImage = null;
-        crosshairFound = false;
         System.Array.Clear(_rayHitsBuffer, 0, _rayHitsBuffer.Length);
         System.Array.Clear(_sphereHitsBuffer, 0, _sphereHitsBuffer.Length);
         System.Array.Clear(_overlapBuffer, 0, _overlapBuffer.Length);
@@ -228,12 +225,6 @@ public class DragAndDrop : MonoBehaviour
     private static Renderer[] lastHoveredBinRenderers;
     private static MaterialPropertyBlock binPropBlock;
 
-    // Crosshair feedback
-    private static RectTransform crosshairRect;
-    private static Image crosshairImage;
-    private static Color crosshairBaseColor = Color.white;
-    private static bool crosshairFound = false;
-
     private float bobTimer = 0f;
 
     // Generic Data-Driven State & Overrides
@@ -285,7 +276,6 @@ public class DragAndDrop : MonoBehaviour
         if (_settings == null) _settings = HoldSettings.Instance;
         mainCamera = Camera.main;
         CachePlayerReferences();
-        CacheCrosshair();
         cachedNpc = FindFirstObjectByType<NPCInteraction>();
         cachedAnimDriver = FindAnyObjectByType<RangerAnimationDriver>();
         EnsurePickable(preserveReleasedState: false, logSelfHeal: false);
@@ -710,55 +700,6 @@ public class DragAndDrop : MonoBehaviour
         }
     }
 
-    private static void CacheCrosshair()
-    {
-        if (crosshairFound && crosshairRect != null) return;
-        GameObject crossGo = GameObject.Find("--- UI ---/UI_Crosshair/Crosshair");
-        if (crossGo == null) crossGo = GameObject.Find("Crosshair");
-        if (crossGo != null)
-        {
-            crosshairRect = crossGo.GetComponent<RectTransform>();
-            crosshairImage = crossGo.GetComponent<Image>();
-            if (crosshairImage != null)
-            {
-                crosshairBaseColor = crosshairImage.color;
-                if (crosshairImage.sprite == null)
-                {
-                    crosshairImage.sprite = CreateCrosshairSprite();
-                }
-            }
-            if (crosshairRect != null && crosshairRect.sizeDelta.x < 6f)
-            {
-                crosshairRect.sizeDelta = new Vector2(8f, 8f);
-            }
-            crosshairFound = true;
-        }
-    }
-
-    private static Sprite CreateCrosshairSprite()
-    {
-        int size = 32;
-        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Bilinear;
-        Color[] cols = new Color[size * size];
-        float radius = size * 0.5f;
-        Vector2 center = new Vector2(radius, radius);
-
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                float dist = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
-                float alpha = Mathf.Clamp01(radius - dist);
-                cols[y * size + x] = new Color(1f, 1f, 1f, alpha);
-            }
-        }
-
-        tex.SetPixels(cols);
-        tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
-    }
-
     private void Update()
     {
         if (cachedNpc == null) cachedNpc = FindFirstObjectByType<NPCInteraction>();
@@ -835,9 +776,6 @@ public class DragAndDrop : MonoBehaviour
 
             // Bin aim highlight while carrying
             UpdateBinHighlightFeedback();
-
-            // Crosshair carry state
-            UpdateCrosshairFeedback(true, false);
 
             // Track if player is performing a continuous hold-and-drag
             if (Input.GetMouseButton(0) && (Time.time - grabTime) >= HoldDragThreshold)
@@ -1078,15 +1016,6 @@ public class DragAndDrop : MonoBehaviour
         {
             SetHighlight(aimingAtMe);
         }
-
-        if (aimingAtMe)
-        {
-            UpdateCrosshairFeedback(false, true);
-        }
-        else if (CurrentlyGrabbedItem == null)
-        {
-            UpdateCrosshairFeedback(false, false);
-        }
     }
 
     private void SetHighlight(bool highlight)
@@ -1158,28 +1087,6 @@ public class DragAndDrop : MonoBehaviour
                 binPropBlock.SetColor(EmissionColorProp, emColor);
                 rends[i].SetPropertyBlock(binPropBlock);
             }
-        }
-    }
-
-    private static void UpdateCrosshairFeedback(bool holding, bool aimingGrabbable)
-    {
-        CacheCrosshair();
-        if (crosshairRect == null) return;
-
-        if (holding)
-        {
-            crosshairRect.localScale = Vector3.Lerp(crosshairRect.localScale, new Vector3(0.85f, 0.85f, 1f), Time.deltaTime * 15f);
-            if (crosshairImage != null) crosshairImage.color = new Color(crosshairBaseColor.r, crosshairBaseColor.g, crosshairBaseColor.b, 0.65f);
-        }
-        else if (aimingGrabbable)
-        {
-            crosshairRect.localScale = Vector3.Lerp(crosshairRect.localScale, new Vector3(1.25f, 1.25f, 1f), Time.deltaTime * 15f);
-            if (crosshairImage != null) crosshairImage.color = new Color(0.4f, 1.0f, 0.4f, 0.95f);
-        }
-        else
-        {
-            crosshairRect.localScale = Vector3.Lerp(crosshairRect.localScale, Vector3.one, Time.deltaTime * 15f);
-            if (crosshairImage != null) crosshairImage.color = crosshairBaseColor;
         }
     }
 

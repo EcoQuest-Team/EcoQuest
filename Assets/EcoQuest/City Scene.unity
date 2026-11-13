@@ -107015,7 +107015,7 @@ MonoBehaviour:
   gearGroup: {fileID: 70771003}
   minimapGroup: {fileID: 40492108}
   coinsGroup: {fileID: 389989723}
-  crosshairGroup: {fileID: 0}
+  crosshairGroup: {fileID: 1950000103}
   questPanelGroup: {fileID: 627704166}
   tutorialCardGroup: {fileID: 0}
   interactPromptGroup: {fileID: 1297337233}
@@ -731657,6 +731657,7 @@ Transform:
   - {fileID: 1079581933}
   - {fileID: 345890584}
   - {fileID: 1105727592}
+  - {fileID: 1950000102}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1560122592
@@ -1003397,3 +1003398,58 @@ SceneRoots:
   - {fileID: 1104231269}
   - {fileID: 711848594}
   - {fileID: 64177652}
+--- !u!1001 &1950000101
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1560021991}
+    m_Modifications:
+    - target: {fileID: 710000000000000001, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_Name
+      value: UI_Crosshair
+      objectReference: {fileID: 0}
+    - target: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+--- !u!224 &1950000102 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 710000000000000002, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+  m_PrefabInstance: {fileID: 1950000101}
+  m_PrefabAsset: {fileID: 0}
+--- !u!225 &1950000103 stripped
+CanvasGroup:
+  m_CorrespondingSourceObject: {fileID: 710000000000000005, guid: 9d4c2f635a304e4b9c85e6a73d206103, type: 3}
+  m_PrefabInstance: {fileID: 1950000101}
+  m_PrefabAsset: {fileID: 0}
