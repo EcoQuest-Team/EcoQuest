@@ -138,9 +138,8 @@ namespace EcoQuest.CityQuest
         public static event System.Action OnDetectiveQuestStateChanged;
 
         public CityDetectiveState QuestState => questState;
-        public bool IsRobinReadyForArrow =>
-            questState == CityDetectiveState.ReadyToTurnIn
-            || ((questState == CityDetectiveState.NotStarted || questState == CityDetectiveState.Completed) && !IsOnRobinCooldown(out _));
+        // Ranger Robin's city quest is optional; only show the guide arrow when returning to turn in an active run.
+        public bool IsRobinReadyForArrow => questState == CityDetectiveState.ReadyToTurnIn;
         public float RemainingSeconds => remainingSeconds;
         public int CollectedCount => collectedCount;
         public int RemainingHintCharges => remainingHintCharges;

@@ -293,6 +293,84 @@ namespace EcoQuest.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator CityScene_OptionalRangerRobinHasNoArrowOrDistanceWhenNotStartedOrCompleted_OnlyWhenReadyToTurnIn()
+        {
+            yield return null;
+
+            Scene originalScene = SceneManager.GetActiveScene();
+            Scene cityScene = SceneManager.GetSceneByName("City Scene");
+            bool createdCityScene = false;
+            if (!cityScene.IsValid() || !cityScene.isLoaded)
+            {
+                cityScene = SceneManager.CreateScene("City Scene");
+                createdCityScene = true;
+            }
+
+            try
+            {
+                if (createdCityScene)
+                {
+                    tempCityScene = cityScene;
+                }
+                SceneManager.SetActiveScene(cityScene);
+
+                Type detectiveType = Type.GetType("EcoQuest.CityQuest.CityTrashDetectiveManager, Assembly-CSharp", true);
+                Type detectiveStateType = Type.GetType("EcoQuest.CityQuest.CityDetectiveState, Assembly-CSharp", true);
+
+                var robinGo = new GameObject("RangerRobin");
+                robinGo.transform.position = new Vector3(0f, 1.6f, 21f);
+                SceneManager.MoveGameObjectToScene(robinGo, cityScene);
+                createdObjects.Add(robinGo);
+
+                var ctdGo = new GameObject("CityTrashDetectiveManager");
+                Component ctd = ctdGo.AddComponent(detectiveType);
+                detectiveType.GetField("rangerRobinTransform", InstanceFlags).SetValue(ctd, robinGo.transform);
+                SceneManager.MoveGameObjectToScene(ctdGo, cityScene);
+                createdObjects.Add(ctdGo);
+
+                yield return null;
+
+                InvokeInstance(markerService, "CacheSceneReferences");
+                InvokeInstance(markerService, "RefreshTargetFromState");
+                yield return WaitFrames(3);
+
+                bool readyForArrow = (bool)detectiveType.GetProperty("IsRobinReadyForArrow", InstanceFlags).GetValue(ctd);
+                Assert.IsFalse(readyForArrow, "Optional Ranger Robin quest should not expose an offer arrow when NotStarted.");
+                Assert.IsNull(GetProp<Transform>("CurrentTarget"),
+                    "ObjectiveMarkerService must not target optional Ranger Robin when quest is NotStarted.");
+                Assert.IsFalse(GetProp<bool>("IsWorldArrowActive"));
+                Assert.IsFalse(GetProp<bool>("IsScreenIndicatorActive"));
+                Assert.IsFalse(GetProp<bool>("IsDistanceTextActive"));
+
+                object completedState = Enum.Parse(detectiveStateType, "Completed");
+                detectiveType.GetField("questState", InstanceFlags).SetValue(ctd, completedState);
+                InvokeInstance(markerService, "RefreshTargetFromState");
+                yield return WaitFrames(3);
+
+                Assert.IsFalse((bool)detectiveType.GetProperty("IsRobinReadyForArrow", InstanceFlags).GetValue(ctd));
+                Assert.IsNull(GetProp<Transform>("CurrentTarget"),
+                    "ObjectiveMarkerService must not target optional Ranger Robin when quest is Completed.");
+                Assert.IsFalse(GetProp<bool>("IsWorldArrowActive"));
+                Assert.IsFalse(GetProp<bool>("IsDistanceTextActive"));
+
+                object readyState = Enum.Parse(detectiveStateType, "ReadyToTurnIn");
+                detectiveType.GetField("questState", InstanceFlags).SetValue(ctd, readyState);
+                InvokeInstance(markerService, "RefreshTargetFromState");
+                yield return WaitFrames(3);
+
+                Assert.AreSame(robinGo.transform, GetProp<Transform>("CurrentTarget"),
+                    "Once player finishes an accepted Ranger Robin investigation (ReadyToTurnIn), arrow may guide turn-in.");
+            }
+            finally
+            {
+                if (originalScene.IsValid() && originalScene.isLoaded)
+                {
+                    SceneManager.SetActiveScene(originalScene);
+                }
+            }
+        }
+
         [UnityTearDown]
         public IEnumerator UnityTearDown()
         {
