@@ -22,6 +22,11 @@ public class MainMenuManager : MonoBehaviour
 
     public void PlayGame()
     {
+        if (LoadingScreenController.IsLoading) return;
+        if (UnityEngine.EventSystems.EventSystem.current != null)
+        {
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+        }
         LoadingScreen.Load(gameSceneName);
     }
 

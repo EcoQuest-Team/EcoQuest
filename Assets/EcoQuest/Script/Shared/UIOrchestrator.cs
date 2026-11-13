@@ -84,12 +84,14 @@ public class UIOrchestrator : MonoBehaviour
         }
         else
         {
-            bool tabTipDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
-            if (tabTipDone || (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning))
+            bool tabTipDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+            bool forestTrashDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
+            if ((tabTipDone && !forestTrashDone) || (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning))
             {
                 return GamePhase.QuestActive;
             }
-            if (SequentialWASDTutorial.Instance != null && !SequentialWASDTutorial.IsTutorialCompleted)
+            if (!tabTipDone && PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 0 &&
+                (SequentialWASDTutorial.Instance == null || !SequentialWASDTutorial.IsTutorialCompleted))
             {
                 return GamePhase.Tutorial;
             }
@@ -314,13 +316,33 @@ public class UIOrchestrator : MonoBehaviour
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
         hasQuestPanelBasePos = false;
+        activeOverlays.Clear();
+        overlayOrder.Clear();
+        elementOwnerTokens.Clear();
+        elementOwnerRequestedStates.Clear();
+        isQuestPanelUserHidden = false;
+        modalsOpen = false;
+        mismatchStartTimes.Clear();
+        correctedElements.Clear();
+        loggedConflictElements.Clear();
+        UIBackgroundBlur.Cleanup();
+        NPCInteraction.IsAnyQuestActive = false;
+        LastWriter = $"OnSceneLoaded({scene.name})";
+
         ResolveReferences();
         if (scene.name == "City Scene" || scene.path.Contains("City Scene"))
         {
-            ClearAllOverlays();
-            isQuestPanelUserHidden = false;
             SetFlowStep(FlowStep.FreePlay, "City Scene Loaded");
             SetPhase(EvaluateLivePhase("City Scene Loaded"), "City Scene Loaded");
+        }
+        else if (scene.name == "Forest Scene" || scene.path.Contains("Forest Scene"))
+        {
+            EvaluateInitialPhase();
+        }
+        else
+        {
+            currentFlowStep = FlowStep.FreePlay;
+            currentPhase = GamePhase.FreePlay;
         }
         ApplyCurrentProfile(0f);
     }
@@ -455,6 +477,7 @@ public class UIOrchestrator : MonoBehaviour
 
     public void EvaluateInitialPhase()
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         if (IsCityScene())
         {
             currentFlowStep = FlowStep.FreePlay;
@@ -462,21 +485,35 @@ public class UIOrchestrator : MonoBehaviour
             return;
         }
 
-        bool tabTipDone = PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 1;
-        if (tabTipDone)
+        if (!activeScene.IsValid() || (!activeScene.name.Contains("Forest") && !activeScene.path.Contains("Forest")))
+        {
+            currentFlowStep = FlowStep.FreePlay;
+            currentPhase = GamePhase.FreePlay;
+            return;
+        }
+
+        bool tabTipDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        bool forestTrashDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
+        if (tabTipDone && (!forestTrashDone || (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning)))
         {
             currentFlowStep = FlowStep.FreePlay;
             currentPhase = GamePhase.QuestActive;
         }
-        else if (SequentialWASDTutorial.Instance != null && !SequentialWASDTutorial.IsTutorialCompleted)
+        else if (tabTipDone && forestTrashDone)
         {
-            currentFlowStep = FlowStep.Tutorial;
-            currentPhase = GamePhase.Tutorial;
+            currentFlowStep = FlowStep.FreePlay;
+            currentPhase = GamePhase.FreePlay;
         }
         else if (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning)
         {
             currentFlowStep = FlowStep.FreePlay;
             currentPhase = GamePhase.QuestActive;
+        }
+        else if (PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 0 &&
+                 (SequentialWASDTutorial.Instance == null || !SequentialWASDTutorial.IsTutorialCompleted))
+        {
+            currentFlowStep = FlowStep.Tutorial;
+            currentPhase = GamePhase.Tutorial;
         }
         else
         {
@@ -517,7 +554,7 @@ public class UIOrchestrator : MonoBehaviour
                 break;
 
             case FlowStep.FreePlay:
-                currentPhase = GamePhase.QuestActive;
+                currentPhase = EvaluateLivePhase("SetFlowStep(FreePlay)");
                 if (ModalManager.Instance == null || !ModalManager.Instance.IsAnyModalActuallyVisible())
                 {
                     modalsOpen = false;
@@ -801,9 +838,13 @@ public class UIOrchestrator : MonoBehaviour
             return false;
         }
 
-        // Rule: The minimap stays visible through the whole flow and is NEVER hidden by any modal or the TAB toggle.
+        // Rule: The minimap stays visible through the whole gameplay flow and is only hidden during pause/settings/inventory/explorer travel.
         if (element == UIElement.Minimap)
         {
+            if (PauseMenuController.IsPaused || SettingsPanelUI.IsAnySettingsOpen)
+            {
+                return false;
+            }
             return true;
         }
 

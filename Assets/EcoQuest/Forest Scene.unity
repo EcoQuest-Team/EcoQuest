@@ -8106,7 +8106,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bba2f731ae39208428bebc43f1f01a0b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UIOrchestrator
-  currentPhase: 2
+  currentPhase: 0
   currentFlowStep: 0
   watchdogEnabled: 1
   gearGroup: {fileID: 1469857163}

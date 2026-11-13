@@ -116,6 +116,7 @@ public class PauseMenuController : MonoBehaviour
             {
                 Time.timeScale = 1f;
                 IsPaused = false;
+                UIBackgroundBlur.ReleaseFullSceneBlur("PauseMenu");
                 UIBackgroundBlur.Cleanup();
             }
             Instance = null;
@@ -409,6 +410,8 @@ public class PauseMenuController : MonoBehaviour
 
         IsPaused = true;
         Time.timeScale = 0f;
+        UIBackgroundBlur.AcquireFullSceneBlur("PauseMenu");
+        UIOrchestrator.Instance?.ApplyCurrentProfile(0.20f);
         AudioManager.Instance?.PlayModalOpen();
 
         if (fpc != null) fpc.enabled = false;
@@ -482,6 +485,7 @@ public class PauseMenuController : MonoBehaviour
 
             if (pauseCanvasGroup != null) pauseCanvasGroup.alpha = ease;
             if (pauseCardRect != null) pauseCardRect.localScale = Vector3.Lerp(new Vector3(0.95f, 0.95f, 1f), Vector3.one, ease);
+            SettingsPanelUI.SetAllHudAlpha(1f - ease);
             UIBackgroundBlur.SetWeight(Mathf.Lerp(startBlur, 1f, ease));
 
             yield return null;
@@ -494,6 +498,7 @@ public class PauseMenuController : MonoBehaviour
             pauseCanvasGroup.blocksRaycasts = true;
         }
         if (pauseCardRect != null) pauseCardRect.localScale = Vector3.one;
+        SettingsPanelUI.SetAllHudAlpha(0f);
         UIBackgroundBlur.SetWeight(1f);
 
         animRoutine = null;
@@ -534,6 +539,7 @@ public class PauseMenuController : MonoBehaviour
             pauseCanvasGroup.blocksRaycasts = false;
         }
 
+        UIBackgroundBlur.ReleaseFullSceneBlur("PauseMenu");
         UIBackgroundBlur.Cleanup();
         SettingsPanelUI.SetAllHudAlpha(1f);
 
@@ -690,6 +696,7 @@ public class PauseMenuController : MonoBehaviour
 
         IsPaused = false;
         Time.timeScale = 1f;
+        UIBackgroundBlur.ReleaseFullSceneBlur("PauseMenu");
         UIBackgroundBlur.Cleanup();
 
         CursorState.SetLocked(false, playerInputs, updateCenterCursor: false);

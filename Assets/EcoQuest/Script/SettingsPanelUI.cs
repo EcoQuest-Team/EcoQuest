@@ -80,6 +80,7 @@ public class SettingsPanelUI : MonoBehaviour
     private void OnEnable()
     {
         activeOpenPanels.Add(this);
+        UIBackgroundBlur.AcquireFullSceneBlur("SettingsPanel");
         AudioManager.RegisterMixerAsset(mainMixerAsset);
         EnsureValidLayoutAndScale();
         InitializeListeners();
@@ -720,6 +721,8 @@ public class SettingsPanelUI : MonoBehaviour
             animCoroutine = null;
         }
 
+        UIBackgroundBlur.ReleaseFullSceneBlur("SettingsPanel");
+
         if (!gameObject.scene.isLoaded) return;
 
         if (!PauseMenuController.IsPaused)
@@ -880,6 +883,8 @@ public class SettingsPanelUI : MonoBehaviour
             rootCanvasGroup.alpha = 0f;
             rootCanvasGroup.blocksRaycasts = false;
         }
+
+        UIBackgroundBlur.ReleaseFullSceneBlur("SettingsPanel");
 
         if (!isPaused)
         {
