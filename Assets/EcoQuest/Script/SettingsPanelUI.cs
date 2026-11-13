@@ -657,6 +657,8 @@ public class SettingsPanelUI : MonoBehaviour
             animCoroutine = null;
         }
 
+        if (!gameObject.scene.isLoaded) return;
+
         if (!PauseMenuController.IsPaused)
         {
             UIBackgroundBlur.Cleanup();

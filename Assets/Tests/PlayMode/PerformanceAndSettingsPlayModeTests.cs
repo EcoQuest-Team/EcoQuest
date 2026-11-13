@@ -18,6 +18,12 @@ namespace EcoQuest.Tests.PlayMode
         private int savedQuality;
         private int savedVsync;
         private int savedFps;
+        private bool hadSavedQuality;
+        private bool hadSavedAutoRes;
+        private int savedAutoRes;
+        private int savedFullscreen;
+        private int savedResW;
+        private int savedResH;
 
         [OneTimeSetUp]
         public void OneTimeSetUp()
@@ -29,7 +35,13 @@ namespace EcoQuest.Tests.PlayMode
         [SetUp]
         public void SetUp()
         {
+            hadSavedQuality = PlayerPrefs.HasKey("EcoQuest_Settings_Quality");
             savedQuality = PlayerPrefs.GetInt("EcoQuest_Settings_Quality", 2);
+            hadSavedAutoRes = PlayerPrefs.HasKey("EcoQuest_Settings_AutoRes");
+            savedAutoRes = PlayerPrefs.GetInt("EcoQuest_Settings_AutoRes", 1);
+            savedFullscreen = PlayerPrefs.GetInt("EcoQuest_Settings_Fullscreen", 1);
+            savedResW = PlayerPrefs.GetInt("EcoQuest_Settings_ResW", Screen.width);
+            savedResH = PlayerPrefs.GetInt("EcoQuest_Settings_ResH", Screen.height);
             savedVsync = PlayerPrefs.GetInt("EcoQuest_Settings_VSync", 1);
             savedFps = PlayerPrefs.GetInt("EcoQuest_Settings_FPSLimit", -1);
         }
@@ -37,7 +49,13 @@ namespace EcoQuest.Tests.PlayMode
         [TearDown]
         public void TearDown()
         {
-            PlayerPrefs.SetInt("EcoQuest_Settings_Quality", savedQuality);
+            if (hadSavedQuality) PlayerPrefs.SetInt("EcoQuest_Settings_Quality", savedQuality);
+            else PlayerPrefs.DeleteKey("EcoQuest_Settings_Quality");
+            if (hadSavedAutoRes) PlayerPrefs.SetInt("EcoQuest_Settings_AutoRes", savedAutoRes);
+            else PlayerPrefs.DeleteKey("EcoQuest_Settings_AutoRes");
+            PlayerPrefs.SetInt("EcoQuest_Settings_Fullscreen", savedFullscreen);
+            PlayerPrefs.SetInt("EcoQuest_Settings_ResW", savedResW);
+            PlayerPrefs.SetInt("EcoQuest_Settings_ResH", savedResH);
             PlayerPrefs.SetInt("EcoQuest_Settings_VSync", savedVsync);
             PlayerPrefs.SetInt("EcoQuest_Settings_FPSLimit", savedFps);
             PlayerPrefs.Save();
@@ -138,6 +156,111 @@ namespace EcoQuest.Tests.PlayMode
             yield return null;
             Assert.AreEqual(0, QualitySettings.vSyncCount);
             Assert.AreEqual(60, Application.targetFrameRate, "Unchecking VSync should restore the user's selected 60 FPS cap.");
+        }
+
+        [UnityTest]
+        public IEnumerator QualityPresets_UpdateURPAssetTerrainLODAndCameraAA_AndPersistAcrossForestAndCityScenes()
+        {
+            MethodInfo setAndApply = settingsManagerType.GetMethod("SetAndApplyGraphics", Flags);
+            Assert.IsNotNull(setAndApply);
+
+            // 1. Main Menu: verify switching across Low..Ultra updates active URP asset & Main Camera AA cleanly
+            var loadMenu = SceneManager.LoadSceneAsync("Main Menu");
+            while (loadMenu != null && !loadMenu.isDone) yield return null;
+            yield return null;
+            yield return null;
+
+            object sm = settingsManagerType.GetProperty("Instance", Flags)?.GetValue(null);
+            Assert.IsNotNull(sm, "SettingsManager.Instance must exist in Main Menu.");
+
+            string[] expectedRpNames = { "URP_Low", "URP_Medium", "URP_High", "URP_Ultra" };
+            for (int q = 0; q < 4; q++)
+            {
+                setAndApply.Invoke(sm, new object[] { q, true, true, Screen.width, Screen.height, false, -1, false });
+                yield return null;
+                Assert.AreEqual(q, QualitySettings.GetQualityLevel());
+                Assert.IsNotNull(QualitySettings.renderPipeline);
+                Assert.AreEqual(expectedRpNames[q], QualitySettings.renderPipeline.name);
+            }
+
+            // Persist Medium (1) before transitioning scenes
+            setAndApply.Invoke(sm, new object[] { 1, true, true, Screen.width, Screen.height, false, -1, true });
+            yield return null;
+
+            // 2. Forest Scene: verify persisted Medium + Terrain LOD scaling + Minimap configuration
+            var loadForest = SceneManager.LoadSceneAsync("Forest Scene");
+            while (loadForest != null && !loadForest.isDone) yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(1, QualitySettings.GetQualityLevel(), "Medium quality should persist into Forest Scene.");
+            Assert.AreEqual("URP_Medium", QualitySettings.renderPipeline.name);
+
+            sm = settingsManagerType.GetProperty("Instance", Flags)?.GetValue(null);
+            Terrain forestTerrain = Terrain.activeTerrain;
+            Assert.IsNotNull(forestTerrain, "Forest Scene should have an active Terrain.");
+            Assert.AreEqual(50f, forestTerrain.detailObjectDistance, 0.5f, "Medium Terrain detailObjectDistance mismatch.");
+            Assert.AreEqual(0.60f, forestTerrain.detailObjectDensity, 0.02f, "Medium Terrain detailObjectDensity mismatch.");
+
+            // Cycle to High (2) and Low (0) on Forest and verify Terrain LOD updates immediately
+            setAndApply.Invoke(sm, new object[] { 2, true, true, Screen.width, Screen.height, false, -1, false });
+            yield return null;
+            Assert.AreEqual(70f, forestTerrain.detailObjectDistance, 0.5f, "High Terrain detailObjectDistance mismatch.");
+            Assert.AreEqual(0.85f, forestTerrain.detailObjectDensity, 0.02f, "High Terrain detailObjectDensity mismatch.");
+
+            // Check Camera AA updated cleanly on High (SMAA) vs Low (None)
+            Camera mainCam = Camera.main;
+            Assert.IsNotNull(mainCam);
+            Component uac = mainCam.GetComponent("UniversalAdditionalCameraData");
+            Assert.IsNotNull(uac);
+            PropertyInfo aaProp = uac.GetType().GetProperty("antialiasing");
+            Assert.IsNotNull(aaProp);
+            Assert.AreEqual("SubpixelMorphologicalAntiAliasing", aaProp.GetValue(uac).ToString());
+
+            setAndApply.Invoke(sm, new object[] { 0, true, true, Screen.width, Screen.height, false, -1, false });
+            yield return null;
+            Assert.AreEqual(35f, forestTerrain.detailObjectDistance, 0.5f, "Low Terrain detailObjectDistance mismatch.");
+            Assert.AreEqual("None", aaProp.GetValue(uac).ToString());
+
+            // Informational frame timing check over 10 frames (never fails on busy hardware)
+            float sumDt = 0f;
+            for (int f = 0; f < 10; f++) { sumDt += Time.unscaledDeltaTime; yield return null; }
+            Debug.Log($"[PerfTest] Forest 10-frame avg dt={(sumDt / 10f) * 1000f:F2}ms");
+
+            // 3. City Scene: verify clean unload from Forest (0 assertions), Medium persistence, MinimapCamera optimized setup & inactive UI blur
+            setAndApply.Invoke(sm, new object[] { 1, true, true, Screen.width, Screen.height, false, -1, true });
+            var loadCity = SceneManager.LoadSceneAsync("City Scene");
+            while (loadCity != null && !loadCity.isDone) yield return null;
+            for (int i = 0; i < 5; i++) yield return null;
+
+            Assert.AreEqual(1, QualitySettings.GetQualityLevel(), "Medium quality should persist into City Scene.");
+            Assert.AreEqual("URP_Medium", QualitySettings.renderPipeline.name);
+
+            Type minimapType = Type.GetType("MinimapController, Assembly-CSharp", true);
+            Component minimapCtrl = minimapType.GetProperty("Instance", Flags)?.GetValue(null) as Component;
+            Assert.IsNotNull(minimapCtrl, "MinimapController.Instance must exist in City Scene.");
+            Camera mmCam = minimapCtrl.GetComponent<Camera>();
+            Assert.IsNotNull(mmCam);
+            Assert.IsFalse(mmCam.enabled, "MinimapCam should stay disabled for manual cadence rendering.");
+            Assert.IsFalse(mmCam.allowMSAA, "MinimapCam MSAA must be disabled.");
+            Component mmUac = mmCam.GetComponent("UniversalAdditionalCameraData");
+            Assert.IsNotNull(mmUac);
+            Assert.IsFalse((bool)mmUac.GetType().GetProperty("renderShadows").GetValue(mmUac), "MinimapCam must not render shadows.");
+
+            Type volType = Type.GetType("UnityEngine.Rendering.Volume, Unity.RenderPipelines.Core.Runtime");
+            if (volType != null)
+            {
+                foreach (var obj in UnityEngine.Object.FindObjectsByType(volType, FindObjectsInactive.Include, FindObjectsSortMode.None))
+                {
+                    Component volComp = obj as Component;
+                    if (volComp != null && volComp.gameObject.name == "UI_Blur_Volume")
+                    {
+                        FieldInfo weightField = volType.GetField("weight", Flags);
+                        float weight = weightField != null ? (float)weightField.GetValue(volComp) : 0f;
+                        Assert.IsTrue(!volComp.gameObject.activeSelf || weight <= 0.0001f, "UI_Blur_Volume should stay inactive/zero weight when no modal is open.");
+                    }
+                }
+            }
         }
     }
 }
