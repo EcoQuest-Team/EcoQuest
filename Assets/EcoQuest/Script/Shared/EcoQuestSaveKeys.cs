@@ -32,6 +32,12 @@ public static class EcoQuestSaveKeys
     public const string PlayerHungerRemaining = "EcoQuest_Player_HungerRemaining";
     public const string PlayerHungerRumble20Shown = "EcoQuest_Player_HungerRumble20Shown";
     public const string PlayerHungerRumble0Shown = "EcoQuest_Player_HungerRumble0Shown";
+    public const string PlayerSpeedBuffRemaining = "EcoQuest_Player_SpeedBuffRemaining";
+    public const string PlayerSpeedBuffDuration = "EcoQuest_Player_SpeedBuffDuration";
+    public const string PlayerSpeedBuffPercent = "EcoQuest_Player_SpeedBuffPercent";
+    public const string PlayerStaminaBuffRemaining = "EcoQuest_Player_StaminaBuffRemaining";
+    public const string PlayerStaminaBuffDuration = "EcoQuest_Player_StaminaBuffDuration";
+    public const string PlayerStaminaBuffPercent = "EcoQuest_Player_StaminaBuffPercent";
 
     // Inventory Keys
     public const string InventorySlots = "EcoQuest_Inventory_Slots";
@@ -62,6 +68,12 @@ public static class EcoQuestSaveKeys
         PlayerHungerRemaining,
         PlayerHungerRumble20Shown,
         PlayerHungerRumble0Shown,
+        PlayerSpeedBuffRemaining,
+        PlayerSpeedBuffDuration,
+        PlayerSpeedBuffPercent,
+        PlayerStaminaBuffRemaining,
+        PlayerStaminaBuffDuration,
+        PlayerStaminaBuffPercent,
         InventorySlots,
         InventorySeenNew
     };

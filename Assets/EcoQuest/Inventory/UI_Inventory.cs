@@ -88,13 +88,17 @@ namespace EcoQuest.Inventory
         [SerializeField] private AudioClip useItemSound;
 
         [Header("Consumable Usage & Cooldown")]
-        [SerializeField] private float useCooldownDuration = 0.8f;
+        [SerializeField] private float useCooldownDuration = 0.35f;
         private float useLockoutUntil = -1f;
+        private bool isUsePending = false;
+        private int lastBoostButtonSec = -1;
+        private bool lastBoostBlockedState = false;
+        private bool wasUseCooldownActive = false;
         private Coroutine useCooldownRoutine;
 
         public bool IsInUseCooldown => Application.isPlaying && Time.unscaledTime < useLockoutUntil;
         public float UseCooldownDuration { get => useCooldownDuration; set => useCooldownDuration = value; }
-        public void ResetUseCooldown() { useLockoutUntil = -1f; }
+        public void ResetUseCooldown() { useLockoutUntil = -1f; isUsePending = false; }
 
         private InventoryController controller;
         private InventoryService service;
@@ -154,11 +158,58 @@ namespace EcoQuest.Inventory
             HideImmediate();
         }
 
+        private void OnEnable()
+        {
+            PlayerSurvivalStats.OnActiveBuffsChanged -= HandleActiveBuffsChanged;
+            PlayerSurvivalStats.OnActiveBuffsChanged += HandleActiveBuffsChanged;
+            lastBoostButtonSec = -1;
+            lastBoostBlockedState = false;
+        }
+
+        private void OnDisable()
+        {
+            PlayerSurvivalStats.OnActiveBuffsChanged -= HandleActiveBuffsChanged;
+            StopTransientRoutines();
+            isUsePending = false;
+        }
+
         private void OnDestroy()
         {
+            PlayerSurvivalStats.OnActiveBuffsChanged -= HandleActiveBuffsChanged;
+            StopTransientRoutines();
             if (service != null)
             {
                 service.OnInventoryChanged -= RefreshUI;
+            }
+        }
+
+        private void HandleActiveBuffsChanged()
+        {
+            lastBoostButtonSec = -1;
+            if (gameObject.activeInHierarchy && service != null)
+            {
+                UpdateDetailsAndPreview();
+            }
+        }
+
+        private void StopTransientRoutines()
+        {
+            if (useCooldownRoutine != null)
+            {
+                StopCoroutine(useCooldownRoutine);
+                useCooldownRoutine = null;
+            }
+            if (toastRoutine != null)
+            {
+                StopCoroutine(toastRoutine);
+                toastRoutine = null;
+                if (toastGroup != null) toastGroup.alpha = 0f;
+            }
+            if (useFlashRoutine != null)
+            {
+                StopCoroutine(useFlashRoutine);
+                useFlashRoutine = null;
+                if (previewFlashGroup != null) previewFlashGroup.alpha = 0f;
             }
         }
 
@@ -256,6 +307,7 @@ namespace EcoQuest.Inventory
             if (panelGroup == null || panelGroup.alpha < 0.1f || (panelRect != null && !panelRect.gameObject.activeSelf))
                 return;
 
+            UpdateUseButtonLiveState();
             UpdateDynamicGridCellSize(false);
             EnforceScrollbarMinHandleSize();
 
@@ -431,6 +483,8 @@ namespace EcoQuest.Inventory
                 StopCoroutine(transitionRoutine);
                 transitionRoutine = null;
             }
+            StopTransientRoutines();
+            isUsePending = false;
             if (backdropGroup != null)
             {
                 backdropGroup.alpha = 0f;
@@ -731,7 +785,7 @@ namespace EcoQuest.Inventory
 
         private void OnSlotDoubleClicked(int index)
         {
-            if (IsInUseCooldown) return;
+            if (isUsePending || IsInUseCooldown) return;
             SelectSlot(index, false);
             OnUseButtonClicked();
         }
@@ -768,8 +822,26 @@ namespace EcoQuest.Inventory
                 }
                 if (detailDescText != null) detailDescText.text = def.description;
 
-                // USE button state: Enabled (unless in cooldown)
-                SetUseButtonState(!IsInUseCooldown);
+                // USE button state: block active boost group reuse with live countdown
+                bool blockedByBoost = InventoryService.IsBlockedByActiveBoost(
+                    def,
+                    PlayerSurvivalStats.Instance,
+                    out float activeRemaining,
+                    out _);
+                lastBoostBlockedState = blockedByBoost;
+                if (blockedByBoost)
+                {
+                    int sec = Mathf.Max(1, Mathf.CeilToInt(activeRemaining));
+                    lastBoostButtonSec = sec;
+                    SetUseButtonLabel($"Active {sec / 60}:{sec % 60:00}");
+                    SetUseButtonState(false);
+                }
+                else
+                {
+                    lastBoostButtonSec = -1;
+                    SetUseButtonLabel("USE");
+                    SetUseButtonState(!isUsePending && !IsInUseCooldown);
+                }
             }
             else
             {
@@ -788,7 +860,49 @@ namespace EcoQuest.Inventory
                 if (detailDescText != null) detailDescText.text = "Select an item from your inventory to view its details and effects.";
 
                 // USE button state: Disabled
+                lastBoostBlockedState = false;
+                lastBoostButtonSec = -1;
+                SetUseButtonLabel("USE");
                 SetUseButtonState(false);
+            }
+        }
+
+        private void UpdateUseButtonLiveState()
+        {
+            if (service == null) return;
+
+            bool cooldownNow = IsInUseCooldown;
+            if (wasUseCooldownActive && !cooldownNow)
+            {
+                wasUseCooldownActive = false;
+                UpdateDetailsAndPreview();
+                return;
+            }
+            wasUseCooldownActive = cooldownNow;
+
+            var def = (selectedIndex >= 0 && selectedIndex < service.Capacity)
+                ? service.GetItemDefAt(selectedIndex)
+                : null;
+            if (def == null) return;
+
+            bool blocked = InventoryService.IsBlockedByActiveBoost(
+                def,
+                PlayerSurvivalStats.Instance,
+                out float remaining,
+                out _);
+            int sec = blocked ? Mathf.Max(1, Mathf.CeilToInt(remaining)) : -1;
+
+            if (blocked != lastBoostBlockedState || (blocked && sec != lastBoostButtonSec))
+            {
+                UpdateDetailsAndPreview();
+            }
+        }
+
+        private void SetUseButtonLabel(string label)
+        {
+            if (useButtonText != null && useButtonText.text != label)
+            {
+                useButtonText.text = label;
             }
         }
 
@@ -805,13 +919,13 @@ namespace EcoQuest.Inventory
 
             if (useButtonText != null)
             {
-                useButtonText.color = isEnabled ? Color.white : new Color(0.8f, 0.8f, 0.8f, 0.6f);
+                useButtonText.color = isEnabled ? Color.white : new Color(0.92f, 0.94f, 0.90f, 0.88f);
             }
         }
 
         public void OnUseButtonClicked()
         {
-            if (IsInUseCooldown) return;
+            if (isUsePending || IsInUseCooldown) return;
             if (service == null || selectedIndex < 0 || selectedIndex >= service.Capacity) return;
 
             int usedSlot = selectedIndex;
@@ -820,13 +934,25 @@ namespace EcoQuest.Inventory
             bool wasLastInStack = slotData.count == 1;
 
             bool blockFull = controller != null ? controller.BlockUseWhenFull : true;
-            bool success = service.TryUse(usedSlot, blockFull, out string message);
+
+            isUsePending = true;
+            bool success = false;
+            string message = string.Empty;
+            try
+            {
+                success = service.TryUse(usedSlot, blockFull, out message);
+            }
+            finally
+            {
+                isUsePending = false;
+            }
 
             if (success)
             {
                 useLockoutUntil = Time.unscaledTime + useCooldownDuration;
+                wasUseCooldownActive = true;
                 if (useCooldownRoutine != null) StopCoroutine(useCooldownRoutine);
-                useCooldownRoutine = StartCoroutine(UseCooldownRoutine(useCooldownDuration));
+                useCooldownRoutine = isActiveAndEnabled ? StartCoroutine(UseCooldownRoutine(useCooldownDuration)) : null;
 
                 PlaySound(useItemSound != null ? useItemSound : (UITheme.Instance != null ? UITheme.Instance.buttonClickSound : null));
                 TriggerPreviewFlash();
@@ -858,9 +984,13 @@ namespace EcoQuest.Inventory
 
                 RefreshUI();
             }
-            else if (!string.IsNullOrEmpty(message))
+            else
             {
-                controller?.ShowFeedbackToast(message);
+                UpdateDetailsAndPreview();
+                if (!string.IsNullOrEmpty(message))
+                {
+                    controller?.ShowFeedbackToast(message);
+                }
             }
         }
 

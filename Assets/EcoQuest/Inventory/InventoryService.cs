@@ -4,6 +4,13 @@ using UnityEngine;
 
 namespace EcoQuest.Inventory
 {
+    public enum BoostGroup
+    {
+        None = 0,
+        SpeedBoost = 1,
+        StaminaEnergy = 2
+    }
+
     public interface IInventoryItemEffect
     {
         bool CanUse(InventoryItemDef item, out string message);
@@ -39,6 +46,7 @@ namespace EcoQuest.Inventory
         private readonly InventoryItemDatabase database;
         private readonly Dictionary<InventoryItemType, IInventoryItemEffect> effectHandlers =
             new Dictionary<InventoryItemType, IInventoryItemEffect>();
+        private bool _isUseInProgress = false;
 
         public event Action OnInventoryChanged;
         public event Action<InventoryItemDef, int> OnItemAdded;
@@ -212,8 +220,9 @@ namespace EcoQuest.Inventory
         /// </summary>
         public bool RemoveOneAt(int slotIndex)
         {
-            if (slotIndex < 0 || slotIndex >= slots.Length || slots[slotIndex].IsEmpty) return false;
-            slots[slotIndex].count--;
+            if (slotIndex < 0 || slotIndex >= slots.Length || slots[slotIndex].IsEmpty || slots[slotIndex].count <= 0)
+                return false;
+            slots[slotIndex].count = Mathf.Max(0, slots[slotIndex].count - 1);
             if (slots[slotIndex].count <= 0)
             {
                 slots[slotIndex].Clear();
@@ -222,6 +231,53 @@ namespace EcoQuest.Inventory
             Save();
             OnInventoryChanged?.Invoke();
             return true;
+        }
+
+        public static BoostGroup GetBoostGroup(InventoryItemDef def)
+        {
+            if (def == null) return BoostGroup.None;
+            string lowerId = !string.IsNullOrEmpty(def.id) ? def.id.ToLowerInvariant() : string.Empty;
+            if (def.itemType == InventoryItemType.SpeedBoost ||
+                (def.durationSeconds > 0f && lowerId.Contains("speed")))
+            {
+                return BoostGroup.SpeedBoost;
+            }
+
+            if (def.itemType == InventoryItemType.StaminaFood ||
+                (def.durationSeconds > 0f && (def.boostPercent > 0f || lowerId.Contains("energy") || lowerId.Contains("stamina"))))
+            {
+                return BoostGroup.StaminaEnergy;
+            }
+
+            return BoostGroup.None;
+        }
+
+        public static bool IsBlockedByActiveBoost(
+            InventoryItemDef def,
+            PlayerSurvivalStats stats,
+            out float remainingSeconds,
+            out string blockedMessage)
+        {
+            remainingSeconds = 0f;
+            blockedMessage = string.Empty;
+            if (def == null || stats == null) return false;
+
+            BoostGroup group = GetBoostGroup(def);
+            if (group == BoostGroup.SpeedBoost && stats.HasActiveSpeedBuff)
+            {
+                remainingSeconds = stats.SpeedBuffRemaining;
+                blockedMessage = "Speed Boost is already active!";
+                return true;
+            }
+
+            if (group == BoostGroup.StaminaEnergy && stats.HasActiveStaminaBuff)
+            {
+                remainingSeconds = stats.StaminaBuffRemaining;
+                blockedMessage = "Stamina Boost is already active!";
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -268,160 +324,204 @@ namespace EcoQuest.Inventory
         public bool TryUse(int slotIndex, bool blockUseWhenFull, out string feedbackMessage)
         {
             feedbackMessage = string.Empty;
-            if (slotIndex < 0 || slotIndex >= slots.Length || slots[slotIndex].IsEmpty)
+            if (_isUseInProgress)
             {
-                feedbackMessage = "No item selected";
                 return false;
             }
 
-            string itemId = slots[slotIndex].itemId;
-            var def = database != null ? database.GetItem(itemId) : null;
-            if (def == null)
+            _isUseInProgress = true;
+            try
             {
-                feedbackMessage = "Unknown item.";
-                return false;
-            }
-
-            float hungerGain = def.restoreHunger > 0f ? def.restoreHunger : (def.itemType == InventoryItemType.HungerFood ? def.value : 0f);
-            float staminaGain = def.restoreStamina;
-            bool isTimedStaminaBuff = (def.itemType == InventoryItemType.StaminaFood) || (def.durationSeconds > 0f && (def.boostPercent > 0f || def.id.Contains("energy")));
-            bool isTimedSpeedBuff = (def.itemType == InventoryItemType.SpeedBoost) || (def.durationSeconds > 0f && def.id.Contains("speed"));
-
-            // 1. Timed Speed Boost Buff
-            if (isTimedSpeedBuff)
-            {
-                var stats = PlayerSurvivalStats.Instance ?? UnityEngine.Object.FindFirstObjectByType<PlayerSurvivalStats>(FindObjectsInactive.Include);
-                if (stats == null)
+                if (slotIndex < 0 || slotIndex >= slots.Length || slots[slotIndex].IsEmpty || slots[slotIndex].count <= 0)
                 {
-                    feedbackMessage = "Cannot use right now.";
+                    feedbackMessage = "No item selected";
                     return false;
                 }
 
-                float boostPct = def.boostPercent > 0f ? def.boostPercent : 10f;
-                float duration = def.durationSeconds > 0f ? def.durationSeconds : 120f;
-                stats.ApplySpeedBuff(boostPct, duration);
-
-                var hud = UnityEngine.Object.FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
-                if (hud != null)
+                string itemId = slots[slotIndex].itemId;
+                var def = database != null ? database.GetItem(itemId) : null;
+                if (def == null)
                 {
-                    hud.ShowFloatingGain(false, boostPct);
-                }
-
-                RemoveOneAt(slotIndex);
-                int mins = Mathf.RoundToInt(duration / 60f);
-                feedbackMessage = $"+{Mathf.RoundToInt(boostPct)}% Speed Boost ({mins} min{(mins > 1 ? "s" : "")})";
-                return true;
-            }
-
-            // 2. Timed Stamina Recovery Buff
-            if (isTimedStaminaBuff)
-            {
-                var stats = PlayerSurvivalStats.Instance ?? UnityEngine.Object.FindFirstObjectByType<PlayerSurvivalStats>(FindObjectsInactive.Include);
-                if (stats == null)
-                {
-                    feedbackMessage = "Cannot use right now.";
+                    feedbackMessage = "Unknown item.";
                     return false;
                 }
 
-                float boostPct = def.boostPercent > 0f ? def.boostPercent : 5f;
-                float duration = def.durationSeconds > 0f ? def.durationSeconds : 120f;
-                stats.ApplyStaminaBuff(boostPct, duration, staminaGain);
+                float hungerGain = def.restoreHunger > 0f ? def.restoreHunger : (def.itemType == InventoryItemType.HungerFood ? def.value : 0f);
+                float staminaGain = def.restoreStamina;
+                BoostGroup boostGroup = GetBoostGroup(def);
 
-                var hud = UnityEngine.Object.FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
-                if (hud != null)
+                // 1. Timed Speed Boost Buff (atomic: check mutex -> apply effect first -> consume 1)
+                if (boostGroup == BoostGroup.SpeedBoost)
                 {
-                    hud.ShowFloatingGain(false, boostPct);
+                    var stats = PlayerSurvivalStats.Instance ?? UnityEngine.Object.FindFirstObjectByType<PlayerSurvivalStats>(FindObjectsInactive.Include);
+                    if (stats == null)
+                    {
+                        feedbackMessage = "Cannot use right now.";
+                        return false;
+                    }
+
+                    if (IsBlockedByActiveBoost(def, stats, out _, out string activeMsg))
+                    {
+                        feedbackMessage = activeMsg;
+                        return false;
+                    }
+
+                    float boostPct = def.boostPercent > 0f ? def.boostPercent : 10f;
+                    float duration = def.durationSeconds > 0f ? def.durationSeconds : 120f;
+                    if (!stats.ApplySpeedBuff(boostPct, duration))
+                    {
+                        feedbackMessage = "Speed Boost is already active!";
+                        return false;
+                    }
+
+                    if (!RemoveOneAt(slotIndex))
+                    {
+                        return false;
+                    }
+
+                    var hud = UnityEngine.Object.FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
+                    if (hud != null)
+                    {
+                        hud.ShowFloatingGain(false, boostPct);
+                    }
+
+                    int mins = Mathf.RoundToInt(duration / 60f);
+                    feedbackMessage = $"+{Mathf.RoundToInt(boostPct)}% Speed Boost ({mins} min{(mins > 1 ? "s" : "")})";
+                    return true;
                 }
 
-                RemoveOneAt(slotIndex);
-                int mins = Mathf.RoundToInt(duration / 60f);
-                feedbackMessage = $"+{Mathf.RoundToInt(boostPct)}% Stamina Recovery ({mins} min{(mins > 1 ? "s" : "")})";
-                return true;
-            }
-
-            // 3. Instant Consumable / Survival Stats handling (Hunger / Stamina)
-            if (hungerGain > 0f || staminaGain > 0f)
-            {
-                var stats = PlayerSurvivalStats.Instance ?? UnityEngine.Object.FindFirstObjectByType<PlayerSurvivalStats>(FindObjectsInactive.Include);
-                if (stats == null)
+                // 2. Timed Stamina Recovery Buff (atomic: check mutex -> apply effect first -> consume 1)
+                if (boostGroup == BoostGroup.StaminaEnergy)
                 {
-                    feedbackMessage = "Cannot use right now.";
+                    var stats = PlayerSurvivalStats.Instance ?? UnityEngine.Object.FindFirstObjectByType<PlayerSurvivalStats>(FindObjectsInactive.Include);
+                    if (stats == null)
+                    {
+                        feedbackMessage = "Cannot use right now.";
+                        return false;
+                    }
+
+                    if (IsBlockedByActiveBoost(def, stats, out _, out string activeMsg))
+                    {
+                        feedbackMessage = activeMsg;
+                        return false;
+                    }
+
+                    float boostPct = def.boostPercent > 0f ? def.boostPercent : 5f;
+                    float duration = def.durationSeconds > 0f ? def.durationSeconds : 120f;
+                    if (!stats.ApplyStaminaBuff(boostPct, duration, staminaGain))
+                    {
+                        feedbackMessage = "Stamina Boost is already active!";
+                        return false;
+                    }
+
+                    if (!RemoveOneAt(slotIndex))
+                    {
+                        return false;
+                    }
+
+                    var hud = UnityEngine.Object.FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
+                    if (hud != null)
+                    {
+                        hud.ShowFloatingGain(false, boostPct);
+                    }
+
+                    int mins = Mathf.RoundToInt(duration / 60f);
+                    feedbackMessage = $"+{Mathf.RoundToInt(boostPct)}% Stamina Recovery ({mins} min{(mins > 1 ? "s" : "")})";
+                    return true;
+                }
+
+                // 3. Instant Consumable / Survival Stats handling (Hunger / Stamina)
+                if (hungerGain > 0f || staminaGain > 0f)
+                {
+                    var stats = PlayerSurvivalStats.Instance ?? UnityEngine.Object.FindFirstObjectByType<PlayerSurvivalStats>(FindObjectsInactive.Include);
+                    if (stats == null)
+                    {
+                        feedbackMessage = "Cannot use right now.";
+                        return false;
+                    }
+
+                    bool isHungerFull = stats.CurrentHunger >= (stats.maxHunger - 1.0f);
+                    bool isStaminaFull = stats.CurrentStamina >= (stats.maxStamina - 1.0f);
+
+                    if (blockUseWhenFull)
+                    {
+                        if (hungerGain > 0f && staminaGain <= 0f && isHungerFull)
+                        {
+                            feedbackMessage = "Hunger is already full";
+                            return false;
+                        }
+                        if (staminaGain > 0f && hungerGain <= 0f && isStaminaFull)
+                        {
+                            feedbackMessage = "Stamina is already full";
+                            return false;
+                        }
+                        if (hungerGain > 0f && staminaGain > 0f && isHungerFull && isStaminaFull)
+                        {
+                            feedbackMessage = "Hunger is already full";
+                            return false;
+                        }
+                    }
+
+                    if (hungerGain > 0f) stats.AddHunger(hungerGain);
+                    if (staminaGain > 0f) stats.AddStamina(staminaGain);
+
+                    if (!RemoveOneAt(slotIndex))
+                    {
+                        return false;
+                    }
+
+                    var hud = UnityEngine.Object.FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
+                    if (hud != null)
+                    {
+                        if (hungerGain > 0f) hud.ShowFloatingGain(true, hungerGain);
+                        if (staminaGain > 0f) hud.ShowFloatingGain(false, staminaGain);
+                    }
+
+                    if (hungerGain > 0f && staminaGain > 0f)
+                        feedbackMessage = $"+{Mathf.RoundToInt(hungerGain)} Hunger, +{Mathf.RoundToInt(staminaGain)} Stamina";
+                    else if (hungerGain > 0f)
+                        feedbackMessage = $"+{Mathf.RoundToInt(hungerGain)} Hunger";
+                    else
+                        feedbackMessage = $"+{Mathf.RoundToInt(staminaGain)} Stamina";
+                    return true;
+                }
+
+                // Debug consume toggle (editor testing)
+                if (DebugConsumeWithoutEffect)
+                {
+                    if (!RemoveOneAt(slotIndex)) return false;
+                    feedbackMessage = $"Used {def.displayName} (Debug Mode)";
+                    return true;
+                }
+
+                // Check effect handler by item type
+                if (!effectHandlers.TryGetValue(def.itemType, out var handler) || handler == null)
+                {
+                    feedbackMessage = "This item cannot be used yet.";
                     return false;
                 }
 
-                bool isHungerFull = stats.CurrentHunger >= (stats.maxHunger - 1.0f);
-                bool isStaminaFull = stats.CurrentStamina >= (stats.maxStamina - 1.0f);
-
-                if (blockUseWhenFull)
+                if (!handler.CanUse(def, out string reason))
                 {
-                    if (hungerGain > 0f && staminaGain <= 0f && isHungerFull)
-                    {
-                        feedbackMessage = "Hunger is already full";
-                        return false;
-                    }
-                    if (staminaGain > 0f && hungerGain <= 0f && isStaminaFull)
-                    {
-                        feedbackMessage = "Stamina is already full";
-                        return false;
-                    }
-                    if (hungerGain > 0f && staminaGain > 0f && isHungerFull && isStaminaFull)
-                    {
-                        feedbackMessage = "Hunger is already full";
-                        return false;
-                    }
+                    feedbackMessage = !string.IsNullOrEmpty(reason) ? reason : "Cannot use this item right now.";
+                    return false;
                 }
 
-                if (hungerGain > 0f) stats.AddHunger(hungerGain);
-                if (staminaGain > 0f) stats.AddStamina(staminaGain);
-
-                var hud = UnityEngine.Object.FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);
-                if (hud != null)
+                if (handler.Execute(def, out string resultMsg))
                 {
-                    if (hungerGain > 0f) hud.ShowFloatingGain(true, hungerGain);
-                    if (staminaGain > 0f) hud.ShowFloatingGain(false, staminaGain);
+                    if (!RemoveOneAt(slotIndex)) return false;
+                    feedbackMessage = !string.IsNullOrEmpty(resultMsg) ? resultMsg : $"Used {def.displayName}!";
+                    return true;
                 }
-
-                RemoveOneAt(slotIndex);
-                if (hungerGain > 0f && staminaGain > 0f)
-                    feedbackMessage = $"+{Mathf.RoundToInt(hungerGain)} Hunger, +{Mathf.RoundToInt(staminaGain)} Stamina";
-                else if (hungerGain > 0f)
-                    feedbackMessage = $"+{Mathf.RoundToInt(hungerGain)} Hunger";
                 else
-                    feedbackMessage = $"+{Mathf.RoundToInt(staminaGain)} Stamina";
-                return true;
+                {
+                    feedbackMessage = !string.IsNullOrEmpty(resultMsg) ? resultMsg : "Failed to use item.";
+                    return false;
+                }
             }
-
-            // Debug consume toggle (editor testing)
-            if (DebugConsumeWithoutEffect)
+            finally
             {
-                RemoveOneAt(slotIndex);
-                feedbackMessage = $"Used {def.displayName} (Debug Mode)";
-                return true;
-            }
-
-            // Check effect handler by item type
-            if (!effectHandlers.TryGetValue(def.itemType, out var handler) || handler == null)
-            {
-                feedbackMessage = "This item cannot be used yet.";
-                return false;
-            }
-
-            if (!handler.CanUse(def, out string reason))
-            {
-                feedbackMessage = !string.IsNullOrEmpty(reason) ? reason : "Cannot use this item right now.";
-                return false;
-            }
-
-            if (handler.Execute(def, out string resultMsg))
-            {
-                RemoveOneAt(slotIndex);
-                feedbackMessage = !string.IsNullOrEmpty(resultMsg) ? resultMsg : $"Used {def.displayName}!";
-                return true;
-            }
-            else
-            {
-                feedbackMessage = !string.IsNullOrEmpty(resultMsg) ? resultMsg : "Failed to use item.";
-                return false;
+                _isUseInProgress = false;
             }
         }
 

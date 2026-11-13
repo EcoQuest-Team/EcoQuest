@@ -54,10 +54,12 @@ public class PlayerSurvivalStats : MonoBehaviour
     public event Action OnExhausted;
     public event Action OnExhaustionRecovered;
     public static event Action<int> OnHungerRumbleWarning;
+    public static event Action OnActiveBuffsChanged;
 
     private bool _rumble20Shown;
     private bool _rumble0Shown;
     private float _lastHungerSaveUnscaledTime = -999f;
+    private float _lastBuffSaveUnscaledTime = -999f;
 
     // Cached scene references so Update() never calls FindFirstObjectByType.
     private UIOrchestrator _cachedOrchestrator;
@@ -73,6 +75,7 @@ public class PlayerSurvivalStats : MonoBehaviour
     {
         Instance = null;
         OnHungerRumbleWarning = null;
+        OnActiveBuffsChanged = null;
     }
 
     public static void ClearSavedNeedsState()
@@ -80,12 +83,25 @@ public class PlayerSurvivalStats : MonoBehaviour
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRemaining);
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRumble20Shown);
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRumble0Shown);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerSpeedBuffRemaining);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerSpeedBuffDuration);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerSpeedBuffPercent);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerStaminaBuffRemaining);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerStaminaBuffDuration);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerStaminaBuffPercent);
         if (Instance != null)
         {
             Instance._rumble20Shown = false;
             Instance._rumble0Shown = false;
             Instance.currentHunger = Instance.maxHunger;
+            Instance._speedBuffRemaining = 0f;
+            Instance._speedBuffDuration = 0f;
+            Instance._speedBuffPercent = 0f;
+            Instance._staminaBuffRemaining = 0f;
+            Instance._staminaBuffDuration = 0f;
+            Instance._staminaBuffPercent = 0f;
             Instance.OnHungerChanged?.Invoke(Instance.currentHunger, Instance.maxHunger);
+            OnActiveBuffsChanged?.Invoke();
         }
     }
 
@@ -140,6 +156,22 @@ public class PlayerSurvivalStats : MonoBehaviour
         _rumble20Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, 0) == 1 || currentHunger <= 20f;
         _rumble0Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, 0) == 1 || currentHunger <= 0f;
         currentStamina = Mathf.Clamp(currentStamina, 0f, maxStamina);
+
+        float savedSpeedRem = PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerSpeedBuffRemaining, 0f);
+        if (savedSpeedRem > 0.01f)
+        {
+            _speedBuffRemaining = savedSpeedRem;
+            _speedBuffDuration = Mathf.Max(savedSpeedRem, PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerSpeedBuffDuration, savedSpeedRem));
+            _speedBuffPercent = Mathf.Max(0f, PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerSpeedBuffPercent, 5f));
+        }
+
+        float savedStaminaRem = PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerStaminaBuffRemaining, 0f);
+        if (savedStaminaRem > 0.01f)
+        {
+            _staminaBuffRemaining = savedStaminaRem;
+            _staminaBuffDuration = Mathf.Max(savedStaminaRem, PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerStaminaBuffDuration, savedStaminaRem));
+            _staminaBuffPercent = Mathf.Max(0f, PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerStaminaBuffPercent, 5f));
+        }
     }
 
     private void Start()
@@ -188,25 +220,56 @@ public class PlayerSurvivalStats : MonoBehaviour
 
     private void UpdateActiveBuffs(float dt)
     {
+        if (!Application.isPlaying || PauseMenuController.IsPaused || Time.timeScale <= 0.001f || LoadingScreenController.IsLoading)
+        {
+            return;
+        }
+
+        if (StepActiveBuffs(dt, out bool expiredNow))
+        {
+            if (expiredNow)
+            {
+                FlushNeedsSave();
+                OnActiveBuffsChanged?.Invoke();
+            }
+            else if (Time.unscaledTime - _lastBuffSaveUnscaledTime >= 1.0f)
+            {
+                FlushNeedsSave();
+            }
+        }
+    }
+
+    public bool StepActiveBuffs(float dt, out bool anyExpired)
+    {
+        anyExpired = false;
+        if (dt <= 0f) return false;
+        bool ticked = false;
+
         if (_staminaBuffRemaining > 0f)
         {
+            ticked = true;
             _staminaBuffRemaining = Mathf.Max(0f, _staminaBuffRemaining - dt);
             if (_staminaBuffRemaining <= 0f)
             {
                 _staminaBuffPercent = 0f;
                 _staminaBuffDuration = 0f;
+                anyExpired = true;
             }
         }
 
         if (_speedBuffRemaining > 0f)
         {
+            ticked = true;
             _speedBuffRemaining = Mathf.Max(0f, _speedBuffRemaining - dt);
             if (_speedBuffRemaining <= 0f)
             {
                 _speedBuffPercent = 0f;
                 _speedBuffDuration = 0f;
+                anyExpired = true;
             }
         }
+
+        return ticked;
     }
 
     public bool IsHungerDrainPaused()
@@ -288,9 +351,16 @@ public class PlayerSurvivalStats : MonoBehaviour
     {
         if (!Application.isPlaying) return;
         _lastHungerSaveUnscaledTime = Time.unscaledTime;
+        _lastBuffSaveUnscaledTime = Time.unscaledTime;
         PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, Mathf.Clamp(currentHunger, 0f, maxHunger));
         PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, _rumble20Shown ? 1 : 0);
         PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, _rumble0Shown ? 1 : 0);
+        PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerSpeedBuffRemaining, Mathf.Max(0f, _speedBuffRemaining));
+        PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerSpeedBuffDuration, Mathf.Max(0f, _speedBuffDuration));
+        PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerSpeedBuffPercent, Mathf.Max(0f, _speedBuffPercent));
+        PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerStaminaBuffRemaining, Mathf.Max(0f, _staminaBuffRemaining));
+        PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerStaminaBuffDuration, Mathf.Max(0f, _staminaBuffDuration));
+        PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerStaminaBuffPercent, Mathf.Max(0f, _staminaBuffPercent));
     }
 
     public void SetHungerImmediate(float targetHunger, bool persistNow = true)
@@ -400,27 +470,48 @@ public class PlayerSurvivalStats : MonoBehaviour
     }
 
     /// <summary>
-    /// Activates or refreshes a timed Stamina Recovery buff (e.g., 5% for 2 mins or 10% for 5 mins)
-    /// and optionally restores an immediate stamina boost so players feel instant relief.
+    /// Activates a timed Stamina Recovery buff only if the Stamina/Energy buff group is not already active.
+    /// Returns true if applied, false if blocked because an active buff is still running.
     /// </summary>
-    public void ApplyStaminaBuff(float boostPercent, float durationSeconds, float instantRestore = 25f)
+    public bool ApplyStaminaBuff(float boostPercent, float durationSeconds, float instantRestore = 25f)
     {
+        if (HasActiveStaminaBuff) return false;
         if (instantRestore > 0f)
         {
             AddStamina(instantRestore);
         }
-        _staminaBuffPercent = Mathf.Max(_staminaBuffPercent, boostPercent);
+        _staminaBuffPercent = Mathf.Max(0f, boostPercent);
         _staminaBuffDuration = Mathf.Max(1f, durationSeconds);
-        _staminaBuffRemaining = Mathf.Max(_staminaBuffRemaining, durationSeconds);
+        _staminaBuffRemaining = Mathf.Max(1f, durationSeconds);
+        FlushNeedsSave();
+        OnActiveBuffsChanged?.Invoke();
+        return true;
     }
 
     /// <summary>
-    /// Activates or refreshes a timed Speed Boost buff (e.g., 5% for 2 mins or 10% for 5 mins).
+    /// Activates a timed Speed Boost buff only if the Speed Boost group is not already active.
+    /// Returns true if applied, false if blocked because an active buff is still running.
     /// </summary>
-    public void ApplySpeedBuff(float boostPercent, float durationSeconds)
+    public bool ApplySpeedBuff(float boostPercent, float durationSeconds)
     {
-        _speedBuffPercent = Mathf.Max(_speedBuffPercent, boostPercent);
+        if (HasActiveSpeedBuff) return false;
+        _speedBuffPercent = Mathf.Max(0f, boostPercent);
         _speedBuffDuration = Mathf.Max(1f, durationSeconds);
-        _speedBuffRemaining = Mathf.Max(_speedBuffRemaining, durationSeconds);
+        _speedBuffRemaining = Mathf.Max(1f, durationSeconds);
+        FlushNeedsSave();
+        OnActiveBuffsChanged?.Invoke();
+        return true;
+    }
+
+    public void ClearAllBuffsForTest()
+    {
+        _speedBuffRemaining = 0f;
+        _speedBuffDuration = 0f;
+        _speedBuffPercent = 0f;
+        _staminaBuffRemaining = 0f;
+        _staminaBuffDuration = 0f;
+        _staminaBuffPercent = 0f;
+        FlushNeedsSave();
+        OnActiveBuffsChanged?.Invoke();
     }
 }

@@ -2929,7 +2929,7 @@ MonoBehaviour:
   closeSound: {fileID: 0}
   selectSound: {fileID: 0}
   useItemSound: {fileID: 0}
-  useCooldownDuration: 0.8
+  useCooldownDuration: 0.35
 --- !u!114 &1193163583381746807
 MonoBehaviour:
   m_ObjectHideFlags: 0
