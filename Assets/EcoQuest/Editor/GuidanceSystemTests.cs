@@ -40,6 +40,8 @@ public class GuidanceSystemTests
         int oldTrash = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0);
         int oldPost = PlayerPrefs.GetInt(EcoQuestSaveKeys.PostQuizScore, -1);
         int oldReward = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestRewardClaimed, 0);
+        var tutorialCtrl = UnityEngine.Object.FindFirstObjectByType<SequentialWASDTutorial>(FindObjectsInactive.Include);
+        bool oldTutorialCompleted = tutorialCtrl != null ? tutorialCtrl.IsCompleted : true;
 
         try
         {
@@ -56,7 +58,7 @@ public class GuidanceSystemTests
             var explorerMinimap = explorer != null ? explorer.GetComponent<MinimapIcon>() : null;
 
             // -------------------------------------------------------------
-            // TEST 1: Fresh start, tutorial step that needs the Guardian -> Arrow is on Guardian
+            // TEST 1: Steps 1-5 hide Guardian arrow; Step 6 ("Follow the arrow and talk to the NPC.") targets Guardian
             // -------------------------------------------------------------
             bool t1Pass = false;
             string t1Details = "";
@@ -64,22 +66,30 @@ public class GuidanceSystemTests
             {
                 PlayerPrefs.DeleteAll();
                 PlayerPrefs.Save();
-                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Intro, "Test 1 Early Flow");
+                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Tutorial, "Test 1 Steps 1-5");
+                tutorialCtrl?.SetActionTipsCompletedForTest(false);
+                service.RefreshTargetFromState();
+
+                bool hiddenDuringSteps1To5 = service.CurrentTarget == null
+                    && (guardianMinimap == null || !guardianMinimap.enabled);
+
+                // Step 6 starts -> Arrow appears on Guardian
+                tutorialCtrl?.SetActionTipsCompletedForTest(true);
                 service.RefreshTargetFromState();
 
                 bool targetIsGuardian = service.CurrentTarget == guardian.transform;
                 bool gMinimapOn = guardianMinimap != null && guardianMinimap.enabled;
                 bool eMinimapOff = explorerMinimap == null || !explorerMinimap.enabled;
 
-                t1Pass = targetIsGuardian && gMinimapOn && eMinimapOff;
-                t1Details = $"Target={service.CurrentTarget?.name}, GuardianMinimap={gMinimapOn}, ExplorerMinimapOff={eMinimapOff}";
+                t1Pass = hiddenDuringSteps1To5 && targetIsGuardian && gMinimapOn && eMinimapOff;
+                t1Details = $"HiddenSteps1To5={hiddenDuringSteps1To5}, Step6Target={service.CurrentTarget?.name}, GuardianMinimap={gMinimapOn}, ExplorerMinimapOff={eMinimapOff}";
             }
             catch (Exception ex)
             {
                 t1Pass = false;
                 t1Details = "Exception: " + ex.Message;
             }
-            results.Add(new TestResult { Name = "1. Fresh Start Targets Guardian", Passed = t1Pass, Details = t1Details });
+            results.Add(new TestResult { Name = "1. Tutorial Steps 1-5 Hidden & Step 6 Targets Guardian", Passed = t1Pass, Details = t1Details });
 
             // -------------------------------------------------------------
             // TEST 2: Take quest from Guardian -> Arrow disappears immediately, no NPC minimap icon
@@ -229,10 +239,16 @@ public class GuidanceSystemTests
             string t7Details = "";
             try
             {
-                // Phase A: Fresh start
+                // Phase A1: Fresh start (Steps 1-5 before Step 6)
                 PlayerPrefs.DeleteAll();
                 PlayerPrefs.Save();
-                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Tutorial, "Test 7 Fresh Start");
+                tutorialCtrl?.SetActionTipsCompletedForTest(false);
+                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Tutorial, "Test 7 Steps 1-5");
+                service.RefreshTargetFromState();
+                bool p0Ok = service.CurrentTarget == null;
+
+                // Phase A2: Step 6 talk objective reached
+                tutorialCtrl?.SetActionTipsCompletedForTest(true);
                 service.RefreshTargetFromState();
                 bool p1Ok = service.CurrentTarget == guardian.transform;
 
@@ -253,8 +269,8 @@ public class GuidanceSystemTests
                 service.RefreshTargetFromState();
                 bool p3Ok = service.CurrentTarget == explorer.transform;
 
-                t7Pass = p1Ok && p2Ok && p3Ok;
-                t7Details = $"PhaseTutorialGuardian={p1Ok}, PhaseQuestActiveNull={p2Ok}, PhaseCanTravelExplorer={p3Ok}";
+                t7Pass = p0Ok && p1Ok && p2Ok && p3Ok;
+                t7Details = $"Steps1To5Null={p0Ok}, Step6Guardian={p1Ok}, PhaseQuestActiveNull={p2Ok}, PhaseCanTravelExplorer={p3Ok}";
             }
             catch (Exception ex)
             {
@@ -282,6 +298,7 @@ public class GuidanceSystemTests
             PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestRewardClaimed, oldReward);
             PlayerPrefs.Save();
 
+            tutorialCtrl?.SetActionTipsCompletedForTest(oldTutorialCompleted);
             ObjectiveMarkerService.Instance?.RefreshTargetFromState();
         }
 

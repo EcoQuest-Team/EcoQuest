@@ -39,6 +39,8 @@ public class ObjectiveMarkerAndCityTravelTests
         int oldTrash = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0);
         int oldPost = PlayerPrefs.GetInt(EcoQuestSaveKeys.PostQuizScore, -1);
         int oldReward = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestRewardClaimed, 0);
+        var tutorialCtrl = UnityEngine.Object.FindFirstObjectByType<SequentialWASDTutorial>(FindObjectsInactive.Include);
+        bool oldTutorialCompleted = tutorialCtrl != null ? tutorialCtrl.IsCompleted : true;
 
         try
         {
@@ -164,14 +166,19 @@ public class ObjectiveMarkerAndCityTravelTests
                 service.RefreshTargetFromState();
                 bool savedTargetIsExplorer = service.CurrentTarget == explorer.transform;
 
-                // Fresh start test
+                // Fresh start Steps 1-5 -> null; Step 6 -> Guardian
                 PlayerPrefs.DeleteAll();
                 PlayerPrefs.Save();
+                tutorialCtrl?.SetActionTipsCompletedForTest(false);
                 service.RefreshTargetFromState();
-                bool freshTargetIsGuardian = service.CurrentTarget == guardian.transform;
+                bool freshSteps1To5Null = service.CurrentTarget == null;
 
-                t4Pass = savedTargetIsExplorer && freshTargetIsGuardian;
-                t4Details = $"SavedTargetExplorer={savedTargetIsExplorer}, FreshTargetGuardian={freshTargetIsGuardian}";
+                tutorialCtrl?.SetActionTipsCompletedForTest(true);
+                service.RefreshTargetFromState();
+                bool freshStep6TargetIsGuardian = service.CurrentTarget == guardian.transform;
+
+                t4Pass = savedTargetIsExplorer && freshSteps1To5Null && freshStep6TargetIsGuardian;
+                t4Details = $"SavedTargetExplorer={savedTargetIsExplorer}, FreshSteps1To5Null={freshSteps1To5Null}, FreshStep6Guardian={freshStep6TargetIsGuardian}";
             }
             catch (Exception ex)
             {
@@ -264,6 +271,8 @@ public class ObjectiveMarkerAndCityTravelTests
             {
                 EditorSceneManager.OpenScene("Assets/EcoQuest/Forest Scene.unity", OpenSceneMode.Single);
             }
+            var restoredTut = UnityEngine.Object.FindFirstObjectByType<SequentialWASDTutorial>(FindObjectsInactive.Include);
+            restoredTut?.SetActionTipsCompletedForTest(oldTutorialCompleted);
             ObjectiveMarkerService.Instance?.RefreshTargetFromState();
         }
 
