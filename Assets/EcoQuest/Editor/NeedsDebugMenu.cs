@@ -6,6 +6,18 @@ namespace EcoQuest.EditorTools
 {
     public static class NeedsDebugMenu
     {
+        [MenuItem("EcoQuest/Needs/Set Hunger/0")]
+        private static void SetHunger0() => SetHunger(0f);
+
+        [MenuItem("EcoQuest/Needs/Set Hunger/5")]
+        private static void SetHunger5() => SetHunger(5f);
+
+        [MenuItem("EcoQuest/Needs/Set Hunger/10")]
+        private static void SetHunger10() => SetHunger(10f);
+
+        [MenuItem("EcoQuest/Needs/Set Hunger/15")]
+        private static void SetHunger15() => SetHunger(15f);
+
         [MenuItem("EcoQuest/Needs/Set Hunger/25")]
         private static void SetHunger25() => SetHunger(25f);
 
@@ -18,15 +30,18 @@ namespace EcoQuest.EditorTools
         private static void SetHunger(float value)
         {
             float clamped = Mathf.Clamp(value, 0f, 100f);
-            PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, clamped);
-            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, clamped <= 20f ? 1 : 0);
-            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, clamped <= 0f ? 1 : 0);
-            PlayerPrefs.Save();
-
             var stats = PlayerSurvivalStats.Instance ?? Object.FindFirstObjectByType<PlayerSurvivalStats>(FindObjectsInactive.Include);
             if (stats != null)
             {
                 stats.SetHungerImmediate(clamped, persistNow: true);
+            }
+            else
+            {
+                PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, clamped);
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn10Shown, clamped <= 10f ? 1 : 0);
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn5Shown, clamped <= 5f ? 1 : 0);
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn0Shown, clamped <= 0f ? 1 : 0);
+                PlayerPrefs.Save();
             }
 
             var hud = Object.FindFirstObjectByType<UI_SurvivalStatsHUD>(FindObjectsInactive.Include);

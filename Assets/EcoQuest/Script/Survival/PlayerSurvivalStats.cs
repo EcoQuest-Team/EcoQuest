@@ -27,6 +27,17 @@ public class PlayerSurvivalStats : MonoBehaviour
     [Range(0.05f, 1f)]
     public float tutorialDrainMultiplier = 0.2f;
 
+    [Header("Hunger Warnings & Starving Lock")]
+    [Tooltip("First hunger warning threshold percentage (0-100).")]
+    public float hungerWarningThreshold10 = 10f;
+    [Tooltip("Urgent second hunger warning threshold percentage (0-100).")]
+    public float hungerWarningThreshold5 = 5f;
+    [Tooltip("Starving threshold percentage (0-100) at or below which sprinting is locked.")]
+    public float hungerStarvingThreshold = 0f;
+    [Tooltip("Hysteresis margin (%) above a threshold before its warning re-arms.")]
+    [Range(0f, 5f)]
+    public float hungerWarningHysteresis = 1.0f;
+
     [Header("Stamina Settings")]
     [Tooltip("Maximum stamina value.")]
     public float maxStamina = 100f;
@@ -62,8 +73,10 @@ public class PlayerSurvivalStats : MonoBehaviour
     public static event Action<int> OnHungerRumbleWarning;
     public static event Action OnActiveBuffsChanged;
 
-    private bool _rumble20Shown;
-    private bool _rumble0Shown;
+    private bool _warn10Shown;
+    private bool _warn5Shown;
+    private bool _warn0Shown;
+    private int _pendingStartupWarning = -1;
     private float _lastHungerSaveUnscaledTime = -999f;
     private float _lastBuffSaveUnscaledTime = -999f;
 
@@ -89,6 +102,9 @@ public class PlayerSurvivalStats : MonoBehaviour
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRemaining);
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRumble20Shown);
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerRumble0Shown);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerWarn10Shown);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerWarn5Shown);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerHungerWarn0Shown);
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerSpeedBuffRemaining);
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerSpeedBuffDuration);
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerSpeedBuffPercent);
@@ -97,8 +113,10 @@ public class PlayerSurvivalStats : MonoBehaviour
         PlayerPrefs.DeleteKey(EcoQuestSaveKeys.PlayerStaminaBuffPercent);
         if (Instance != null)
         {
-            Instance._rumble20Shown = false;
-            Instance._rumble0Shown = false;
+            Instance._warn10Shown = false;
+            Instance._warn5Shown = false;
+            Instance._warn0Shown = false;
+            Instance._pendingStartupWarning = -1;
             Instance.currentHunger = Instance.maxHunger;
             Instance._speedBuffRemaining = 0f;
             Instance._speedBuffDuration = 0f;
@@ -111,7 +129,9 @@ public class PlayerSurvivalStats : MonoBehaviour
         }
     }
 
-    public bool CanSprint => !_isExhausted && currentStamina > 0.5f;
+    public float HungerPercent => maxHunger > 0f ? (currentHunger / maxHunger) * 100f : 0f;
+    public bool IsStarving => HungerPercent <= Mathf.Max(0f, hungerStarvingThreshold);
+    public bool CanSprint => !_isExhausted && currentStamina > 0.5f && !IsStarving;
     public bool IsSprinting => _isSprinting;
     public bool IsExhausted => _isExhausted;
     public float CurrentHunger => currentHunger;
@@ -159,8 +179,12 @@ public class PlayerSurvivalStats : MonoBehaviour
         currentHunger = PlayerPrefs.HasKey(EcoQuestSaveKeys.PlayerHungerRemaining)
             ? Mathf.Clamp(PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, maxHunger), 0f, maxHunger)
             : Mathf.Clamp(currentHunger, 0f, maxHunger);
-        _rumble20Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, 0) == 1 || currentHunger <= 20f;
-        _rumble0Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, 0) == 1 || currentHunger <= 0f;
+
+        _warn10Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerWarn10Shown, 0) == 1;
+        _warn5Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerWarn5Shown, 0) == 1;
+        _warn0Shown = PlayerPrefs.GetInt(EcoQuestSaveKeys.PlayerHungerWarn0Shown, 0) == 1;
+
+        InitializeStartupWarningState();
         currentStamina = Mathf.Clamp(currentStamina, 0f, maxStamina);
 
         float savedSpeedRem = PlayerPrefs.GetFloat(EcoQuestSaveKeys.PlayerSpeedBuffRemaining, 0f);
@@ -190,6 +214,15 @@ public class PlayerSurvivalStats : MonoBehaviour
         _cachedIntroController = UnityEngine.Object.FindFirstObjectByType<IntroSequenceController>(FindObjectsInactive.Include);
         _cachedExplorerCinematic = UnityEngine.Object.FindFirstObjectByType<ExplorerCinematicController>(FindObjectsInactive.Include);
         OnHungerChanged?.Invoke(currentHunger, maxHunger);
+
+        if (_pendingStartupWarning >= 0 && OnHungerRumbleWarning != null)
+        {
+            int? warn = ConsumePendingStartupWarning();
+            if (warn.HasValue)
+            {
+                OnHungerRumbleWarning.Invoke(warn.Value);
+            }
+        }
     }
 
     private void OnDisable()
@@ -375,19 +408,118 @@ public class PlayerSurvivalStats : MonoBehaviour
         return true;
     }
 
+    public int? ConsumePendingStartupWarning()
+    {
+        if (_pendingStartupWarning < 0) return null;
+        int val = _pendingStartupWarning;
+        _pendingStartupWarning = -1;
+        return val;
+    }
+
+    private float ToHungerPercent(float rawHunger) => maxHunger > 0f ? (rawHunger / maxHunger) * 100f : 0f;
+
+    private void InitializeStartupWarningState()
+    {
+        float pct = HungerPercent;
+        _pendingStartupWarning = -1;
+
+        if (pct <= Mathf.Max(0f, hungerStarvingThreshold))
+        {
+            if (!_warn0Shown)
+            {
+                _pendingStartupWarning = 0;
+            }
+            _warn10Shown = true;
+            _warn5Shown = true;
+            _warn0Shown = true;
+        }
+        else if (pct <= hungerWarningThreshold5)
+        {
+            if (!_warn5Shown)
+            {
+                _pendingStartupWarning = 5;
+            }
+            _warn10Shown = true;
+            _warn5Shown = true;
+        }
+        else if (pct <= hungerWarningThreshold10)
+        {
+            if (!_warn10Shown)
+            {
+                _pendingStartupWarning = 10;
+            }
+            _warn10Shown = true;
+        }
+    }
+
+    private void RearmWarningsForPercent(float nextPct)
+    {
+        float hyst = Mathf.Max(0f, hungerWarningHysteresis);
+        if (nextPct > hungerWarningThreshold10 + hyst) _warn10Shown = false;
+        if (nextPct > hungerWarningThreshold5 + hyst) _warn5Shown = false;
+        if (nextPct > hungerStarvingThreshold + hyst) _warn0Shown = false;
+    }
+
+    private void SaveWarningPrefs()
+    {
+        if (!Application.isPlaying) return;
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn10Shown, _warn10Shown ? 1 : 0);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn5Shown, _warn5Shown ? 1 : 0);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn0Shown, _warn0Shown ? 1 : 0);
+    }
+
     private void EvaluateRumbleWarnings(float prevHunger, float nextHunger)
     {
-        if (prevHunger > 20f && nextHunger <= 20f && nextHunger > 0f && !_rumble20Shown)
+        float prevPct = ToHungerPercent(prevHunger);
+        float nextPct = ToHungerPercent(nextHunger);
+
+        if (nextPct > prevPct)
         {
-            _rumble20Shown = true;
-            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, 1);
-            OnHungerRumbleWarning?.Invoke(20);
+            RearmWarningsForPercent(nextPct);
+            return;
         }
-        if (prevHunger > 0f && nextHunger <= 0f && !_rumble0Shown)
+
+        if (Mathf.Approximately(prevPct, nextPct)) return;
+
+        int mostSevere = -1;
+        float starvePct = Mathf.Max(0f, hungerStarvingThreshold);
+
+        if (nextPct <= starvePct)
         {
-            _rumble0Shown = true;
-            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, 1);
-            OnHungerRumbleWarning?.Invoke(0);
+            if (!_warn0Shown && prevPct > starvePct)
+            {
+                mostSevere = 0;
+            }
+            _warn10Shown = true;
+            _warn5Shown = true;
+            _warn0Shown = true;
+        }
+        else if (nextPct <= hungerWarningThreshold5)
+        {
+            if (!_warn5Shown && prevPct > hungerWarningThreshold5)
+            {
+                mostSevere = 5;
+            }
+            _warn10Shown = true;
+            _warn5Shown = true;
+        }
+        else if (nextPct <= hungerWarningThreshold10)
+        {
+            if (!_warn10Shown && prevPct > hungerWarningThreshold10)
+            {
+                mostSevere = 10;
+            }
+            _warn10Shown = true;
+        }
+
+        if (mostSevere >= 0)
+        {
+            if (IsStarving && _isSprinting)
+            {
+                _isSprinting = false;
+            }
+            SaveWarningPrefs();
+            OnHungerRumbleWarning?.Invoke(mostSevere);
         }
     }
 
@@ -397,8 +529,9 @@ public class PlayerSurvivalStats : MonoBehaviour
         _lastHungerSaveUnscaledTime = Time.unscaledTime;
         _lastBuffSaveUnscaledTime = Time.unscaledTime;
         PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, Mathf.Clamp(currentHunger, 0f, maxHunger));
-        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, _rumble20Shown ? 1 : 0);
-        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, _rumble0Shown ? 1 : 0);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn10Shown, _warn10Shown ? 1 : 0);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn5Shown, _warn5Shown ? 1 : 0);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn0Shown, _warn0Shown ? 1 : 0);
         PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerSpeedBuffRemaining, Mathf.Max(0f, _speedBuffRemaining));
         PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerSpeedBuffDuration, Mathf.Max(0f, _speedBuffDuration));
         PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerSpeedBuffPercent, Mathf.Max(0f, _speedBuffPercent));
@@ -411,14 +544,15 @@ public class PlayerSurvivalStats : MonoBehaviour
     {
         float prev = currentHunger;
         currentHunger = Mathf.Clamp(targetHunger, 0f, maxHunger);
-        if (currentHunger > 20f) _rumble20Shown = false;
-        if (currentHunger > 0f) _rumble0Shown = false;
+        _pendingStartupWarning = -1;
+        RearmWarningsForPercent(HungerPercent);
         EvaluateRumbleWarnings(prev, currentHunger);
         if (persistNow)
         {
             PlayerPrefs.SetFloat(EcoQuestSaveKeys.PlayerHungerRemaining, currentHunger);
-            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble20Shown, _rumble20Shown ? 1 : 0);
-            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerRumble0Shown, _rumble0Shown ? 1 : 0);
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn10Shown, _warn10Shown ? 1 : 0);
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn5Shown, _warn5Shown ? 1 : 0);
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.PlayerHungerWarn0Shown, _warn0Shown ? 1 : 0);
             PlayerPrefs.Save();
         }
         OnHungerChanged?.Invoke(currentHunger, maxHunger);
@@ -449,6 +583,11 @@ public class PlayerSurvivalStats : MonoBehaviour
             drainMultiplier = isTier2 ? 0.50f : 0.68f;
             regenMultiplier = isTier2 ? 1.75f : 1.45f;
             effectiveRegenDelay = 0.12f;
+        }
+
+        if (_isSprinting && !CanSprint)
+        {
+            _isSprinting = false;
         }
 
         if (_isSprinting)
@@ -504,8 +643,7 @@ public class PlayerSurvivalStats : MonoBehaviour
     public void AddHunger(float amount)
     {
         currentHunger = Mathf.Clamp(currentHunger + amount, 0f, maxHunger);
-        if (currentHunger > 20f) _rumble20Shown = false;
-        if (currentHunger > 0f) _rumble0Shown = false;
+        RearmWarningsForPercent(HungerPercent);
         FlushNeedsSave();
         OnHungerChanged?.Invoke(currentHunger, maxHunger);
     }
@@ -563,8 +701,10 @@ public class PlayerSurvivalStats : MonoBehaviour
         _isSprinting = false;
         _isExhausted = false;
         _timeSinceLastSprint = 0f;
-        _rumble20Shown = false;
-        _rumble0Shown = false;
+        _warn10Shown = false;
+        _warn5Shown = false;
+        _warn0Shown = false;
+        _pendingStartupWarning = -1;
         currentHunger = maxHunger;
         currentStamina = maxStamina;
 
