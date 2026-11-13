@@ -185,11 +185,15 @@ public class MinimapController : MonoBehaviour
             if (type == MinimapIcon.IconType.Trash && Instance.trashIconSprite != null) return Instance.trashIconSprite;
         }
 
+        string fnameNoExt = (type == MinimapIcon.IconType.Player) ? "map_person_pin_tan"
+            : (type == MinimapIcon.IconType.NPC) ? "map_npc_guardian_elder"
+            : "map_trash_pin_alert";
+
+        Sprite resSprite = Resources.Load<Sprite>($"MapIcons/{fnameNoExt}");
+        if (resSprite != null) return resSprite;
+
 #if UNITY_EDITOR
-        string fname = (type == MinimapIcon.IconType.Player) ? "map_person_pin_tan.png"
-            : (type == MinimapIcon.IconType.NPC) ? "map_npc_guardian_elder.png"
-            : "map_trash_pin_alert.png";
-        return AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/EcoQuest/Sprites/MapIcons/{fname}");
+        return AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/EcoQuest/Sprites/MapIcons/{fnameNoExt}.png");
 #else
         return null;
 #endif

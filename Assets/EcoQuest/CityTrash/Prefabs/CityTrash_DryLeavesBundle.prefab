@@ -123,7 +123,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 3986428436936287579}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 88218227800c480599cf45230dd2e1c6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EcoQuest.CityQuest.CityTrashVisualVariant
   targetMeshFilter: {fileID: 3701552738948551959}

@@ -173,6 +173,7 @@ public class ExplorerGateController : MonoBehaviour
         // Allow player to cleanly interrupt dialogue with Escape key
         if (isInDialogue && Input.GetKeyDown(KeyCode.Escape))
         {
+            PauseMenuController.NotifyEscapeConsumed();
             EndDialogueSession();
             return;
         }

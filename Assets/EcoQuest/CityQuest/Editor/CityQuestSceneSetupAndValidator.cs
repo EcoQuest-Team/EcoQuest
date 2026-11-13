@@ -1722,10 +1722,65 @@ namespace EcoQuest.CityQuest.Editor
             return list;
         }
 
+        public static float MinDistanceToTrafficGraph(Vector3 pos, EcoQuest.CityTraffic.CityTrafficGraph graph)
+        {
+            if (graph == null || graph.edges == null || graph.edges.Count == 0) return float.MaxValue;
+            float minSq = float.MaxValue;
+            for (int e = 0; e < graph.edges.Count; e++)
+            {
+                var edge = graph.edges[e];
+                if (edge == null || edge.waypoints == null || edge.waypoints.Length < 2) continue;
+                for (int w = 0; w < edge.waypoints.Length - 1; w++)
+                {
+                    Vector3 a = edge.waypoints[w];
+                    Vector3 b = edge.waypoints[w + 1];
+                    float vx = b.x - a.x, vz = b.z - a.z;
+                    float wx = pos.x - a.x, wz = pos.z - a.z;
+                    float c1 = wx * vx + wz * vz;
+                    float dSq;
+                    if (c1 <= 0f)
+                    {
+                        dSq = wx * wx + wz * wz;
+                    }
+                    else
+                    {
+                        float c2 = vx * vx + vz * vz;
+                        if (c2 <= c1)
+                        {
+                            float dx = pos.x - b.x, dz = pos.z - b.z;
+                            dSq = dx * dx + dz * dz;
+                        }
+                        else
+                        {
+                            float t = c1 / c2;
+                            float dx = pos.x - (a.x + t * vx), dz = pos.z - (a.z + t * vz);
+                            dSq = dx * dx + dz * dz;
+                        }
+                    }
+                    if (dSq < minSq) minSq = dSq;
+                }
+            }
+            return minSq < float.MaxValue ? Mathf.Sqrt(minSq) : float.MaxValue;
+        }
+
+        public static bool IsSafePedestrianSpawnPosition(Vector3 pos, Collider surfaceCol, EcoQuest.CityTraffic.CityTrafficGraph trafficGraph, float minRoadDist = 4.10f)
+        {
+            if (pos.y < 0.08f) return false;
+            if (surfaceCol != null)
+            {
+                string n = surfaceCol.name;
+                if (n.StartsWith("Road", StringComparison.OrdinalIgnoreCase) ||
+                    n.IndexOf("Asphalt", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return false;
+            }
+            return MinDistanceToTrafficGraph(pos, trafficGraph) >= minRoadDist;
+        }
+
         private static int GenerateVerifiedSpawnPoints(List<CityDistrictVolume> districts, Transform parent, int countPerDistrict)
         {
             int total = 0;
             System.Random rng = new System.Random(42069);
+            var trafficGraph = AssetDatabase.LoadAssetAtPath<EcoQuest.CityTraffic.CityTrafficGraph>("Assets/EcoQuest/CityTraffic/CityTrafficGraph.asset");
 
             foreach (var vol in districts)
             {
@@ -1735,7 +1790,7 @@ namespace EcoQuest.CityQuest.Editor
 
                 int created = 0;
                 int attempts = 0;
-                while (created < countPerDistrict && attempts < 500)
+                while (created < countPerDistrict && attempts < 1200)
                 {
                     attempts++;
                     float rx = (float)rng.NextDouble() * (max.x - min.x) + min.x;
@@ -1746,6 +1801,9 @@ namespace EcoQuest.CityQuest.Editor
                     {
                         if (NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, 1.8f, NavMesh.AllAreas))
                         {
+                            if (!IsSafePedestrianSpawnPosition(navHit.position, hit.collider, trafficGraph, 4.10f))
+                                continue;
+
                             GameObject spGo = new GameObject($"Spawn_{vol.district}_{created:00}");
                             spGo.transform.SetParent(parent, false);
                             spGo.transform.position = navHit.position;

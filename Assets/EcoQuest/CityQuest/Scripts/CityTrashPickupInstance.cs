@@ -5,33 +5,6 @@ using UnityEngine;
 namespace EcoQuest.CityQuest
 {
     [DisallowMultipleComponent]
-    public class CityTrashVisualVariant : MonoBehaviour
-    {
-        public MeshFilter targetMeshFilter;
-        public MeshRenderer targetRenderer;
-        public Mesh[] variantMeshes;
-        public Material[] variantMaterials;
-
-        public void ApplyVariant(int seed)
-        {
-            if (targetMeshFilter == null) targetMeshFilter = GetComponentInChildren<MeshFilter>();
-            if (targetRenderer == null) targetRenderer = GetComponentInChildren<MeshRenderer>();
-
-            int abs = Mathf.Abs(seed);
-            if (targetMeshFilter != null && variantMeshes != null && variantMeshes.Length > 0)
-            {
-                Mesh m = variantMeshes[abs % variantMeshes.Length];
-                if (m != null) targetMeshFilter.sharedMesh = m;
-            }
-            if (targetRenderer != null && variantMaterials != null && variantMaterials.Length > 0)
-            {
-                Material mat = variantMaterials[(abs / 3) % variantMaterials.Length];
-                if (mat != null) targetRenderer.sharedMaterial = mat;
-            }
-        }
-    }
-
-    [DisallowMultipleComponent]
     public class CityTrashPickupInstance : MonoBehaviour
     {
         [Header("Runtime State")]
@@ -96,17 +69,7 @@ namespace EcoQuest.CityQuest
                 }
             }
 
-            if (pickupCollider == null)
-            {
-                pickupCollider = GetComponent<SphereCollider>();
-                if (pickupCollider == null)
-                {
-                    pickupCollider = gameObject.AddComponent<SphereCollider>();
-                    pickupCollider.radius = 0.42f;
-                    pickupCollider.center = new Vector3(0f, 0.20f, 0f);
-                    pickupCollider.isTrigger = false;
-                }
-            }
+            EnsurePickupCollider();
 
             if (db == null || db.items == null) return;
 
@@ -123,6 +86,22 @@ namespace EcoQuest.CityQuest
                 inst.SetActive(false);
                 cachedItemVisuals[def.id] = inst;
             }
+        }
+
+        private void EnsurePickupCollider()
+        {
+            if (pickupCollider == null)
+            {
+                pickupCollider = GetComponent<SphereCollider>();
+                if (pickupCollider == null)
+                {
+                    pickupCollider = gameObject.AddComponent<SphereCollider>();
+                }
+            }
+
+            pickupCollider.radius = Mathf.Max(pickupCollider.radius, 0.75f);
+            pickupCollider.center = new Vector3(0f, 0.25f, 0f);
+            pickupCollider.isTrigger = false;
         }
 
         private GameObject BuildShimmerRing()
@@ -186,17 +165,7 @@ namespace EcoQuest.CityQuest
                 }
             }
 
-            if (pickupCollider == null)
-            {
-                pickupCollider = GetComponent<SphereCollider>();
-                if (pickupCollider == null)
-                {
-                    pickupCollider = gameObject.AddComponent<SphereCollider>();
-                }
-                pickupCollider.radius = 0.50f;
-                pickupCollider.center = new Vector3(0f, 0.20f, 0f);
-                pickupCollider.isTrigger = false;
-            }
+            EnsurePickupCollider();
 
             if (def != null && def.worldPrefab != null)
             {

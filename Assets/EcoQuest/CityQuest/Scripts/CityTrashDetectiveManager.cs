@@ -107,7 +107,8 @@ namespace EcoQuest.CityQuest
 
         [Header("Quest Settings")]
         public float questDurationSeconds = 240f;
-        public float pickupInteractRange = 2.5f;
+        public float pickupInteractRange = 3.0f;
+        public float repeatCooldownMinutes = 5f;
         public int maxHintCharges = 4;
         public float hintCooldownSeconds = 25f;
         public float hintActiveDuration = 6.0f;
@@ -1535,8 +1536,8 @@ namespace EcoQuest.CityQuest
             if (canTakeBonusQuiz)
             {
                 PlayerPrefs.SetInt(EcoQuestSaveKeys.CityBonusPending, 1);
-                // Set 5-minute cooldown before repeat attempt to balance game economy
-                DateTime robinCooldownUntil = DateTime.UtcNow.AddMinutes(5);
+                // Set cooldown before repeat attempt to balance game economy (default 5 minutes)
+                DateTime robinCooldownUntil = DateTime.UtcNow.AddMinutes(Mathf.Max(0f, repeatCooldownMinutes));
                 PlayerPrefs.SetString("EcoQuest_RobinCooldownUntil", robinCooldownUntil.ToBinary().ToString());
             }
             PlayerPrefs.Save();

@@ -16,10 +16,10 @@ public class PlayerSurvivalStats : MonoBehaviour
     public float maxHunger = 100f;
     [Tooltip("Current hunger value.")]
     public float currentHunger = 100f;
-    [Tooltip("Passive hunger drain rate per second.")]
-    public float hungerDepletionPerSec = 0.05f;
-    [Tooltip("Extra hunger drain rate per second while actively sprinting.")]
-    public float sprintHungerDepletionPerSec = 0.08f;
+    [Tooltip("Passive hunger drain rate per second (0 = disabled for kid-friendly focus).")]
+    public float hungerDepletionPerSec = 0f;
+    [Tooltip("Extra hunger drain rate per second while actively sprinting (0 = disabled).")]
+    public float sprintHungerDepletionPerSec = 0f;
 
     [Header("Stamina Settings")]
     [Tooltip("Maximum stamina value.")]

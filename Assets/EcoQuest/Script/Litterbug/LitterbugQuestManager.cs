@@ -831,7 +831,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
         // Draw 1 random type per category using per-category shuffle bags (all 3 appear before any repeat)
         LitterTypeEntry[] roundEntries = DrawFiveCategoryEntries();
-        ShuffleArray(roundEntries, sessionRng);
+        ShuffleArray(roundEntries, EnsureSessionRng());
 
         List<NpcBrain> chosen = PickValidWalkingNpcsForRound(TargetCount);
 
@@ -865,14 +865,20 @@ public class LitterbugQuestManager : MonoBehaviour
         Debug.Log($"[Post-Travel Health Check - QuestStart] {reportQuestStart}");
     }
 
+    private System.Random EnsureSessionRng()
+    {
+        if (sessionRng == null)
+            sessionRng = new System.Random(Environment.TickCount ^ Guid.NewGuid().GetHashCode());
+        return sessionRng;
+    }
+
     private LitterTypeEntry[] DrawFiveCategoryEntries()
     {
         var result = new LitterTypeEntry[CategoryCount];
         if (litterCatalog == null || litterCatalog.entries == null || litterCatalog.entries.Count == 0)
             return result;
 
-        if (sessionRng == null)
-            sessionRng = new System.Random(Environment.TickCount ^ Guid.NewGuid().GetHashCode());
+        EnsureSessionRng();
 
         for (int catInt = 0; catInt < CategoryCount; catInt++)
         {
@@ -950,7 +956,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
         for (int attempt = 0; attempt < attempts; attempt++)
         {
-            ShuffleList(pool, sessionRng);
+            ShuffleList(pool, EnsureSessionRng());
             List<NpcBrain> picked = new List<NpcBrain>(count);
 
             for (int i = 0; i < pool.Count && picked.Count < count; i++)
@@ -973,8 +979,9 @@ public class LitterbugQuestManager : MonoBehaviour
 
         for (int attempt = 0; attempt < attempts; attempt++)
         {
-            ShuffleList(freshPool, sessionRng);
-            ShuffleList(fullPool, sessionRng);
+            var rng = EnsureSessionRng();
+            ShuffleList(freshPool, rng);
+            ShuffleList(fullPool, rng);
             List<NpcBrain> picked = new List<NpcBrain>(count);
 
             for (int i = 0; i < freshPool.Count && picked.Count < count; i++)
@@ -1076,7 +1083,7 @@ public class LitterbugQuestManager : MonoBehaviour
         if (pool.Count == 0) return false;
 
         Vector3 playerPos = playerTransform != null ? playerTransform.position : Vector3.zero;
-        ShuffleList(pool, sessionRng);
+        ShuffleList(pool, EnsureSessionRng());
 
         NpcBrain chosen = null;
         float[] minBetweenTiers = { MinDistBetweenPicks, 25f, 0f };
@@ -1090,6 +1097,7 @@ public class LitterbugQuestManager : MonoBehaviour
             for (int i = 0; i < pool.Count; i++)
             {
                 NpcBrain cand = pool[i];
+                if (cand == null) continue;
                 Vector3 pos = cand.transform.position;
                 Vector3 dp = pos - playerPos; dp.y = 0f;
                 if (dp.sqrMagnitude < pSqr) continue;
@@ -1105,7 +1113,12 @@ public class LitterbugQuestManager : MonoBehaviour
             }
         }
 
-        if (chosen == null) chosen = pool[0];
+        if (chosen == null)
+        {
+            for (int i = 0; i < pool.Count && chosen == null; i++)
+                if (pool[i] != null) chosen = pool[i];
+        }
+        if (chosen == null) return false;
         BindNpcToSlot(slotIndex, chosen);
         return true;
     }
@@ -1639,6 +1652,7 @@ public class LitterbugQuestManager : MonoBehaviour
         {
             if (IsQKeyPressedThisFrame() || Input.GetKeyDown(KeyCode.Escape))
             {
+                if (Input.GetKeyDown(KeyCode.Escape)) PauseMenuController.NotifyEscapeConsumed();
                 ConsumeInputCooldown(0.20f);
                 OnNotNowButtonClicked();
                 return;

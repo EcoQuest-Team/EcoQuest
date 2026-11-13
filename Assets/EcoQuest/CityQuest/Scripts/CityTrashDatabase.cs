@@ -121,7 +121,7 @@ namespace EcoQuest.CityQuest
             {
                 case LitterCategory.Biodegradable: return new Color(0.24f, 0.72f, 0.32f, 1f);     // Green
                 case LitterCategory.Recyclable: return new Color(0.20f, 0.58f, 0.90f, 1f);        // Blue
-                case LitterCategory.NonBiodegradable: return new Color(0.92f, 0.55f, 0.16f, 1f);  // Orange/Amber
+                case LitterCategory.NonBiodegradable: return new Color(0.706f, 0.325f, 0.035f, 1f); // Deep Amber #B45309 (WCAG AA >= 4.5:1 with white text)
                 case LitterCategory.Hazardous: return new Color(0.88f, 0.24f, 0.24f, 1f);         // Red
                 default: return Color.white;
             }

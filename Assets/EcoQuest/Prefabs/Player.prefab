@@ -1103,8 +1103,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSurvivalStats
   maxHunger: 100
   currentHunger: 100
-  hungerDepletionPerSec: 0.05
-  sprintHungerDepletionPerSec: 0.08
+  hungerDepletionPerSec: 0
+  sprintHungerDepletionPerSec: 0
   maxStamina: 100
   currentStamina: 100
   staminaDrainPerSec: 22

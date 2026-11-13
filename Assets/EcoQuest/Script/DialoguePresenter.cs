@@ -753,6 +753,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         }
         else if (qPressed && isLastPage && hasChoicesAtEnd && isTypewriterComplete && !isAdvanceLocked)
         {
+            if (Input.GetKeyDown(KeyCode.Escape)) PauseMenuController.NotifyEscapeConsumed();
             HandleDecline();
             inputCooldown = 0.25f;
         }

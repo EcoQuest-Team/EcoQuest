@@ -120,13 +120,13 @@ public class DragAndDrop : MonoBehaviour
 
     [Header("Layered Pickup Query Settings")]
     [Tooltip("Radius for primary center-screen SphereCast")]
-    [SerializeField] public float primaryCastRadius = 0.12f;
+    [SerializeField] public float primaryCastRadius = 0.22f;
     [Tooltip("Radius around camera for close-range overlap fallback (starts-inside-collider fix)")]
-    [SerializeField] public float closeRangeRadius = 0.45f;
+    [SerializeField] public float closeRangeRadius = 0.55f;
     [Tooltip("Forward distance in front of camera for close-range overlap capsule")]
     [SerializeField] public float closeRangeForwardDistance = 0.65f;
-    [Tooltip("Maximum screen viewport distance from center (0.5, 0.5) to qualify for aim-assist (0.09 = ~9% screen)")]
-    [SerializeField] public float aimAssistViewportRadius = 0.09f;
+    [Tooltip("Maximum screen viewport distance from center (0.5, 0.5) to qualify for aim-assist (0.13 = ~13% screen)")]
+    [SerializeField] public float aimAssistViewportRadius = 0.13f;
     [Tooltip("Maximum world distance for aim-assist pickup")]
     [SerializeField] public float aimAssistMaxDistance = 5.0f;
 
@@ -574,9 +574,9 @@ public class DragAndDrop : MonoBehaviour
         }
 
         Vector3 newSize = new Vector3(
-            Mathf.Max(mb.size.x, 0.06f),
-            Mathf.Max(mb.size.y, 0.06f),
-            Mathf.Max(mb.size.z, 0.06f)
+            Mathf.Max(mb.size.x, 0.18f),
+            Mathf.Max(mb.size.y, 0.08f),
+            Mathf.Max(mb.size.z, 0.18f)
         );
         Vector3 newCenter = mb.center;
         if (newSize.y > mb.size.y && (mb.center.y - mb.extents.y) >= -0.005f)

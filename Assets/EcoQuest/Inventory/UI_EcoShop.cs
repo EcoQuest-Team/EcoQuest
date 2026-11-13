@@ -202,8 +202,10 @@ namespace EcoQuest.Inventory
             }
 
             // Close with Escape or B
-            if (IsEscapePressed() || IsBPressed())
+            bool escPressed = IsEscapePressed();
+            if (escPressed || IsBPressed())
             {
+                if (escPressed) PauseMenuController.NotifyEscapeConsumed();
                 CloseShop();
                 return;
             }
