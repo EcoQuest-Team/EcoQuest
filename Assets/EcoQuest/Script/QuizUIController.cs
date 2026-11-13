@@ -91,6 +91,7 @@ public class QuizUIController : MonoBehaviour
     private Vector2 answersBaseAnchoredPos;
     private Vector2 answersBaseOffsetMin;
     private Vector2 answersBaseOffsetMax;
+    private StarterAssets.StarterAssetsInputs cachedStarterInputs;
 
     private void Awake()
     {
@@ -625,7 +626,9 @@ public class QuizUIController : MonoBehaviour
         {
             if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
             if (!Cursor.visible) Cursor.visible = true;
-            var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
+            if (cachedStarterInputs == null)
+                cachedStarterInputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
+            var inputs = cachedStarterInputs;
             if (inputs != null && (inputs.cursorLocked || inputs.cursorInputForLook))
             {
                 inputs.cursorLocked = false;

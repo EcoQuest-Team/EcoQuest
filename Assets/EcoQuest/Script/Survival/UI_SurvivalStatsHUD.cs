@@ -60,11 +60,8 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     private void OnDisable()
     {
         PlayerSurvivalStats.OnHungerRumbleWarning -= HandleHungerRumbleWarning;
-        if (_needsToastRoutine != null)
-        {
-            StopCoroutine(_needsToastRoutine);
-            _needsToastRoutine = null;
-        }
+        StopAllCoroutines();
+        _needsToastRoutine = null;
         if (_needsToastGroup != null) _needsToastGroup.alpha = 0f;
         if (_needsToastGo != null) _needsToastGo.SetActive(false);
     }
