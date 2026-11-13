@@ -69,7 +69,11 @@ public class ObjectiveMarkerService : MonoBehaviour
     public float rotationSpeed = 45f;
 
     [Header("Screen Edge Indicator Settings")]
-    public float edgePadding = 48f;
+    public float edgePadding = 64f;
+    [SerializeField] private Sprite edgeArrowSprite;
+
+    private const float ReferenceWidth = 1920f;
+    private const float ReferenceHeight = 1080f;
 
     // Visual instances
     private GameObject worldArrowObj;
@@ -81,12 +85,33 @@ public class ObjectiveMarkerService : MonoBehaviour
     private float currentAlpha = 0f;
     private bool hadActiveTargetLastFrame = false;
     private bool eventsSubscribed = false;
+    private bool lastIsArrowOccluded = false;
+    private bool lastIsOnScreen = false;
+    private int lastDisplayedMeters = -1;
 
     private Canvas edgeCanvas;
+    private RectTransform edgeCanvasRect;
     private GameObject edgeIndicatorRoot;
     private RectTransform edgeIndicatorRect;
+    private CanvasGroup edgeCanvasGroup;
     private RectTransform edgePointerRect;
+    private RectTransform distanceBadgeRect;
     private TextMeshProUGUI edgeDistanceText;
+    private Sprite runtimeFallbackArrowSprite;
+    private Texture2D runtimeFallbackArrowTex;
+    private Sprite runtimePillSprite;
+    private Texture2D runtimePillTex;
+
+    private readonly RaycastHit[] occlusionHits = new RaycastHit[16];
+
+    public bool IsWorldArrowActive => worldArrowObj != null && worldArrowObj.activeSelf;
+    public bool IsScreenIndicatorActive => edgeIndicatorRoot != null && edgeIndicatorRoot.activeSelf;
+    public bool IsScreenArrowActive => edgePointerRect != null && edgePointerRect.gameObject.activeSelf && IsScreenIndicatorActive;
+    public bool IsDistanceTextActive => edgeDistanceText != null && edgeDistanceText.gameObject.activeInHierarchy && IsScreenIndicatorActive;
+    public string CurrentDistanceText => edgeDistanceText != null ? edgeDistanceText.text : string.Empty;
+    public Vector2 CurrentIndicatorCanvasPosition => edgeIndicatorRect != null ? edgeIndicatorRect.anchoredPosition : Vector2.zero;
+    public bool LastIsArrowOccluded => lastIsArrowOccluded;
+    public bool LastIsOnScreen => lastIsOnScreen;
 
     // Cached References (NO Find in Update)
     private Camera mainCam;
@@ -148,6 +173,14 @@ public class ObjectiveMarkerService : MonoBehaviour
         arrowMaterial = null;
         DestroySafe(arrowMesh);
         arrowMesh = null;
+        DestroySafe(runtimeFallbackArrowSprite);
+        runtimeFallbackArrowSprite = null;
+        DestroySafe(runtimeFallbackArrowTex);
+        runtimeFallbackArrowTex = null;
+        DestroySafe(runtimePillSprite);
+        runtimePillSprite = null;
+        DestroySafe(runtimePillTex);
+        runtimePillTex = null;
 
         if (worldArrowObj != null) DestroySafe(worldArrowObj);
         if (edgeCanvas != null) DestroySafe(edgeCanvas.gameObject);
@@ -397,6 +430,7 @@ public class ObjectiveMarkerService : MonoBehaviour
         currentLabel = label;
         hadActiveTargetLastFrame = true;
         idleTimer = 0f;
+        lastDisplayedMeters = -1;
 
         SyncMinimapAndOverheadMarkers();
     }
@@ -412,6 +446,9 @@ public class ObjectiveMarkerService : MonoBehaviour
         idleTimer = 0f;
         currentAlpha = 0f;
         currentArrowScaleFactor = 0f;
+        lastIsArrowOccluded = false;
+        lastIsOnScreen = false;
+        lastDisplayedMeters = -1;
 
         if (worldArrowObj != null) worldArrowObj.SetActive(false);
         if (edgeIndicatorRoot != null) edgeIndicatorRoot.SetActive(false);
@@ -446,8 +483,15 @@ public class ObjectiveMarkerService : MonoBehaviour
     // Per-frame Animation & Positioning
     // -------------------------------------------------------------------------
 
-    private void Update()
+    private void LateUpdate()
     {
+        TickMarkerVisuals(Time.unscaledDeltaTime);
+    }
+
+    public void TickMarkerVisuals(float deltaTime)
+    {
+        float dt = Mathf.Max(0f, deltaTime);
+
         if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
         {
             if (hadActiveTargetLastFrame)
@@ -464,20 +508,32 @@ public class ObjectiveMarkerService : MonoBehaviour
 
         hadActiveTargetLastFrame = true;
 
+        // Re-resolve active camera/player only when missing or disabled (no per-frame Find when valid)
+        if (mainCam == null || !mainCam.isActiveAndEnabled)
+        {
+            mainCam = Camera.main;
+        }
+        if (playerTransform == null)
+        {
+            ResolvePlayerTransform();
+        }
+
         // Check dialogue and overlay suppression
         bool isSuppressed = IsOverlayOrDialogueActive();
         if (isSuppressed)
         {
-            currentAlpha = Mathf.MoveTowards(currentAlpha, 0f, Time.deltaTime * (fadeSpeed * 2f));
-            currentArrowScaleFactor = Mathf.MoveTowards(currentArrowScaleFactor, 0f, Time.deltaTime * (fadeSpeed * 2f));
+            currentAlpha = Mathf.MoveTowards(currentAlpha, 0f, dt * (fadeSpeed * 2f));
+            currentArrowScaleFactor = Mathf.MoveTowards(currentArrowScaleFactor, 0f, dt * (fadeSpeed * 2f));
             if (worldArrowObj != null && worldArrowObj.activeSelf) worldArrowObj.SetActive(false);
             if (edgeIndicatorRoot != null && edgeIndicatorRoot.activeSelf) edgeIndicatorRoot.SetActive(false);
             return;
         }
 
         Vector3 targetPos = currentTarget.position;
+        Vector3 anchorPos = targetPos + overheadOffset;
         Vector3 playerPos = playerTransform != null ? playerTransform.position : (mainCam != null ? mainCam.transform.position : targetPos);
         float distance = Vector3.Distance(playerPos, targetPos);
+        if (float.IsNaN(distance) || float.IsInfinity(distance) || distance < 0f) distance = 0f;
 
         // Track player movement for idle reminder
         if (playerTransform != null)
@@ -496,8 +552,8 @@ public class ObjectiveMarkerService : MonoBehaviour
         // Smooth proximity fade & hide within interaction range (2.5m)
         bool isClose = distance <= hideDistanceThreshold;
         float targetAlpha = isClose ? 0f : 1f;
-        currentAlpha = Mathf.MoveTowards(currentAlpha, targetAlpha, Time.deltaTime * fadeSpeed);
-        currentArrowScaleFactor = Mathf.MoveTowards(currentArrowScaleFactor, targetAlpha, Time.deltaTime * fadeSpeed);
+        currentAlpha = Mathf.MoveTowards(currentAlpha, targetAlpha, dt * fadeSpeed);
+        currentArrowScaleFactor = Mathf.MoveTowards(currentArrowScaleFactor, targetAlpha, dt * fadeSpeed);
 
         if (currentAlpha <= 0.01f)
         {
@@ -506,59 +562,113 @@ public class ObjectiveMarkerService : MonoBehaviour
             return;
         }
 
-        // Determine if target is visible on screen
-        Vector3 viewportPoint = Vector3.zero;
-        bool isOnScreen = false;
-        if (mainCam != null)
-        {
-            viewportPoint = mainCam.WorldToViewportPoint(targetPos + overheadOffset);
-            bool inFront = viewportPoint.z > 0f;
-            isOnScreen = inFront && (viewportPoint.x >= 0.06f && viewportPoint.x <= 0.94f)
-                                 && (viewportPoint.y >= 0.06f && viewportPoint.y <= 0.94f);
-        }
-
         // Idle reminder subtle pulse if player has not made progress for reminderDelay
         float idlePulse = 1f;
         if (idleTimer >= reminderDelay)
         {
-            idlePulse = 1f + Mathf.Sin(Time.time * 4f) * 0.12f;
+            idlePulse = 1f + Mathf.Sin(Time.unscaledTime * 4f) * 0.12f;
         }
 
-        // Animate 3D World Arrow
+        Vector3 vp = Vector3.zero;
+        bool inFront = false;
+        bool isOnScreen = false;
+        bool isOccluded = false;
+        float dotRight = 0f;
+        float dotUp = 0f;
+
+        if (mainCam != null)
+        {
+            Transform camT = mainCam.transform;
+            Vector3 camDelta = anchorPos - camT.position;
+            float dotForward = Vector3.Dot(camDelta, camT.forward);
+            dotRight = Vector3.Dot(camDelta, camT.right);
+            dotUp = Vector3.Dot(camDelta, camT.up);
+
+            vp = mainCam.WorldToViewportPoint(anchorPos);
+            bool validVp = !float.IsNaN(vp.x) && !float.IsInfinity(vp.x) && !float.IsNaN(vp.y) && !float.IsInfinity(vp.y);
+            inFront = dotForward > 0.05f && vp.z > 0.05f && validVp;
+            isOnScreen = inFront && (vp.x >= 0.06f && vp.x <= 0.94f)
+                                 && (vp.y >= 0.06f && vp.y <= 0.94f);
+            isOccluded = IsAnchorOccludedByGeometry(camT.position, anchorPos);
+        }
+
+        lastIsOnScreen = isOnScreen;
+        lastIsArrowOccluded = isOccluded;
+
+        // Show 3D World Arrow only when active & not occluded behind geometry
         if (worldArrowObj != null)
         {
-            worldArrowObj.SetActive(true);
+            bool showWorldArrow = mainCam != null ? !isOccluded : true;
+            worldArrowObj.SetActive(showWorldArrow);
 
-            // Distance-aware subtle scaling (0.5 to 1.15)
-            float distScale = Mathf.Clamp(0.55f + (distance - hideDistanceThreshold) * 0.015f, 0.5f, 1.15f);
-            worldArrowObj.transform.localScale = Vector3.one * (baseScale * distScale * currentArrowScaleFactor * idlePulse);
-
-            float bounce = Mathf.Sin(Time.time * bounceSpeed) * bounceHeight;
-            worldArrowObj.transform.position = targetPos + overheadOffset + new Vector3(0f, bounce, 0f);
-            worldArrowObj.transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime, Space.World);
-
-            // Update material transparency if faded
-            if (arrowMaterial != null && arrowMaterial.HasProperty("_BaseColor"))
+            if (showWorldArrow)
             {
-                Color c = themeGold;
-                c.a = currentAlpha;
-                arrowMaterial.SetColor("_BaseColor", c);
+                float distScale = Mathf.Clamp(0.55f + (distance - hideDistanceThreshold) * 0.015f, 0.5f, 1.15f);
+                worldArrowObj.transform.localScale = Vector3.one * (baseScale * distScale * currentArrowScaleFactor * idlePulse);
+
+                float bounce = Mathf.Sin(Time.unscaledTime * bounceSpeed) * bounceHeight;
+                worldArrowObj.transform.position = anchorPos + new Vector3(0f, bounce, 0f);
+                worldArrowObj.transform.Rotate(Vector3.up, rotationSpeed * dt, Space.World);
             }
         }
 
-        // Update Off-Screen Screen-Edge Indicator
+        // Update Screen-Space Overlay Marker + Always-Visible Distance Meter
         if (edgeIndicatorRoot != null)
         {
-            if (!isOnScreen && mainCam != null && currentAlpha > 0.1f)
+            if (mainCam != null)
             {
                 edgeIndicatorRoot.SetActive(true);
-                UpdateEdgeIndicatorPosition(viewportPoint, distance);
+                UpdateScreenIndicator(vp, dotRight, dotUp, inFront, isOnScreen, isOccluded, distance, idlePulse);
             }
             else
             {
                 edgeIndicatorRoot.SetActive(false);
             }
         }
+    }
+
+    private void ResolvePlayerTransform()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null) playerTransform = player.transform;
+        else
+        {
+            var fpc = FindFirstObjectByType<StarterAssets.FirstPersonController>();
+            if (fpc != null) playerTransform = fpc.transform;
+        }
+
+        if (playerTransform != null)
+        {
+            lastPlayerPosition = playerTransform.position;
+        }
+    }
+
+    private bool IsAnchorOccludedByGeometry(Vector3 camPos, Vector3 anchorPos)
+    {
+        Vector3 toAnchor = anchorPos - camPos;
+        float dist = toAnchor.magnitude;
+        if (dist <= 0.35f) return false;
+
+        int hitCount = Physics.RaycastNonAlloc(
+            camPos,
+            toAnchor / dist,
+            occlusionHits,
+            dist - 0.30f,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider col = occlusionHits[i].collider;
+            if (col == null) continue;
+            Transform hitT = col.transform;
+            if (playerTransform != null && hitT.IsChildOf(playerTransform)) continue;
+            if (mainCam != null && hitT.IsChildOf(mainCam.transform)) continue;
+            if (currentTarget != null && hitT.IsChildOf(currentTarget)) continue;
+            return true;
+        }
+
+        return false;
     }
 
     private bool IsOverlayOrDialogueActive()
@@ -583,40 +693,152 @@ public class ObjectiveMarkerService : MonoBehaviour
         return false;
     }
 
-    private void UpdateEdgeIndicatorPosition(Vector3 vp, float distance)
+    private void UpdateScreenIndicator(
+        Vector3 vp,
+        float dotRight,
+        float dotUp,
+        bool inFront,
+        bool isOnScreen,
+        bool isOccluded,
+        float distance,
+        float idlePulse)
     {
         if (edgeIndicatorRect == null) return;
 
-        Vector2 screenDir = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
-        if (vp.z < 0f)
+        Vector2 canvasSize = edgeCanvasRect != null && edgeCanvasRect.rect.width > 1f && edgeCanvasRect.rect.height > 1f
+            ? edgeCanvasRect.rect.size
+            : new Vector2(ReferenceWidth, ReferenceHeight);
+
+        float scaleX = canvasSize.x / ReferenceWidth;
+        float scaleY = canvasSize.y / ReferenceHeight;
+        float minScale = Mathf.Min(scaleX, scaleY);
+        float padX = Mathf.Max(48f, edgePadding * minScale);
+        float padY = Mathf.Max(52f, edgePadding * minScale);
+        float halfW = Mathf.Max(80f, canvasSize.x * 0.5f - padX);
+        float halfH = Mathf.Max(80f, canvasSize.y * 0.5f - padY);
+
+        Vector2 finalPos;
+        if (isOnScreen)
         {
-            screenDir = -screenDir;
+            float targetX = (vp.x - 0.5f) * canvasSize.x;
+            float targetY = (vp.y - 0.5f) * canvasSize.y;
+
+            if (edgePointerRect != null)
+            {
+                edgePointerRect.gameObject.SetActive(isOccluded);
+                if (isOccluded)
+                {
+                    // Point downward above occluded target and bob subtly
+                    float bob = Mathf.Sin(Time.unscaledTime * bounceSpeed) * 4f;
+                    edgePointerRect.anchoredPosition = new Vector2(0f, 12f + bob);
+                    edgePointerRect.localRotation = Quaternion.Euler(0f, 0f, 180f);
+                }
+            }
+
+            finalPos = new Vector2(targetX, isOccluded ? targetY : (targetY - 12f));
+            finalPos.x = Mathf.Clamp(finalPos.x, -halfW, halfW);
+            finalPos.y = Mathf.Clamp(finalPos.y, -halfH, halfH);
+            AvoidCornerHudZones(ref finalPos, new Vector2(finalPos.x, finalPos.y).normalized, canvasSize, halfW, halfH, scaleX, scaleY);
+        }
+        else
+        {
+            Vector2 screenDir = inFront
+                ? new Vector2((vp.x - 0.5f) * canvasSize.x, (vp.y - 0.5f) * canvasSize.y)
+                : new Vector2(dotRight, dotUp);
+
+            if (float.IsNaN(screenDir.x) || float.IsNaN(screenDir.y) || screenDir.sqrMagnitude < 0.0001f)
+            {
+                screenDir = Vector2.down;
+            }
+            screenDir.Normalize();
+
+            float tX = Mathf.Abs(screenDir.x) > 0.0001f ? halfW / Mathf.Abs(screenDir.x) : float.MaxValue;
+            float tY = Mathf.Abs(screenDir.y) > 0.0001f ? halfH / Mathf.Abs(screenDir.y) : float.MaxValue;
+            finalPos = screenDir * Mathf.Min(tX, tY);
+            AvoidCornerHudZones(ref finalPos, screenDir, canvasSize, halfW, halfH, scaleX, scaleY);
+
+            if (edgePointerRect != null)
+            {
+                edgePointerRect.gameObject.SetActive(true);
+                edgePointerRect.anchoredPosition = Vector2.zero;
+                float deg = Mathf.Atan2(screenDir.y, screenDir.x) * Mathf.Rad2Deg - 90f;
+                edgePointerRect.localRotation = Quaternion.Euler(0f, 0f, deg);
+            }
         }
 
-        if (screenDir.sqrMagnitude < 0.001f) screenDir = Vector2.up;
-        screenDir.Normalize();
+        edgeIndicatorRect.anchoredPosition = finalPos;
+        edgeIndicatorRect.localScale = Vector3.one * idlePulse;
 
-        float screenW = Screen.width;
-        float screenH = Screen.height;
-        float halfW = (screenW * 0.5f) - edgePadding;
-        float halfH = (screenH * 0.5f) - edgePadding;
-
-        float angle = Mathf.Atan2(screenDir.y, screenDir.x);
-        float edgeX = Mathf.Clamp(Mathf.Cos(angle) * halfW, -halfW, halfW);
-        float edgeY = Mathf.Clamp(Mathf.Sin(angle) * halfH, -halfH, halfH);
-
-        edgeIndicatorRect.anchoredPosition = new Vector2(edgeX, edgeY);
-
-        if (edgePointerRect != null)
+        if (edgeCanvasGroup != null)
         {
-            float deg = angle * Mathf.Rad2Deg - 90f;
-            edgePointerRect.localRotation = Quaternion.Euler(0f, 0f, deg);
+            edgeCanvasGroup.alpha = currentAlpha;
         }
 
-        if (edgeDistanceText != null)
+        if (distanceBadgeRect != null)
         {
-            edgeDistanceText.text = $"{Mathf.RoundToInt(distance)}m";
+            bool badgeBelowArrow = !(finalPos.y < -halfH + 42f);
+            float offsetY = isOnScreen && !isOccluded ? 0f : (badgeBelowArrow ? -32f : 32f);
+            distanceBadgeRect.anchoredPosition = new Vector2(0f, offsetY);
         }
+
+        int meters = Mathf.Max(0, Mathf.RoundToInt(distance));
+        if (meters != lastDisplayedMeters && edgeDistanceText != null)
+        {
+            lastDisplayedMeters = meters;
+            edgeDistanceText.text = $"{meters}m";
+        }
+    }
+
+    private static void AvoidCornerHudZones(
+        ref Vector2 pos,
+        Vector2 dir,
+        Vector2 canvasSize,
+        float halfW,
+        float halfH,
+        float scaleX,
+        float scaleY)
+    {
+        float rawHalfW = canvasSize.x * 0.5f;
+        float rawHalfH = canvasSize.y * 0.5f;
+
+        // Top-left (Hunger / Stamina bars + Quest panel header)
+        float tlX = -rawHalfW + 390f * scaleX;
+        float tlY = rawHalfH - 145f * scaleY;
+        if (pos.x < tlX && pos.y > tlY)
+        {
+            if (Mathf.Abs(dir.y) > Mathf.Abs(dir.x)) pos.x = Mathf.Min(tlX, halfW);
+            else pos.y = Mathf.Max(tlY, -halfH);
+        }
+
+        // Top-right (Minimap + Settings gear)
+        float trX = rawHalfW - 350f * scaleX;
+        float trY = rawHalfH - 235f * scaleY;
+        if (pos.x > trX && pos.y > trY)
+        {
+            if (Mathf.Abs(dir.y) > Mathf.Abs(dir.x)) pos.x = Mathf.Max(trX, -halfW);
+            else pos.y = Mathf.Max(trY, -halfH);
+        }
+
+        // Bottom-left (Coins counter)
+        float blX = -rawHalfW + 270f * scaleX;
+        float blY = -rawHalfH + 105f * scaleY;
+        if (pos.x < blX && pos.y < blY)
+        {
+            if (Mathf.Abs(dir.y) > Mathf.Abs(dir.x)) pos.x = Mathf.Min(blX, halfW);
+            else pos.y = Mathf.Min(blY, halfH);
+        }
+
+        // Bottom-right (Inventory bag button)
+        float brX = rawHalfW - 155f * scaleX;
+        float brY = -rawHalfH + 145f * scaleY;
+        if (pos.x > brX && pos.y < brY)
+        {
+            if (Mathf.Abs(dir.y) > Mathf.Abs(dir.x)) pos.x = Mathf.Max(brX, -halfW);
+            else pos.y = Mathf.Min(brY, halfH);
+        }
+
+        pos.x = Mathf.Clamp(pos.x, -halfW, halfW);
+        pos.y = Mathf.Clamp(pos.y, -halfH, halfH);
     }
 
     // -------------------------------------------------------------------------
@@ -703,38 +925,162 @@ public class ObjectiveMarkerService : MonoBehaviour
         edgeCanvas = canvasGo.AddComponent<Canvas>();
         edgeCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         edgeCanvas.sortingOrder = 130;
+        edgeCanvasRect = canvasGo.GetComponent<RectTransform>();
 
         CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920, 1080);
-        canvasGo.AddComponent<GraphicRaycaster>();
+        scaler.referenceResolution = new Vector2(ReferenceWidth, ReferenceHeight);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 0.5f;
 
         edgeIndicatorRoot = new GameObject("EdgeIndicatorRoot");
         edgeIndicatorRoot.transform.SetParent(canvasGo.transform, false);
 
         edgeIndicatorRect = edgeIndicatorRoot.AddComponent<RectTransform>();
-        edgeIndicatorRect.sizeDelta = new Vector2(80f, 80f);
+        edgeIndicatorRect.sizeDelta = new Vector2(96f, 96f);
+        edgeCanvasGroup = edgeIndicatorRoot.AddComponent<CanvasGroup>();
+        edgeCanvasGroup.interactable = false;
+        edgeCanvasGroup.blocksRaycasts = false;
 
         GameObject pointerGo = new GameObject("PointerIcon");
         pointerGo.transform.SetParent(edgeIndicatorRoot.transform, false);
         edgePointerRect = pointerGo.AddComponent<RectTransform>();
-        edgePointerRect.sizeDelta = new Vector2(32f, 32f);
+        edgePointerRect.sizeDelta = new Vector2(36f, 36f);
 
         Image pointerImg = pointerGo.AddComponent<Image>();
-        pointerImg.color = themeGold;
+        pointerImg.raycastTarget = false;
+        pointerImg.preserveAspect = true;
+        bool usedProjectSprite;
+        pointerImg.sprite = ResolveArrowSprite(out usedProjectSprite);
+        pointerImg.color = usedProjectSprite ? Color.white : themeGold;
+
+        GameObject badgeGo = new GameObject("DistanceBadge");
+        badgeGo.transform.SetParent(edgeIndicatorRoot.transform, false);
+        distanceBadgeRect = badgeGo.AddComponent<RectTransform>();
+        distanceBadgeRect.anchoredPosition = new Vector2(0f, -32f);
+        distanceBadgeRect.sizeDelta = new Vector2(76f, 28f);
+
+        Image badgeImg = badgeGo.AddComponent<Image>();
+        badgeImg.raycastTarget = false;
+        badgeImg.sprite = CreateRoundedPillSprite();
+        badgeImg.type = Image.Type.Sliced;
+        badgeImg.color = new Color(0.043f, 0.141f, 0.098f, 0.88f);
+
+        Outline badgeOutline = badgeGo.AddComponent<Outline>();
+        badgeOutline.effectColor = new Color(themeGold.r, themeGold.g, themeGold.b, 0.85f);
+        badgeOutline.effectDistance = new Vector2(1.4f, -1.4f);
 
         GameObject textGo = new GameObject("DistanceText");
-        textGo.transform.SetParent(edgeIndicatorRoot.transform, false);
+        textGo.transform.SetParent(badgeGo.transform, false);
         RectTransform textRect = textGo.AddComponent<RectTransform>();
-        textRect.anchoredPosition = new Vector2(0f, -24f);
-        textRect.sizeDelta = new Vector2(100f, 24f);
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(4f, 0f);
+        textRect.offsetMax = new Vector2(-4f, 0f);
 
         edgeDistanceText = textGo.AddComponent<TextMeshProUGUI>();
+        edgeDistanceText.raycastTarget = false;
         edgeDistanceText.alignment = TextAlignmentOptions.Center;
-        edgeDistanceText.fontSize = 16f;
+        edgeDistanceText.fontSize = 18f;
         edgeDistanceText.fontStyle = FontStyles.Bold;
+        edgeDistanceText.textWrappingMode = TextWrappingModes.NoWrap;
         edgeDistanceText.color = Color.white;
 
+        Shadow textShadow = textGo.AddComponent<Shadow>();
+        textShadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
+        textShadow.effectDistance = new Vector2(1.2f, -1.2f);
+
         edgeIndicatorRoot.SetActive(false);
+    }
+
+    private Sprite ResolveArrowSprite(out bool usedProjectSprite)
+    {
+        if (edgeArrowSprite != null)
+        {
+            usedProjectSprite = true;
+            return edgeArrowSprite;
+        }
+
+        Sprite res = Resources.Load<Sprite>("UI/map_quest_edge_arrow");
+        if (res != null)
+        {
+            usedProjectSprite = true;
+            return res;
+        }
+
+#if UNITY_EDITOR
+        Sprite editorSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/EcoQuest/Sprites/MapIcons/map_quest_edge_arrow.png");
+        if (editorSprite != null)
+        {
+            usedProjectSprite = true;
+            return editorSprite;
+        }
+#endif
+
+        usedProjectSprite = false;
+        return CreateFallbackChevronSprite();
+    }
+
+    private Sprite CreateFallbackChevronSprite()
+    {
+        if (runtimeFallbackArrowSprite != null) return runtimeFallbackArrowSprite;
+
+        const int size = 32;
+        runtimeFallbackArrowTex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+
+        Color clear = new Color(0f, 0f, 0f, 0f);
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            float ny = (float)y / (size - 1);
+            for (int x = 0; x < size; x++)
+            {
+                float nx = Mathf.Abs(((float)x / (size - 1)) - 0.5f) * 2f;
+                bool insideOuter = ny >= 0.12f && ny <= 0.94f && nx <= (0.94f - ny) * 1.15f;
+                bool insideNotch = ny < 0.36f && nx <= (0.36f - ny) * 1.15f;
+                pixels[y * size + x] = (insideOuter && !insideNotch) ? Color.white : clear;
+            }
+        }
+
+        runtimeFallbackArrowTex.SetPixels(pixels);
+        runtimeFallbackArrowTex.Apply();
+        runtimeFallbackArrowSprite = Sprite.Create(runtimeFallbackArrowTex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        return runtimeFallbackArrowSprite;
+    }
+
+    private Sprite CreateRoundedPillSprite()
+    {
+        if (runtimePillSprite != null) return runtimePillSprite;
+
+        const int w = 24;
+        const int h = 24;
+        const float radius = 8f;
+        runtimePillTex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+        {
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+
+        Color[] pixels = new Color[w * h];
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float cx = x < radius ? radius - 0.5f : (x >= w - radius ? w - radius - 0.5f : x);
+                float cy = y < radius ? radius - 0.5f : (y >= h - radius ? h - radius - 0.5f : y);
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cy));
+                float alpha = Mathf.Clamp01(radius + 0.5f - d);
+                pixels[y * w + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        runtimePillTex.SetPixels(pixels);
+        runtimePillTex.Apply();
+        runtimePillSprite = Sprite.Create(runtimePillTex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(8f, 8f, 8f, 8f));
+        return runtimePillSprite;
     }
 }
