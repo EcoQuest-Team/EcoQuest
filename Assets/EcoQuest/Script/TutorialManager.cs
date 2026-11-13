@@ -24,6 +24,8 @@ public class TutorialManager : MonoBehaviour
 
     private int currentCardIndex = 0;
     private bool isTutorialActive = false; 
+    private static readonly System.Collections.Generic.HashSet<TutorialManager> activeTutorials = new System.Collections.Generic.HashSet<TutorialManager>();
+    public static bool IsAnyTutorialActive => activeTutorials.Count > 0;
     private bool isTransitioning = false;
     private float cardOpenedTime = 0f;
     private const float INPUT_IGNORE_DURATION = 0.50f;
@@ -44,6 +46,7 @@ public class TutorialManager : MonoBehaviour
 
     private void OnDisable()
     {
+        activeTutorials.Remove(this);
         if (cardAnimRoutine != null)
         {
             StopCoroutine(cardAnimRoutine);
@@ -54,6 +57,7 @@ public class TutorialManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        activeTutorials.Remove(this);
         if (cardAnimRoutine != null)
         {
             StopCoroutine(cardAnimRoutine);
@@ -156,18 +160,14 @@ public class TutorialManager : MonoBehaviour
         }
         // Keep the world alive (NPC animations, idle movement, ambient effects) while blocking ONLY player input
         Time.timeScale = 1f;
+        isTutorialActive = true;
+        activeTutorials.Add(this);
         IntroSequenceController.Instance?.SetPlayerControlsFrozen(true);
         IntroSequenceController.Instance?.SetCursorState(true);
         WorldInteractionPrompt.Instance?.SetBlocked(true);
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        if (CenterScreenCursor.Instance != null)
-        {
-            CenterScreenCursor.Instance.SetVisible(false);
-        }
-        
-        isTutorialActive = true; 
+        CursorState.SetLocked(false);
+
         isTransitioning = false;
 
         if (currentCardIndex >= 0 && currentCardIndex < tutorialCards.Length && tutorialCards[currentCardIndex] != null)
@@ -636,6 +636,7 @@ public class TutorialManager : MonoBehaviour
     {
         if (!isTutorialActive && (tutorialOverlay == null || !tutorialOverlay.activeSelf)) return;
         isTutorialActive = false;
+        activeTutorials.Remove(this);
         isTransitioning = false;
         if (cardAnimRoutine != null)
         {

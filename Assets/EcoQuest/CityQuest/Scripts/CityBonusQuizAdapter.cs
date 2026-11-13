@@ -42,33 +42,24 @@ namespace EcoQuest.CityQuest
         private void OnDisable()
         {
             StopAllCoroutines();
-            if (isQuizRunning)
+            bool wasRunning = isQuizRunning;
+            isQuizRunning = false;
+            if (wasRunning)
             {
                 var fps = FindFirstObjectByType<StarterAssets.FirstPersonController>();
                 if (fps != null) fps.enabled = true;
                 var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-                if (inputs != null)
-                {
-                    inputs.cursorLocked = true;
-                    inputs.cursorInputForLook = true;
-                }
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+                CursorState.SetLocked(true, inputs);
             }
-            isQuizRunning = false;
         }
 
         private void Update()
         {
             if (isQuizRunning)
             {
-                if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
-                if (!Cursor.visible) Cursor.visible = true;
-                var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-                if (inputs != null && (inputs.cursorLocked || inputs.cursorInputForLook))
+                if (Cursor.lockState != CursorLockMode.None || !Cursor.visible)
                 {
-                    inputs.cursorLocked = false;
-                    inputs.cursorInputForLook = false;
+                    CursorState.SetLocked(false);
                 }
             }
         }
@@ -102,16 +93,13 @@ namespace EcoQuest.CityQuest
             correctCount = 0;
             totalQuizCoinsEarned = 0;
 
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
             var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
             if (inputs != null)
             {
-                inputs.cursorLocked = false;
-                inputs.cursorInputForLook = false;
                 inputs.move = Vector2.zero;
                 inputs.look = Vector2.zero;
             }
+            CursorState.SetLocked(false, inputs);
             var fps = FindFirstObjectByType<StarterAssets.FirstPersonController>();
             if (fps != null) fps.enabled = false;
 
@@ -284,18 +272,13 @@ namespace EcoQuest.CityQuest
             }
 
             yield return StartCoroutine(quizUI.AnimateCloseModal());
+            isQuizRunning = false;
+
             var fps = FindFirstObjectByType<StarterAssets.FirstPersonController>();
             if (fps != null) fps.enabled = true;
             var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-            if (inputs != null)
-            {
-                inputs.cursorLocked = true;
-                inputs.cursorInputForLook = true;
-            }
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            CursorState.SetLocked(true, inputs);
 
-            isQuizRunning = false;
             onQuizFinishedCallback?.Invoke();
         }
 

@@ -171,6 +171,7 @@ namespace StarterAssets
 
 		private void OnDisable()
 		{
+			CursorState.ResetLookInputAndVelocity(_input, ref _rotationVelocity);
 			if (SettingsManager.Instance != null)
 			{
 				SettingsManager.Instance.OnSettingsChanged -= ApplySavedMouseSensitivity;
@@ -344,6 +345,11 @@ namespace StarterAssets
 
 		private void CameraRotation()
 		{
+			if (!CursorState.SyncAndCheckLook(_input, ref _rotationVelocity))
+			{
+				return;
+			}
+
 			if (_input.look.sqrMagnitude >= _threshold)
 			{
 				float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;

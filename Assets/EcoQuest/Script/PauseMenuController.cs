@@ -417,17 +417,9 @@ public class PauseMenuController : MonoBehaviour
             playerInputs.look = Vector2.zero;
             playerInputs.jump = false;
             playerInputs.sprint = false;
-            playerInputs.cursorLocked = false;
-            playerInputs.cursorInputForLook = false;
         }
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-
-        if (CenterScreenCursor.Instance != null)
-        {
-            CenterScreenCursor.Instance.SetVisible(false);
-        }
+        CursorState.SetLocked(false, playerInputs);
 
         if (confirmMainMenuOverlay != null) confirmMainMenuOverlay.SetActive(false);
         if (pauseOverlayRoot != null) pauseOverlayRoot.SetActive(true);
@@ -565,31 +557,10 @@ public class PauseMenuController : MonoBehaviour
 
         if (fpc != null) fpc.enabled = savedFpcEnabled;
 
-        bool holdingCtrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-        if (holdingCtrl)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = false;
-                playerInputs.cursorInputForLook = false;
-            }
-            if (CenterScreenCursor.Instance != null)
-                CenterScreenCursor.Instance.SetVisible(false);
-        }
-        else
-        {
-            Cursor.lockState = savedCursorLockMode;
-            Cursor.visible = savedCursorVisible;
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = savedInputsCursorLocked;
-                playerInputs.cursorInputForLook = savedInputsCursorLook;
-            }
-            if (CenterScreenCursor.Instance != null)
-                CenterScreenCursor.Instance.SetVisible(savedCursorLockMode == CursorLockMode.Locked);
-        }
+        bool holdingCtrl = (UnityEngine.InputSystem.Keyboard.current != null &&
+            (UnityEngine.InputSystem.Keyboard.current.leftCtrlKey.isPressed || UnityEngine.InputSystem.Keyboard.current.rightCtrlKey.isPressed))
+            || Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+        CursorState.SetLocked(!holdingCtrl && (savedCursorLockMode == CursorLockMode.Locked || savedFpcEnabled), playerInputs);
     }
 
     public void OpenSettingsFromPause()
@@ -719,8 +690,7 @@ public class PauseMenuController : MonoBehaviour
         Time.timeScale = 1f;
         UIBackgroundBlur.Cleanup();
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        CursorState.SetLocked(false, playerInputs, updateCenterCursor: false);
 
         LoadingScreen.Load(mainMenuSceneName);
     }

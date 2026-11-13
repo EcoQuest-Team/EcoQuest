@@ -663,15 +663,12 @@ public class QuizUIController : MonoBehaviour
     {
         if (IsAnyQuizOpen)
         {
-            if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
-            if (!Cursor.visible) Cursor.visible = true;
             if (cachedStarterInputs == null)
                 cachedStarterInputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
             var inputs = cachedStarterInputs;
-            if (inputs != null && (inputs.cursorLocked || inputs.cursorInputForLook))
+            if (Cursor.lockState != CursorLockMode.None || !Cursor.visible || (inputs != null && (inputs.cursorLocked || inputs.cursorInputForLook)))
             {
-                inputs.cursorLocked = false;
-                inputs.cursorInputForLook = false;
+                CursorState.SetLocked(false, inputs);
             }
         }
 
@@ -1029,19 +1026,8 @@ public class QuizUIController : MonoBehaviour
         isAnimating = true;
         IsAnyQuizOpen = true;
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
         var openInputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-        if (openInputs != null)
-        {
-            openInputs.cursorLocked = false;
-            openInputs.cursorInputForLook = false;
-        }
-
-        if (CenterScreenCursor.Instance != null)
-        {
-            CenterScreenCursor.Instance.SetVisible(false);
-        }
+        CursorState.SetLocked(false, openInputs);
 
         // 1. Explicitly configure child sub-panels BEFORE enabling the modal
         if (quizPanel != null) quizPanel.SetActive(true);

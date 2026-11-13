@@ -931,8 +931,6 @@ public class NPCInteraction : MonoBehaviour
 
         // 3. Restore controls and lock cursor
         RestorePlayerControls();
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
 
         // 4. Reset NPC state
         Animator anim = GetComponent<Animator>();
@@ -1746,17 +1744,9 @@ public class NPCInteraction : MonoBehaviour
         {
             inputs.move = Vector2.zero;
             inputs.look = Vector2.zero;
-            inputs.cursorInputForLook = false;
-            inputs.cursorLocked = false;
         }
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-
-        if (CenterScreenCursor.Instance != null)
-        {
-            CenterScreenCursor.Instance.SetVisible(false);
-        }
+        CursorState.SetLocked(false, inputs);
     }
 
     public void RestorePlayerControls()
@@ -1775,19 +1765,7 @@ public class NPCInteraction : MonoBehaviour
         StarterAssets.StarterAssetsInputs inputs = playerTransform != null 
             ? playerTransform.GetComponent<StarterAssets.StarterAssetsInputs>() 
             : FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-        if (inputs != null)
-        {
-            inputs.cursorInputForLook = true;
-            inputs.cursorLocked = true;
-        }
-
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-
-        if (CenterScreenCursor.Instance != null)
-        {
-            CenterScreenCursor.Instance.SetVisible(true);
-        }
+        CursorState.SetLocked(true, inputs);
     }
 
     private IEnumerator SmoothTurnToPlayer()

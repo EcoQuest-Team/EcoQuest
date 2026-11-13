@@ -25,9 +25,13 @@ namespace StarterAssets
 
 		public void OnLook(InputValue value)
 		{
-			if(cursorInputForLook)
+			if (CursorState.LookEnabled && cursorInputForLook)
 			{
 				LookInput(value.Get<Vector2>());
+			}
+			else
+			{
+				look = Vector2.zero;
 			}
 		}
 
@@ -49,7 +53,7 @@ namespace StarterAssets
 
 		public void LookInput(Vector2 newLookDirection)
 		{
-			look = newLookDirection;
+			look = (CursorState.LookEnabled && cursorInputForLook) ? newLookDirection : Vector2.zero;
 		}
 
 		public void JumpInput(bool newJumpState)
@@ -62,14 +66,19 @@ namespace StarterAssets
 			sprint = newSprintState;
 		}
 		
+		private void OnDisable()
+		{
+			look = Vector2.zero;
+		}
+
 		private void OnApplicationFocus(bool hasFocus)
 		{
-			SetCursorState(cursorLocked);
+			CursorState.NotifyApplicationFocus(hasFocus, this);
 		}
 
 		private void SetCursorState(bool newState)
 		{
-			Cursor.lockState = newState ? CursorLockMode.Locked : CursorLockMode.None;
+			CursorState.SetLocked(newState, this);
 		}
 	}
 	

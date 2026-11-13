@@ -1923,12 +1923,14 @@ public class LitterbugQuestManager : MonoBehaviour
 
         if (unlockMouseForAcceptButton)
         {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            CursorState.SetLocked(false, cachedInputs);
         }
-
-        if (CenterScreenCursor.Instance != null)
-            CenterScreenCursor.Instance.SetVisible(false);
+        else
+        {
+            CursorState.SyncLookAction(cachedInputs);
+            if (CenterScreenCursor.Instance != null)
+                CenterScreenCursor.Instance.SetVisible(false);
+        }
     }
 
     private void UnlockPlayerMovement()
@@ -1940,12 +1942,7 @@ public class LitterbugQuestManager : MonoBehaviour
         {
             cachedInputs.move = Vector2.zero;
             cachedInputs.look = Vector2.zero;
-            cachedInputs.cursorInputForLook = true;
-            cachedInputs.cursorLocked = true;
         }
-
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
 
 #if ENABLE_INPUT_SYSTEM
         var playerInput = cachedFps != null ? cachedFps.GetComponent<PlayerInput>() : FindFirstObjectByType<PlayerInput>();
@@ -1956,8 +1953,7 @@ public class LitterbugQuestManager : MonoBehaviour
         }
 #endif
 
-        if (CenterScreenCursor.Instance != null)
-            CenterScreenCursor.Instance.SetVisible(true);
+        CursorState.SetLocked(true, cachedInputs);
     }
 
     private IEnumerator FadeDialoguePanelRoutine(float targetAlpha, float duration)

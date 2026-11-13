@@ -439,12 +439,7 @@ public class QuizManager : MonoBehaviour
         }
         else
         {
-            Cursor.lockState = active ? CursorLockMode.Locked : CursorLockMode.None;
-            Cursor.visible = !active;
-            if (CenterScreenCursor.Instance != null)
-            {
-                CenterScreenCursor.Instance.SetVisible(active);
-            }
+            CursorState.SetLocked(active);
         }
     }
 }

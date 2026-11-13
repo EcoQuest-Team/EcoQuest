@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using StarterAssets;
 
 /// <summary>
@@ -33,16 +34,21 @@ public class CursorQuickAccessController : MonoBehaviour
         if (playerInputs == null) playerInputs = FindFirstObjectByType<StarterAssetsInputs>();
     }
 
+    private static bool IsCtrlKeyPressed()
+    {
+        bool newInputCtrl = Keyboard.current != null
+            && (Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.rightCtrlKey.isPressed);
+        return newInputCtrl || Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+    }
+
     private void Update()
     {
         if (playerInputs == null) playerInputs = FindFirstObjectByType<StarterAssetsInputs>();
 
-        // Do not interfere if a modal, pause menu, quiz, full map, dialogue, or info card is actively managing cursor
-        if (PauseMenuController.IsPaused) return;
-        if (QuizUIController.IsAnyQuizOpen) return;
+        // Map tutorial still measures CTRL hold completion while full map / map step keeps cursor unlocked
         if (MinimapController.IsMapOpenOrTutorialCursorUnlocked)
         {
-            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool ctrl = IsCtrlKeyPressed();
             if (ctrl)
             {
                 currentHoldTime += Time.unscaledDeltaTime;
@@ -56,24 +62,28 @@ public class CursorQuickAccessController : MonoBehaviour
             {
                 currentHoldTime = 0f;
             }
-            isHoldingCtrl = false;
+
+            if (isHoldingCtrl)
+            {
+                isHoldingCtrl = false;
+                SetCursorUnlocked(false);
+            }
             return;
         }
-        if (IntroSequenceController.Instance != null)
+
+        // Do not interfere when pause, settings, quiz, dialogue, inventory, shop, tutorial, or modal owns cursor
+        if (CursorState.IsAnyBlockingUIOpen())
         {
-            var state = IntroSequenceController.Instance.CurrentState;
-            if (state == IntroSequenceController.IntroState.Dialogue || state == IntroSequenceController.IntroState.BinIntro)
+            if (isHoldingCtrl)
             {
-                if (isHoldingCtrl)
-                {
-                    isHoldingCtrl = false;
-                    currentHoldTime = 0f;
-                }
-                return;
+                isHoldingCtrl = false;
+                SetCursorUnlocked(false);
             }
+            currentHoldTime = 0f;
+            return;
         }
 
-        bool ctrlPressed = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+        bool ctrlPressed = IsCtrlKeyPressed();
 
         if (ctrlPressed)
         {
@@ -103,26 +113,7 @@ public class CursorQuickAccessController : MonoBehaviour
 
     private void SetCursorUnlocked(bool unlocked)
     {
-        if (IntroSequenceController.Instance != null)
-        {
-            IntroSequenceController.Instance.SetCursorState(unlocked);
-        }
-        else
-        {
-            Cursor.lockState = unlocked ? CursorLockMode.None : CursorLockMode.Locked;
-            Cursor.visible = unlocked;
-
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = !unlocked;
-                playerInputs.cursorInputForLook = !unlocked;
-            }
-
-            if (CenterScreenCursor.Instance != null)
-            {
-                CenterScreenCursor.Instance.SetVisible(!unlocked);
-            }
-        }
+        CursorState.SetCtrlUnlock(unlocked, playerInputs);
     }
 
     private void OnDisable()
@@ -131,6 +122,14 @@ public class CursorQuickAccessController : MonoBehaviour
         {
             isHoldingCtrl = false;
             SetCursorUnlocked(false);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 

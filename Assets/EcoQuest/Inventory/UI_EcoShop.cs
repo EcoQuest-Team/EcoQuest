@@ -147,9 +147,9 @@ namespace EcoQuest.Inventory
             StopAllCoroutines();
             if (isOpen)
             {
+                isOpen = false;
                 RestorePlayerAndCursorState();
                 ApplyVitalsVisibilityAndSorting(false);
-                isOpen = false;
             }
         }
 
@@ -188,8 +188,7 @@ namespace EcoQuest.Inventory
             // Maintain cursor unlocked while shop is open
             if (Cursor.lockState == CursorLockMode.Locked || !Cursor.visible)
             {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                CursorState.SetLocked(false, cachedInputs);
             }
 
             // Freeze player locomotion & camera look
@@ -730,9 +729,6 @@ namespace EcoQuest.Inventory
             savedCursorLock = Cursor.lockState;
             savedCursorVisible = Cursor.visible;
 
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-
             cachedFpc = FindFirstObjectByType<FirstPersonController>();
             if (cachedFpc != null)
             {
@@ -746,13 +742,13 @@ namespace EcoQuest.Inventory
                 savedCursorLockedInput = cachedInputs.cursorLocked;
                 savedCursorInputForLook = cachedInputs.cursorInputForLook;
 
-                cachedInputs.cursorLocked = false;
-                cachedInputs.cursorInputForLook = false;
                 cachedInputs.move = Vector2.zero;
                 cachedInputs.look = Vector2.zero;
                 cachedInputs.jump = false;
                 cachedInputs.sprint = false;
             }
+
+            CursorState.SetLocked(false, cachedInputs);
         }
 
         private void RestorePlayerAndCursorState()
@@ -760,21 +756,14 @@ namespace EcoQuest.Inventory
             if (!hasSavedPlayerState) return;
             hasSavedPlayerState = false;
 
-            Cursor.lockState = savedCursorLock;
-            Cursor.visible = savedCursorVisible;
-
             if (cachedFpc != null)
             {
                 cachedFpc.enabled = savedFpcEnabled;
                 cachedFpc = null;
             }
 
-            if (cachedInputs != null)
-            {
-                cachedInputs.cursorLocked = savedCursorLockedInput;
-                cachedInputs.cursorInputForLook = savedCursorInputForLook;
-                cachedInputs = null;
-            }
+            CursorState.SetLocked(savedCursorLock == CursorLockMode.Locked || Application.isPlaying, cachedInputs);
+            cachedInputs = null;
         }
 
         private void PlaySound(AudioClip clip)

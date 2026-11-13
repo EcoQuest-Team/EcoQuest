@@ -339,14 +339,8 @@ public class HudVisibilityService : MonoBehaviour
         Time.timeScale = 1f;
 
         // Restore cursor and input map
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
         var inputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-        if (inputs != null)
-        {
-            inputs.cursorLocked = true;
-            inputs.cursorInputForLook = true;
-        }
+        CursorState.SetLocked(true, inputs);
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         toastMessage = "[F5] Force Restored UI, HUD, Inputs & TimeScale";

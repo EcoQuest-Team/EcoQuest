@@ -1047,17 +1047,9 @@ public class MinimapController : MonoBehaviour
         if (playerInputs != null)
         {
             playerInputs.move = Vector2.zero;
-            playerInputs.look = Vector2.zero;
-            playerInputs.cursorLocked = false;
-            playerInputs.cursorInputForLook = false;
         }
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        if (CenterScreenCursor.Instance != null)
-        {
-            CenterScreenCursor.Instance.SetVisible(false);
-        }
+        CursorState.SetLocked(false, playerInputs);
 
         CalculatePlayAreaBounds();
         targetOrthoSize = autoFitOrthoSize;
@@ -1121,61 +1113,29 @@ public class MinimapController : MonoBehaviour
         if (IsMapStepActive)
         {
             if (fpc != null) fpc.enabled = savedFpcEnabled;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = false;
-                playerInputs.cursorInputForLook = false;
-            }
-            if (CenterScreenCursor.Instance != null)
-            {
-                CenterScreenCursor.Instance.SetVisible(false);
-            }
+            CursorState.SetLocked(false, playerInputs);
             hasSavedControlState = false;
             return;
         }
 
-        bool currentlyHoldingCtrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+        bool currentlyHoldingCtrl = (UnityEngine.InputSystem.Keyboard.current != null &&
+            (UnityEngine.InputSystem.Keyboard.current.leftCtrlKey.isPressed || UnityEngine.InputSystem.Keyboard.current.rightCtrlKey.isPressed))
+            || Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
 
         if (currentlyHoldingCtrl)
         {
             if (fpc != null) fpc.enabled = true;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = false;
-                playerInputs.cursorInputForLook = false;
-            }
-            if (CenterScreenCursor.Instance != null)
-                CenterScreenCursor.Instance.SetVisible(false);
+            CursorState.SetLocked(false, playerInputs);
         }
         else if (savedWasHoldingCtrl)
         {
             if (fpc != null) fpc.enabled = true;
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = true;
-                playerInputs.cursorInputForLook = true;
-            }
-            if (CenterScreenCursor.Instance != null)
-                CenterScreenCursor.Instance.SetVisible(true);
+            CursorState.SetLocked(true, playerInputs);
         }
         else
         {
             if (fpc != null) fpc.enabled = savedFpcEnabled;
-            Cursor.lockState = savedCursorLockMode;
-            Cursor.visible = savedCursorVisible;
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = savedInputsCursorLocked;
-                playerInputs.cursorInputForLook = savedInputsCursorLook;
-            }
-            if (CenterScreenCursor.Instance != null)
-                CenterScreenCursor.Instance.SetVisible(savedCursorLockMode == CursorLockMode.Locked);
+            CursorState.SetLocked(savedCursorLockMode == CursorLockMode.Locked || Application.isPlaying, playerInputs);
         }
 
         hasSavedControlState = false;

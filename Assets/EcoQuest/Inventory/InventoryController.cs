@@ -261,8 +261,7 @@ namespace EcoQuest.Inventory
                 // Maintain cursor unlocked and movement suppressed while open
                 if (Cursor.lockState == CursorLockMode.Locked || !Cursor.visible)
                 {
-                    Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
+                    CursorState.SetLocked(false, cachedInputs);
                 }
                 if (cachedInputs != null)
                 {
@@ -554,8 +553,6 @@ namespace EcoQuest.Inventory
                 cachedInputs.look = Vector2.zero;
                 cachedInputs.jump = false;
                 cachedInputs.sprint = false;
-                cachedInputs.cursorLocked = false;
-                cachedInputs.cursorInputForLook = false;
             }
 
             if (WorldInteractionPrompt.Instance != null)
@@ -563,8 +560,7 @@ namespace EcoQuest.Inventory
                 WorldInteractionPrompt.Instance.SetBlocked(true);
             }
 
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            CursorState.SetLocked(false, cachedInputs);
         }
 
         private void RestorePlayerAndCursorState()
@@ -588,8 +584,6 @@ namespace EcoQuest.Inventory
                 {
                     cachedInputs.move = Vector2.zero;
                     cachedInputs.look = Vector2.zero;
-                    cachedInputs.cursorLocked = savedCursorLockedInput;
-                    cachedInputs.cursorInputForLook = savedCursorInputForLook;
                 }
                 if (WorldInteractionPrompt.Instance != null)
                 {
@@ -597,8 +591,7 @@ namespace EcoQuest.Inventory
                 }
 
                 // Restore previous cursor state (or Locked in active gameplay)
-                Cursor.lockState = savedCursorLock == CursorLockMode.None && Application.isPlaying ? CursorLockMode.Locked : savedCursorLock;
-                Cursor.visible = savedCursorLock == CursorLockMode.None && Application.isPlaying ? false : savedCursorVisible;
+                CursorState.SetLocked(savedCursorLock == CursorLockMode.Locked || Application.isPlaying, cachedInputs);
             }
         }
 

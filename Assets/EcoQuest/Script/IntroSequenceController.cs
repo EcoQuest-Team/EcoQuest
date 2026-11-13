@@ -559,38 +559,7 @@ public class IntroSequenceController : MonoBehaviour
     /// </summary>
     public void SetCursorState(bool unlocked)
     {
-        if (unlocked)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = false;
-                playerInputs.cursorInputForLook = false;
-            }
-
-            if (CenterScreenCursor.Instance != null)
-            {
-                CenterScreenCursor.Instance.SetVisible(false);
-            }
-        }
-        else
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = true;
-                playerInputs.cursorInputForLook = true;
-            }
-
-            if (CenterScreenCursor.Instance != null)
-            {
-                CenterScreenCursor.Instance.SetVisible(true);
-            }
-        }
+        CursorState.SetLocked(!unlocked, playerInputs);
     }
 
     /// <summary>

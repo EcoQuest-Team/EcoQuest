@@ -677,13 +677,10 @@ namespace EcoQuest.CityQuest
                     cursorUnlockedByModal = true;
                     UIOrchestrator.Instance?.ApplyCurrentProfile(0.15f);
                 }
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
                 var inputs = playerTransform != null ? playerTransform.GetComponent<StarterAssets.StarterAssetsInputs>() : FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-                if (inputs != null && (inputs.cursorLocked || inputs.cursorInputForLook))
+                if (Cursor.lockState != CursorLockMode.None || !Cursor.visible || (inputs != null && (inputs.cursorLocked || inputs.cursorInputForLook)))
                 {
-                    inputs.cursorLocked = false;
-                    inputs.cursorInputForLook = false;
+                    CursorState.SetLocked(false, inputs);
                 }
                 var fps = playerTransform != null ? playerTransform.GetComponent<StarterAssets.FirstPersonController>() : FindFirstObjectByType<StarterAssets.FirstPersonController>();
                 if (fps != null && ((bonusQuizAdapter != null && bonusQuizAdapter.IsQuizRunning) || (ui != null && ui.IsAnyModalOpen)) && fps.enabled)
@@ -697,14 +694,8 @@ namespace EcoQuest.CityQuest
                 if (!LitterbugQuestManager.IsDialogueOpen &&
                     (ModalManager.Instance == null || !ModalManager.Instance.IsAnyModalActuallyVisible()))
                 {
-                    Cursor.lockState = CursorLockMode.Locked;
-                    Cursor.visible = false;
                     var inputs = playerTransform != null ? playerTransform.GetComponent<StarterAssets.StarterAssetsInputs>() : FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
-                    if (inputs != null)
-                    {
-                        inputs.cursorLocked = true;
-                        inputs.cursorInputForLook = true;
-                    }
+                    CursorState.SetLocked(true, inputs);
                     var fps = playerTransform != null ? playerTransform.GetComponent<StarterAssets.FirstPersonController>() : FindFirstObjectByType<StarterAssets.FirstPersonController>();
                     if (fps != null && dialogueState == RobinDialogueState.Idle)
                     {
@@ -1247,6 +1238,7 @@ namespace EcoQuest.CityQuest
                 inputs.jump = false;
                 inputs.sprint = false;
                 inputs.cursorInputForLook = !frozen;
+                CursorState.SyncLookAction(inputs);
             }
         }
 

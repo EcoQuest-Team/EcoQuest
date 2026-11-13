@@ -412,8 +412,7 @@ public class TravelGate : MonoBehaviour
 
         // 7. Restore input, cursor, timeScale
         Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        CursorState.SetLocked(true);
         SetPlayerMovementFrozen(false);
 
         // 8. Run Post-Travel Health Check

@@ -28,6 +28,7 @@ public class SequentialWASDTutorial : MonoBehaviour
     public static TutorialState AllowedState { get; set; } = TutorialState.All;
 
     public static bool IsTutorialCompleted => (Instance != null ? Instance.isActionTipsCompleted : true);
+    public static bool IsTutorialCursorUnlocked { get; private set; }
     public bool IsCompleted => isActionTipsCompleted;
     public bool IsFullTutorialCompleted => isCompleted;
 
@@ -60,6 +61,17 @@ public class SequentialWASDTutorial : MonoBehaviour
     {
         if (Instance == null) Instance = this;
         AllowedState = TutorialState.All;
+    }
+
+    private void OnDisable()
+    {
+        IsTutorialCursorUnlocked = false;
+    }
+
+    private void OnDestroy()
+    {
+        IsTutorialCursorUnlocked = false;
+        if (_instance == this) _instance = null;
     }
 
     private void Start()
@@ -483,21 +495,14 @@ public class SequentialWASDTutorial : MonoBehaviour
         tipCardUI.ShowTip(tipsData.mapTip, 5, 6);
 
         // Unlock cursor for the step and freeze camera look so the player can easily click the minimap
+        IsTutorialCursorUnlocked = true;
         if (IntroSequenceController.Instance != null)
         {
             IntroSequenceController.Instance.SetCursorState(true);
         }
         else
         {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            if (playerInputs != null)
-            {
-                playerInputs.cursorLocked = false;
-                playerInputs.cursorInputForLook = false;
-            }
-            if (CenterScreenCursor.Instance != null)
-                CenterScreenCursor.Instance.SetVisible(false);
+            CursorState.SetLocked(false, playerInputs);
         }
 
         // Blur game world, add soft dark tint, raise minimap, show glow ring and bobbing arrow
@@ -520,15 +525,9 @@ public class SequentialWASDTutorial : MonoBehaviour
             if (IntroSequenceController.Instance == null ||
                 IntroSequenceController.Instance.CurrentState == IntroSequenceController.IntroState.Gameplay)
             {
-                if (Cursor.lockState != CursorLockMode.None || !Cursor.visible)
+                if (Cursor.lockState != CursorLockMode.None || !Cursor.visible || (playerInputs != null && (playerInputs.cursorLocked || playerInputs.cursorInputForLook)))
                 {
-                    Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
-                }
-                if (playerInputs != null)
-                {
-                    playerInputs.cursorLocked = false;
-                    playerInputs.cursorInputForLook = false;
+                    CursorState.SetLocked(false, playerInputs);
                 }
             }
 
@@ -554,7 +553,10 @@ public class SequentialWASDTutorial : MonoBehaviour
         }
 
         // Relock cursor and restore camera look if still in Gameplay
-        bool holdingCtrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+        IsTutorialCursorUnlocked = false;
+        bool holdingCtrl = (UnityEngine.InputSystem.Keyboard.current != null &&
+            (UnityEngine.InputSystem.Keyboard.current.leftCtrlKey.isPressed || UnityEngine.InputSystem.Keyboard.current.rightCtrlKey.isPressed))
+            || Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
         if (!holdingCtrl && (IntroSequenceController.Instance == null ||
             IntroSequenceController.Instance.CurrentState == IntroSequenceController.IntroState.Gameplay))
         {
@@ -565,15 +567,7 @@ public class SequentialWASDTutorial : MonoBehaviour
             }
             else
             {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-                if (playerInputs != null)
-                {
-                    playerInputs.cursorLocked = true;
-                    playerInputs.cursorInputForLook = true;
-                }
-                if (CenterScreenCursor.Instance != null)
-                    CenterScreenCursor.Instance.SetVisible(true);
+                CursorState.SetLocked(true, playerInputs);
             }
         }
 

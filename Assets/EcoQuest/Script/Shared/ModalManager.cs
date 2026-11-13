@@ -751,14 +751,7 @@ public class ModalManager : MonoBehaviour
 
     private void StartTransitionTo(ModalRequest request)
     {
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        var inputs = UnityEngine.Object.FindAnyObjectByType<StarterAssets.StarterAssetsInputs>();
-        if (inputs != null)
-        {
-            inputs.cursorLocked = false;
-            inputs.cursorInputForLook = false;
-        }
+        CursorState.SetLocked(false);
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
         transitionRoutine = StartCoroutine(OpenModalRoutine(request));
     }
@@ -769,14 +762,7 @@ public class ModalManager : MonoBehaviour
         yield return StartCoroutine(FadeBackdropAndHudRoutine(true));
 
         // Unlock and show cursor during any open modal
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        var modalInputs = UnityEngine.Object.FindAnyObjectByType<StarterAssets.StarterAssetsInputs>();
-        if (modalInputs != null)
-        {
-            modalInputs.cursorLocked = false;
-            modalInputs.cursorInputForLook = false;
-        }
+        CursorState.SetLocked(false);
 
         // 2. Activate modal object hierarchy
         if (request.modalObject != null)
@@ -935,14 +921,6 @@ public class ModalManager : MonoBehaviour
             return;
         }
 
-        Cursor.visible = false;
-        Cursor.lockState = CursorLockMode.Locked;
-
-        var inputs = UnityEngine.Object.FindAnyObjectByType<StarterAssets.StarterAssetsInputs>();
-        if (inputs != null)
-        {
-            inputs.cursorLocked = true;
-            inputs.cursorInputForLook = true;
-        }
+        CursorState.SetLocked(true);
     }
 }
