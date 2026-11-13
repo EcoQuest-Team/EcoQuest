@@ -144,8 +144,13 @@ public class SettingsManager : MonoBehaviour
             var existing = FindFirstObjectByType<AudioManager>();
             if (existing == null)
             {
-                GameObject audioGo = new GameObject("AudioManager");
-                audioGo.AddComponent<AudioManager>();
+                GameObject prefab = Resources.Load<GameObject>(AudioManager.ResourcesPrefabName);
+                GameObject audioGo = prefab != null ? Instantiate(prefab) : new GameObject("AudioManager");
+                audioGo.name = "AudioManager";
+                if (audioGo.GetComponent<AudioManager>() == null)
+                {
+                    audioGo.AddComponent<AudioManager>();
+                }
             }
         }
     }

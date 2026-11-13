@@ -1,10 +1,13 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Persistent AudioManager singleton (DontDestroyOnLoad) managing MainMixer (Master, Music, SFX),
-/// decibel volume conversion, music playback, and SFX / UI sound hooks. Handles null clips safely.
+/// Persistent AudioManager singleton (DontDestroyOnLoad) managing MainMixer
+/// (Master, Music, SFX, UI, Ambience), decibel volume conversion, pooled 2D SFX/UI playback,
+/// scene music & ambience crossfading, and build-safe Resource template fallback.
 /// </summary>
 public class AudioManager : MonoBehaviour
 {
@@ -13,31 +16,75 @@ public class AudioManager : MonoBehaviour
     public const string ParamMasterVol = "MasterVol";
     public const string ParamMusicVol = "MusicVol";
     public const string ParamSFXVol = "SFXVol";
+    public const string ResourcesPrefabName = "AudioManager";
 
-    [Header("Audio Mixer & Groups")]
+    private const int PoolSize = 4;
+    private const float AmbienceBaseVolume = 0.45f;
+
+    [Header("Audio Mixer, Groups & Shared Theme")]
     public AudioMixer mainMixer;
     public AudioMixerGroup masterGroup;
     public AudioMixerGroup musicGroup;
     public AudioMixerGroup sfxGroup;
+    public AudioMixerGroup uiGroup;
+    public AudioMixerGroup ambienceGroup;
+    public UITheme uiThemeAsset;
 
     [Header("Audio Sources")]
     public AudioSource musicSource;
     public AudioSource sfxSource;
+    public AudioSource ambienceSource;
 
-    [Header("Optional Audio Clips (Silent Until Assigned)")]
+    [Header("Scene Music & Ambience Loops")]
     public AudioClip defaultMusicClip;
+    public AudioClip bgmMainMenu;
+    public AudioClip bgmForest;
+    public AudioClip bgmCity;
+    public AudioClip ambForest;
+    public AudioClip ambCity;
+
+    [Header("UI Audio Clips")]
     public AudioClip buttonClickClip;
     public AudioClip buttonHoverClip;
     public AudioClip sliderChangeClip;
+    public AudioClip uiModalOpenClip;
+    public AudioClip uiModalCloseClip;
+    public AudioClip uiPanelWhooshClip;
+    public AudioClip uiDialogueBlipClip;
+    public AudioClip uiNotificationClip;
+    public AudioClip uiTutorialStepClip;
+    public AudioClip uiHungerWarningClip;
+    public AudioClip uiShopBuyClip;
+    public AudioClip uiShopErrorClip;
+    public AudioClip uiItemUseClip;
 
-    [Header("Gameplay Audio Clips (CC0 Slots - Silent Until Assigned)")]
+    [Header("Gameplay Audio Clips")]
     public AudioClip sfxTrashPickup;
+    public AudioClip sfxTrashDrop;
     public AudioClip sfxTrashDepositCorrect;
     public AudioClip sfxTrashDepositWrong;
+    public AudioClip sfxQuizCorrect;
+    public AudioClip sfxQuizWrong;
     public AudioClip sfxCoinEarn;
     public AudioClip sfxQuestComplete;
+    public AudioClip sfxJump;
+    public AudioClip sfxLand;
+    public AudioClip sfxLoadingReady;
+    public AudioClip sfxLitterThrow;
+    public AudioClip sfxLitterLand;
 
-    private float lastSliderSoundTime = -10f;
+    [Header("Footstep Clips")]
+    public AudioClip[] footstepGrassClips;
+    public AudioClip[] footstepCityClips;
+
+    private readonly Dictionary<string, float> cooldownTimestamps = new Dictionary<string, float>();
+    private AudioSource[] sfxPool;
+    private AudioSource[] uiPool;
+    private int sfxPoolIndex;
+    private int uiPoolIndex;
+    private bool templateLoaded;
+    private float lastRouteScanTime = -10f;
+    private Coroutine musicFadeCoroutine;
 
     public float CurrentMasterDb { get; private set; }
     public float CurrentMusicDb { get; private set; }
@@ -56,6 +103,7 @@ public class AudioManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         EnsureMixerAndSources();
+        SyncVolumesFromSettingsOrPrefs();
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
@@ -72,26 +120,39 @@ public class AudioManager : MonoBehaviour
     {
         EnsureMixerAndSources();
         RouteSceneAudioSources();
+        SyncVolumesFromSettingsOrPrefs();
+        PlayAudioForScene(SceneManager.GetActiveScene().name);
+        StartCoroutine(ReapplyVolumesNextFrame());
+    }
 
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.ApplyAudioSettings();
-        }
-
-        if (defaultMusicClip != null)
-        {
-            PlayMusic(defaultMusicClip);
-        }
+    private IEnumerator ReapplyVolumesNextFrame()
+    {
+        yield return null;
+        SyncVolumesFromSettingsOrPrefs();
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         EnsureMixerAndSources();
         RouteSceneAudioSources();
+        SyncVolumesFromSettingsOrPrefs();
+        PlayAudioForScene(scene.name);
+        StartCoroutine(ReapplyVolumesNextFrame());
+    }
+
+    private void SyncVolumesFromSettingsOrPrefs()
+    {
         if (SettingsManager.Instance != null)
         {
             SettingsManager.Instance.ApplyAudioSettings();
+            return;
         }
+
+        float m = Mathf.Clamp01(PlayerPrefs.GetFloat(SettingsManager.KeyMasterVol, SettingsManager.DefaultMasterVol));
+        float mu = Mathf.Clamp01(PlayerPrefs.GetFloat(SettingsManager.KeyMusicVol, SettingsManager.DefaultMusicVol));
+        float sf = Mathf.Clamp01(PlayerPrefs.GetFloat(SettingsManager.KeySFXVol, SettingsManager.DefaultSFXVol));
+        bool mute = PlayerPrefs.GetInt(SettingsManager.KeyMuteAll, SettingsManager.DefaultMuteAll ? 1 : 0) == 1;
+        ApplyVolumes(m, mu, sf, mute);
     }
 
     private static AudioMixer s_registeredMixerAsset;
@@ -104,19 +165,47 @@ public class AudioManager : MonoBehaviour
         {
             Instance.mainMixer = mixer;
             Instance.EnsureMixerAndSources();
-            if (SettingsManager.Instance != null)
-            {
-                Instance.ApplyVolumes(
-                    SettingsManager.Instance.MasterVolume,
-                    SettingsManager.Instance.MusicVolume,
-                    SettingsManager.Instance.SFXVolume,
-                    SettingsManager.Instance.MuteAll);
-            }
+            Instance.SyncVolumesFromSettingsOrPrefs();
         }
+    }
+
+    public AudioMixerGroup GetSFXGroup()
+    {
+        EnsureMixerAndSources();
+        return sfxGroup;
+    }
+
+    public AudioMixerGroup GetUIGroup()
+    {
+        EnsureMixerAndSources();
+        return uiGroup != null ? uiGroup : sfxGroup;
+    }
+
+    public AudioMixerGroup GetAmbienceGroup()
+    {
+        EnsureMixerAndSources();
+        return ambienceGroup != null ? ambienceGroup : sfxGroup;
+    }
+
+    public AudioMixerGroup GetMusicGroup()
+    {
+        EnsureMixerAndSources();
+        return musicGroup;
     }
 
     public void EnsureMixerAndSources()
     {
+        if (!templateLoaded)
+        {
+            templateLoaded = true;
+            GameObject prefab = Resources.Load<GameObject>(ResourcesPrefabName);
+            AudioManager template = prefab != null ? prefab.GetComponent<AudioManager>() : null;
+            if (template != null && template != this)
+            {
+                FillNullRefsFrom(template);
+            }
+        }
+
         if (mainMixer == null && s_registeredMixerAsset != null)
         {
             mainMixer = s_registeredMixerAsset;
@@ -130,62 +219,136 @@ public class AudioManager : MonoBehaviour
         {
             mainMixer = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioMixer>("Assets/EcoQuest/Audio/MainMixer.mixer");
         }
+        if (uiThemeAsset == null)
+        {
+            uiThemeAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<UITheme>("Assets/EcoQuest/UI/Shared/UITheme.asset");
+        }
 #endif
         if (mainMixer != null)
         {
-            if (masterGroup == null)
-            {
-                var g = mainMixer.FindMatchingGroups("Master");
-                if (g != null && g.Length > 0) masterGroup = g[0];
-            }
-            if (musicGroup == null)
-            {
-                var g = mainMixer.FindMatchingGroups("Music");
-                if (g != null && g.Length > 0) musicGroup = g[0];
-            }
-            if (sfxGroup == null)
-            {
-                var g = mainMixer.FindMatchingGroups("SFX");
-                if (g != null && g.Length > 0) sfxGroup = g[0];
-            }
+            masterGroup ??= FindGroup("Master");
+            musicGroup ??= FindGroup("Music");
+            sfxGroup ??= FindGroup("SFX");
+            uiGroup ??= FindGroup("UI") ?? sfxGroup;
+            ambienceGroup ??= FindGroup("Ambience") ?? sfxGroup;
         }
 
-        if (musicSource == null)
-        {
-            Transform t = transform.Find("MusicSource");
-            GameObject go = t != null ? t.gameObject : new GameObject("MusicSource");
-            go.transform.SetParent(transform, false);
-            musicSource = go.GetComponent<AudioSource>();
-            if (musicSource == null) musicSource = go.AddComponent<AudioSource>();
-            musicSource.playOnAwake = false;
-            musicSource.loop = true;
-            musicSource.spatialBlend = 0f;
-        }
-        if (musicGroup != null && musicSource.outputAudioMixerGroup != musicGroup)
-        {
-            musicSource.outputAudioMixerGroup = musicGroup;
-        }
+        musicSource = EnsureChildSource("MusicSource", true, musicGroup, false);
+        ambienceSource = EnsureChildSource("AmbienceSource", true, ambienceGroup != null ? ambienceGroup : sfxGroup, false);
+        if (ambienceSource != null) ambienceSource.volume = AmbienceBaseVolume;
 
         if (sfxSource == null)
         {
-            Transform t = transform.Find("SFXSource");
-            GameObject go = t != null ? t.gameObject : new GameObject("SFXSource");
-            go.transform.SetParent(transform, false);
-            sfxSource = go.GetComponent<AudioSource>();
-            if (sfxSource == null) sfxSource = go.AddComponent<AudioSource>();
-            sfxSource.playOnAwake = false;
-            sfxSource.loop = false;
-            sfxSource.spatialBlend = 0f;
+            sfxSource = EnsureChildSource("SFXSource", false, sfxGroup, true);
         }
-        if (sfxGroup != null && sfxSource.outputAudioMixerGroup != sfxGroup)
+        else if (sfxGroup != null && sfxSource.outputAudioMixerGroup != sfxGroup)
         {
             sfxSource.outputAudioMixerGroup = sfxGroup;
+        }
+
+        if (sfxPool == null || sfxPool.Length != PoolSize)
+        {
+            sfxPool = new AudioSource[PoolSize];
+            sfxPool[0] = sfxSource;
+            for (int i = 1; i < PoolSize; i++)
+            {
+                sfxPool[i] = EnsureChildSource($"SFXPool_{i}", false, sfxGroup, true);
+            }
+        }
+
+        if (uiPool == null || uiPool.Length != PoolSize)
+        {
+            uiPool = new AudioSource[PoolSize];
+            AudioMixerGroup targetUiGroup = uiGroup != null ? uiGroup : sfxGroup;
+            for (int i = 0; i < PoolSize; i++)
+            {
+                uiPool[i] = EnsureChildSource($"UIPool_{i}", false, targetUiGroup, true);
+            }
+        }
+    }
+
+    private AudioMixerGroup FindGroup(string groupName)
+    {
+        if (mainMixer == null) return null;
+        var g = mainMixer.FindMatchingGroups(groupName);
+        return (g != null && g.Length > 0) ? g[0] : null;
+    }
+
+    private AudioSource EnsureChildSource(string childName, bool loop, AudioMixerGroup group, bool ignorePause)
+    {
+        Transform t = transform.Find(childName);
+        GameObject go = t != null ? t.gameObject : new GameObject(childName);
+        go.transform.SetParent(transform, false);
+        AudioSource src = go.GetComponent<AudioSource>();
+        if (src == null) src = go.AddComponent<AudioSource>();
+        src.playOnAwake = false;
+        src.loop = loop;
+        src.spatialBlend = 0f;
+        src.ignoreListenerPause = ignorePause;
+        if (group != null && src.outputAudioMixerGroup != group)
+        {
+            src.outputAudioMixerGroup = group;
+        }
+        return src;
+    }
+
+    private void FillNullRefsFrom(AudioManager src)
+    {
+        mainMixer ??= src.mainMixer;
+        masterGroup ??= src.masterGroup;
+        musicGroup ??= src.musicGroup;
+        sfxGroup ??= src.sfxGroup;
+        uiGroup ??= src.uiGroup;
+        ambienceGroup ??= src.ambienceGroup;
+        uiThemeAsset ??= src.uiThemeAsset;
+
+        defaultMusicClip ??= src.defaultMusicClip;
+        bgmMainMenu ??= src.bgmMainMenu;
+        bgmForest ??= src.bgmForest;
+        bgmCity ??= src.bgmCity;
+        ambForest ??= src.ambForest;
+        ambCity ??= src.ambCity;
+
+        buttonClickClip ??= src.buttonClickClip;
+        buttonHoverClip ??= src.buttonHoverClip;
+        sliderChangeClip ??= src.sliderChangeClip;
+        uiModalOpenClip ??= src.uiModalOpenClip;
+        uiModalCloseClip ??= src.uiModalCloseClip;
+        uiPanelWhooshClip ??= src.uiPanelWhooshClip;
+        uiDialogueBlipClip ??= src.uiDialogueBlipClip;
+        uiNotificationClip ??= src.uiNotificationClip;
+        uiTutorialStepClip ??= src.uiTutorialStepClip;
+        uiHungerWarningClip ??= src.uiHungerWarningClip;
+        uiShopBuyClip ??= src.uiShopBuyClip;
+        uiShopErrorClip ??= src.uiShopErrorClip;
+        uiItemUseClip ??= src.uiItemUseClip;
+
+        sfxTrashPickup ??= src.sfxTrashPickup;
+        sfxTrashDrop ??= src.sfxTrashDrop;
+        sfxTrashDepositCorrect ??= src.sfxTrashDepositCorrect;
+        sfxTrashDepositWrong ??= src.sfxTrashDepositWrong;
+        sfxQuizCorrect ??= src.sfxQuizCorrect;
+        sfxQuizWrong ??= src.sfxQuizWrong;
+        sfxCoinEarn ??= src.sfxCoinEarn;
+        sfxQuestComplete ??= src.sfxQuestComplete;
+        sfxJump ??= src.sfxJump;
+        sfxLand ??= src.sfxLand;
+        sfxLoadingReady ??= src.sfxLoadingReady;
+        sfxLitterThrow ??= src.sfxLitterThrow;
+        sfxLitterLand ??= src.sfxLitterLand;
+
+        if ((footstepGrassClips == null || footstepGrassClips.Length == 0) && src.footstepGrassClips != null && src.footstepGrassClips.Length > 0)
+        {
+            footstepGrassClips = (AudioClip[])src.footstepGrassClips.Clone();
+        }
+        if ((footstepCityClips == null || footstepCityClips.Length == 0) && src.footstepCityClips != null && src.footstepCityClips.Length > 0)
+        {
+            footstepCityClips = (AudioClip[])src.footstepCityClips.Clone();
         }
     }
 
     /// <summary>
-    /// Routes all existing hook AudioSources (StartSoundHook, WhooshSoundHook, ButtonHoverFX, FirstPersonController)
-    /// to the SFX mixer group if not already assigned.
+    /// Routes all unrouted AudioSources in loaded scenes to the SFX mixer group.
     /// </summary>
     public void RouteSceneAudioSources()
     {
@@ -194,7 +357,7 @@ public class AudioManager : MonoBehaviour
         var allSources = FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var src in allSources)
         {
-            if (src == null || src == musicSource) continue;
+            if (src == null || src == musicSource || src == ambienceSource) continue;
             if (src.outputAudioMixerGroup == null)
             {
                 src.outputAudioMixerGroup = sfxGroup;
@@ -203,14 +366,12 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Converts normalized linear slider value (0..1) to decibels using Mathf.Log10(Mathf.Max(v, 0.0001f)) * 20.
+    /// Converts normalized linear slider value (0..1) to decibels using Mathf.Log10(Mathf.Clamp(v, 0.0001f, 1f)) * 20.
     /// </summary>
     public static float LinearToDecibel(float v)
     {
         return Mathf.Log10(Mathf.Clamp(v, 0.0001f, 1f)) * 20f;
     }
-
-    private float lastRouteScanTime = -10f;
 
     public void ApplyVolumes(float masterLinear, float musicLinear, float sfxLinear, bool muteAll)
     {
@@ -229,24 +390,79 @@ public class AudioManager : MonoBehaviour
         CurrentMusicDb = LinearToDecibel(effectiveMusic);
         CurrentSFXDb = LinearToDecibel(effectiveSfx);
 
-        if (mainMixer != null)
+        bool hasMixer = mainMixer != null;
+        if (hasMixer)
         {
             mainMixer.SetFloat(ParamMasterVol, CurrentMasterDb);
             mainMixer.SetFloat(ParamMusicVol, CurrentMusicDb);
             mainMixer.SetFloat(ParamSFXVol, CurrentSFXDb);
+            // Mixer drives attenuation cleanly (avoid double attenuation); listener enforces MuteAll globally.
+            AudioListener.volume = muteAll ? 0f : 1f;
+        }
+        else
+        {
+            AudioListener.volume = effectiveMaster;
         }
 
-        AudioListener.volume = effectiveMaster;
         if (musicSource != null)
         {
             musicSource.mute = muteAll;
-            musicSource.volume = effectiveMusic;
+            if (!hasMixer) musicSource.volume = effectiveMusic;
         }
-        if (sfxSource != null)
+        if (ambienceSource != null)
         {
-            sfxSource.mute = muteAll;
-            sfxSource.volume = effectiveSfx;
+            ambienceSource.mute = muteAll;
+            if (!hasMixer) ambienceSource.volume = AmbienceBaseVolume * effectiveSfx;
         }
+
+        ApplyPoolVolumes(sfxPool, muteAll, hasMixer ? 1f : effectiveSfx);
+        ApplyPoolVolumes(uiPool, muteAll, hasMixer ? 1f : effectiveSfx);
+    }
+
+    private static void ApplyPoolVolumes(AudioSource[] pool, bool muteAll, float linearVol)
+    {
+        if (pool == null) return;
+        for (int i = 0; i < pool.Length; i++)
+        {
+            if (pool[i] != null)
+            {
+                pool[i].mute = muteAll;
+                pool[i].volume = linearVol;
+            }
+        }
+    }
+
+    public void PlayAudioForScene(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName)) return;
+
+        // Beach scene intentionally excluded per scope; do not force Forest/City tracks onto it.
+        if (sceneName.IndexOf("Beach", System.StringComparison.OrdinalIgnoreCase) >= 0) return;
+
+        AudioClip targetMusic = null;
+        AudioClip targetAmbience = null;
+
+        if (sceneName.IndexOf("Main Menu", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            targetMusic = bgmMainMenu != null ? bgmMainMenu : defaultMusicClip;
+        }
+        else if (sceneName.IndexOf("Forest", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            targetMusic = bgmForest != null ? bgmForest : defaultMusicClip;
+            targetAmbience = ambForest;
+        }
+        else if (sceneName.IndexOf("City", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            targetMusic = bgmCity != null ? bgmCity : defaultMusicClip;
+            targetAmbience = ambCity;
+        }
+        else if (defaultMusicClip != null)
+        {
+            targetMusic = defaultMusicClip;
+        }
+
+        if (targetMusic != null) PlayMusic(targetMusic);
+        PlayAmbience(targetAmbience, AmbienceBaseVolume);
     }
 
     public void PlayMusic(AudioClip clip)
@@ -255,50 +471,180 @@ public class AudioManager : MonoBehaviour
         EnsureMixerAndSources();
         if (musicSource == null) return;
 
-        if (musicSource.clip == clip && musicSource.isPlaying) return;
-        musicSource.clip = clip;
+        float targetVol = (mainMixer != null || SettingsManager.Instance == null)
+            ? 1f
+            : Mathf.Clamp01(SettingsManager.Instance.MusicVolume);
+
+        if (musicSource.clip == clip && musicSource.isPlaying)
+        {
+            if (musicSource.volume <= 0.01f) musicSource.volume = targetVol;
+            return;
+        }
+
+        if (musicFadeCoroutine != null)
+        {
+            StopCoroutine(musicFadeCoroutine);
+            musicFadeCoroutine = null;
+        }
+
+        if (!Application.isPlaying || !musicSource.isPlaying || musicSource.clip == null)
+        {
+            musicSource.clip = clip;
+            musicSource.volume = targetVol;
+            musicSource.Play();
+            return;
+        }
+
+        musicFadeCoroutine = StartCoroutine(CrossfadeMusicRoutine(clip, targetVol, 0.35f));
+    }
+
+    private IEnumerator CrossfadeMusicRoutine(AudioClip nextClip, float targetVol, float halfDuration)
+    {
+        float startVol = musicSource.volume;
+        float t = 0f;
+        while (t < halfDuration)
+        {
+            t += Time.unscaledDeltaTime;
+            musicSource.volume = Mathf.Lerp(startVol, 0f, t / halfDuration);
+            yield return null;
+        }
+
+        musicSource.clip = nextClip;
         musicSource.Play();
+
+        t = 0f;
+        while (t < halfDuration)
+        {
+            t += Time.unscaledDeltaTime;
+            musicSource.volume = Mathf.Lerp(0f, targetVol, t / halfDuration);
+            yield return null;
+        }
+        musicSource.volume = targetVol;
+        musicFadeCoroutine = null;
+    }
+
+    public void PlayAmbience(AudioClip clip, float volume = AmbienceBaseVolume)
+    {
+        EnsureMixerAndSources();
+        if (ambienceSource == null) return;
+
+        if (clip == null)
+        {
+            ambienceSource.Stop();
+            ambienceSource.clip = null;
+            return;
+        }
+
+        float targetVol = mainMixer != null || SettingsManager.Instance == null
+            ? volume
+            : volume * Mathf.Clamp01(SettingsManager.Instance.SFXVolume);
+
+        if (ambienceSource.clip == clip && ambienceSource.isPlaying) return;
+
+        ambienceSource.clip = clip;
+        ambienceSource.volume = targetVol;
+        ambienceSource.Play();
     }
 
     public void PlaySFX(AudioClip clip, float volumeScale = 1f)
     {
+        PlayPooled(sfxPool, ref sfxPoolIndex, clip, volumeScale, 1f, 1f);
+    }
+
+    public void PlaySFX(AudioClip clip, float volumeScale, float pitchMin, float pitchMax)
+    {
+        PlayPooled(sfxPool, ref sfxPoolIndex, clip, volumeScale, pitchMin, pitchMax);
+    }
+
+    public void PlayUI(AudioClip clip, float volumeScale = 1f, float pitchMin = 1f, float pitchMax = 1f)
+    {
+        PlayPooled(uiPool, ref uiPoolIndex, clip, volumeScale, pitchMin, pitchMax);
+    }
+
+    public void PlaySFXAtPoint(AudioClip clip, Vector3 position, float volume = 1f, float spatialBlend = 1f, float maxDistance = 28f)
+    {
         if (clip == null) return;
         EnsureMixerAndSources();
-        if (sfxSource == null) return;
 
-        sfxSource.PlayOneShot(clip, Mathf.Clamp01(volumeScale));
+        GameObject go = new GameObject($"OneShot_{clip.name}");
+        go.transform.position = position;
+        AudioSource src = go.AddComponent<AudioSource>();
+        src.clip = clip;
+        src.outputAudioMixerGroup = sfxGroup;
+        src.spatialBlend = Mathf.Clamp01(spatialBlend);
+        src.rolloffMode = AudioRolloffMode.Logarithmic;
+        src.minDistance = 2f;
+        src.maxDistance = Mathf.Max(5f, maxDistance);
+        src.playOnAwake = false;
+        src.volume = Mathf.Clamp01(volume);
+        src.Play();
+        Destroy(go, clip.length + 0.1f);
     }
 
-    public void PlayButtonClick()
+    public bool PlayWithCooldown(string key, AudioClip clip, float cooldownSec, float volumeScale = 1f, float pitchMin = 1f, float pitchMax = 1f, bool isUI = true)
     {
-        if (buttonClickClip != null)
-        {
-            PlaySFX(buttonClickClip);
-        }
-    }
-
-    public void PlayButtonHover()
-    {
-        if (buttonHoverClip != null)
-        {
-            PlaySFX(buttonHoverClip);
-        }
-    }
-
-    public void PlaySliderChange()
-    {
-        if (sliderChangeClip == null) return;
+        if (clip == null) return false;
         float now = Time.unscaledTime;
-        if (now - lastSliderSoundTime >= 0.06f)
+        if (!string.IsNullOrEmpty(key) && cooldownTimestamps.TryGetValue(key, out float last) && (now - last) < cooldownSec)
         {
-            lastSliderSoundTime = now;
-            PlaySFX(sliderChangeClip, 0.75f);
+            return false;
         }
+        if (!string.IsNullOrEmpty(key)) cooldownTimestamps[key] = now;
+
+        if (isUI) PlayUI(clip, volumeScale, pitchMin, pitchMax);
+        else PlaySFX(clip, volumeScale, pitchMin, pitchMax);
+        return true;
     }
 
-    public void PlayTrashPickup() => PlaySFX(sfxTrashPickup);
-    public void PlayTrashDepositCorrect() => PlaySFX(sfxTrashDepositCorrect);
-    public void PlayTrashDepositWrong() => PlaySFX(sfxTrashDepositWrong);
-    public void PlayCoinEarn() => PlaySFX(sfxCoinEarn);
-    public void PlayQuestComplete() => PlaySFX(sfxQuestComplete);
+    private void PlayPooled(AudioSource[] pool, ref int index, AudioClip clip, float volumeScale, float pitchMin, float pitchMax)
+    {
+        if (clip == null) return;
+        EnsureMixerAndSources();
+        if (pool == null || pool.Length == 0) return;
+
+        AudioSource src = pool[index % pool.Length];
+        index = (index + 1) % pool.Length;
+        if (src == null) return;
+
+        src.pitch = (Mathf.Approximately(pitchMin, pitchMax)) ? pitchMin : Random.Range(pitchMin, pitchMax);
+        src.PlayOneShot(clip, Mathf.Clamp01(volumeScale));
+    }
+
+    // --- Semantic UI helpers ---
+    public void PlayButtonClick() => PlayUI(buttonClickClip);
+    public void PlayButtonHover() => PlayWithCooldown("hover", buttonHoverClip, 0.045f, 0.7f, 0.98f, 1.03f, true);
+    public void PlaySliderChange() => PlayWithCooldown("slider", sliderChangeClip, 0.06f, 0.75f, 1f, 1f, true);
+    public void PlayModalOpen() => PlayWithCooldown("modal_open", uiModalOpenClip, 0.08f, 0.85f, 1f, 1f, true);
+    public void PlayModalClose() => PlayWithCooldown("modal_close", uiModalCloseClip, 0.08f, 0.8f, 1f, 1f, true);
+    public void PlayPanelWhoosh() => PlayWithCooldown("panel_whoosh", uiPanelWhooshClip, 0.08f, 0.85f, 1f, 1f, true);
+    public void PlayDialogueBlip() => PlayWithCooldown("dialogue_blip", uiDialogueBlipClip, 0.045f, 0.55f, 0.94f, 1.08f, true);
+    public void PlayNotification() => PlayWithCooldown("notification", uiNotificationClip, 0.15f, 0.9f, 1f, 1f, true);
+    public void PlayTutorialStep() => PlayWithCooldown("tutorial_step", uiTutorialStepClip, 0.25f, 0.9f, 1f, 1f, true);
+    public void PlayHungerWarning() => PlayWithCooldown("hunger_warn", uiHungerWarningClip, 1.5f, 0.9f, 1f, 1f, true);
+    public void PlayShopBuy() => PlayUI(uiShopBuyClip, 0.95f);
+    public void PlayShopError() => PlayWithCooldown("shop_err", uiShopErrorClip, 0.18f, 0.85f, 1f, 1f, true);
+    public void PlayItemUse() => PlayUI(uiItemUseClip, 0.9f);
+
+    // --- Semantic Gameplay helpers ---
+    public void PlayTrashPickup() => PlaySFX(sfxTrashPickup, 0.95f, 0.96f, 1.04f);
+    public void PlayTrashDrop() => PlaySFX(sfxTrashDrop, 0.85f, 0.95f, 1.05f);
+    public void PlayTrashDepositCorrect() => PlaySFX(sfxTrashDepositCorrect, 0.95f);
+    public void PlayTrashDepositWrong() => PlayWithCooldown("trash_wrong", sfxTrashDepositWrong, 0.25f, 0.95f, 1f, 1f, false);
+    public void PlayQuizCorrect() => PlaySFX(sfxQuizCorrect, 0.95f);
+    public void PlayQuizWrong() => PlayWithCooldown("quiz_wrong", sfxQuizWrong, 0.2f, 0.9f, 1f, 1f, false);
+    public void PlayCoinEarn() => PlayWithCooldown("coin", sfxCoinEarn, 0.07f, 0.95f, 0.98f, 1.05f, false);
+    public void PlayQuestComplete() => PlaySFX(sfxQuestComplete, 1f);
+    public void PlayJump() => PlayWithCooldown("jump", sfxJump, 0.12f, 0.7f, 0.96f, 1.04f, false);
+    public void PlayLand() => PlayWithCooldown("land", sfxLand, 0.12f, 0.75f, 0.94f, 1.04f, false);
+    public void PlayLoadingReady() => PlayUI(sfxLoadingReady, 0.85f);
+
+    public void PlayFootstep(bool isCityScene, float volume = 0.55f)
+    {
+        AudioClip[] bank = isCityScene ? footstepCityClips : footstepGrassClips;
+        if (bank == null || bank.Length == 0) bank = footstepGrassClips;
+        if (bank == null || bank.Length == 0) return;
+
+        AudioClip clip = bank[Random.Range(0, bank.Length)];
+        PlayWithCooldown("footstep", clip, 0.14f, volume, 0.93f, 1.07f, false);
+    }
 }

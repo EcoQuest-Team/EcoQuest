@@ -13,15 +13,31 @@ public class UITheme : ScriptableObject
     {
         get
         {
+            if (instance == null && AudioManager.Instance != null && AudioManager.Instance.uiThemeAsset != null)
+            {
+                instance = AudioManager.Instance.uiThemeAsset;
+            }
             if (instance == null)
             {
                 instance = Resources.Load<UITheme>("UITheme");
-                if (instance == null)
+            }
+            if (instance == null)
+            {
+                GameObject prefab = Resources.Load<GameObject>(AudioManager.ResourcesPrefabName);
+                if (prefab != null)
                 {
-#if UNITY_EDITOR
-                    instance = UnityEditor.AssetDatabase.LoadAssetAtPath<UITheme>("Assets/EcoQuest/UI/Shared/UITheme.asset");
-#endif
+                    var template = prefab.GetComponent<AudioManager>();
+                    if (template != null && template.uiThemeAsset != null)
+                    {
+                        instance = template.uiThemeAsset;
+                    }
                 }
+            }
+            if (instance == null)
+            {
+#if UNITY_EDITOR
+                instance = UnityEditor.AssetDatabase.LoadAssetAtPath<UITheme>("Assets/EcoQuest/UI/Shared/UITheme.asset");
+#endif
             }
             return instance;
         }
@@ -139,7 +155,7 @@ public class UITheme : ScriptableObject
         if (clip == null) return;
         if (AudioManager.Instance != null)
         {
-            AudioManager.Instance.PlaySFX(clip, volume);
+            AudioManager.Instance.PlayUI(clip, volume);
         }
     }
 }
