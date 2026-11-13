@@ -115,40 +115,8 @@ public class GameplayControlTipsManager : MonoBehaviour
     public void StartGameplayTipsSequence()
     {
         ResolveReferences();
-        if (SettingsManager.Instance != null && !SettingsManager.Instance.TutorialHints)
-        {
-            ApplyTutorialHintsSetting(false);
-            return;
-        }
         if (tipsSequenceRoutine != null) StopCoroutine(tipsSequenceRoutine);
         tipsSequenceRoutine = StartCoroutine(GameplayTipsRoutine());
-    }
-
-    private bool wasSkippedBySettings = false;
-
-    public void ApplyTutorialHintsSetting(bool enabled)
-    {
-        if (!enabled)
-        {
-            if (!hasRunGameplayTips) wasSkippedBySettings = true;
-            if (tipsSequenceRoutine != null)
-            {
-                StopCoroutine(tipsSequenceRoutine);
-                tipsSequenceRoutine = null;
-            }
-            hasRunGameplayTips = true;
-            if (tipCardUI != null) tipCardUI.SetImmediateHidden();
-            OnTabTipCompleted?.Invoke();
-        }
-        else if (wasSkippedBySettings)
-        {
-            wasSkippedBySettings = false;
-            hasRunGameplayTips = false;
-            if (introController != null && introController.HasRunIntro)
-            {
-                StartGameplayTipsSequence();
-            }
-        }
     }
 
     private IEnumerator GameplayTipsRoutine()

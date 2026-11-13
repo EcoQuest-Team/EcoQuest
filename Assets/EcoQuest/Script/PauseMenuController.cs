@@ -157,7 +157,9 @@ public class PauseMenuController : MonoBehaviour
         }
     }
 
-    private void UpdateHudSettingsButtonVisibility()
+    private bool wasGearHiddenByMenu;
+
+    public void UpdateHudSettingsButtonVisibility()
     {
         if (hudSettingsButtonCanvasGroup == null) return;
 
@@ -166,13 +168,25 @@ public class PauseMenuController : MonoBehaviour
             HudVisibilityService.Instance.RegisterOwnedElement(hudSettingsButtonCanvasGroup);
         }
 
-        // If Settings panel is open, hide HUD gear button
-        if (settingsPanelObject != null && settingsPanelObject.activeSelf)
+        // Hide HUD gear button cleanly while Settings or Pause is open (UIOrchestrator agrees via IsAnySettingsOpen / IsPaused)
+        bool settingsOpen = (settingsPanelObject != null && settingsPanelObject.activeInHierarchy) || SettingsPanelUI.IsAnySettingsOpen;
+        if (settingsOpen || IsPaused)
         {
+            wasGearHiddenByMenu = true;
             hudSettingsButtonCanvasGroup.alpha = 0f;
             hudSettingsButtonCanvasGroup.interactable = false;
             hudSettingsButtonCanvasGroup.blocksRaycasts = false;
             return;
+        }
+
+        if (wasGearHiddenByMenu)
+        {
+            wasGearHiddenByMenu = false;
+            if (UIOrchestrator.Instance != null)
+            {
+                UIOrchestrator.Instance.ApplyCurrentProfile(0f);
+                return;
+            }
         }
 
         // If HUD is hidden by HudVisibilityService, UIOrchestrator, or active dialogue/cinematic, let authority control fade
@@ -543,6 +557,11 @@ public class PauseMenuController : MonoBehaviour
         IsPaused = false;
         Time.timeScale = savedTimeScale;
         SettingsPanelUI.SetAllHudAlpha(1f);
+        if (UIOrchestrator.Instance != null)
+        {
+            UIOrchestrator.Instance.ApplyCurrentProfile(0f);
+        }
+        UpdateHudSettingsButtonVisibility();
 
         if (fpc != null) fpc.enabled = savedFpcEnabled;
 

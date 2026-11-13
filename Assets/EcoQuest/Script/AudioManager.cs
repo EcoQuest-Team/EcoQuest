@@ -94,8 +94,37 @@ public class AudioManager : MonoBehaviour
         }
     }
 
+    private static AudioMixer s_registeredMixerAsset;
+
+    public static void RegisterMixerAsset(AudioMixer mixer)
+    {
+        if (mixer == null) return;
+        s_registeredMixerAsset = mixer;
+        if (Instance != null && Instance.mainMixer == null)
+        {
+            Instance.mainMixer = mixer;
+            Instance.EnsureMixerAndSources();
+            if (SettingsManager.Instance != null)
+            {
+                Instance.ApplyVolumes(
+                    SettingsManager.Instance.MasterVolume,
+                    SettingsManager.Instance.MusicVolume,
+                    SettingsManager.Instance.SFXVolume,
+                    SettingsManager.Instance.MuteAll);
+            }
+        }
+    }
+
     public void EnsureMixerAndSources()
     {
+        if (mainMixer == null && s_registeredMixerAsset != null)
+        {
+            mainMixer = s_registeredMixerAsset;
+        }
+        if (mainMixer == null)
+        {
+            mainMixer = Resources.Load<AudioMixer>("MainMixer");
+        }
 #if UNITY_EDITOR
         if (mainMixer == null)
         {
@@ -178,12 +207,19 @@ public class AudioManager : MonoBehaviour
     /// </summary>
     public static float LinearToDecibel(float v)
     {
-        return Mathf.Log10(Mathf.Max(v, 0.0001f)) * 20f;
+        return Mathf.Log10(Mathf.Clamp(v, 0.0001f, 1f)) * 20f;
     }
+
+    private float lastRouteScanTime = -10f;
 
     public void ApplyVolumes(float masterLinear, float musicLinear, float sfxLinear, bool muteAll)
     {
         EnsureMixerAndSources();
+        if (Time.unscaledTime - lastRouteScanTime >= 1.0f)
+        {
+            lastRouteScanTime = Time.unscaledTime;
+            RouteSceneAudioSources();
+        }
 
         float effectiveMaster = muteAll ? 0f : Mathf.Clamp01(masterLinear);
         float effectiveMusic = Mathf.Clamp01(musicLinear);

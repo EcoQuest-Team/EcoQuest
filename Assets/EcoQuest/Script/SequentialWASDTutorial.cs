@@ -95,12 +95,6 @@ public class SequentialWASDTutorial : MonoBehaviour
         // Enable full movement capability
         AllowedState = TutorialState.All;
 
-        if (SettingsManager.Instance != null && !SettingsManager.Instance.TutorialHints)
-        {
-            ApplyTutorialHintsSetting(false);
-            return;
-        }
-
         StartCoroutine(RunTutorialSequence());
     }
 
@@ -109,49 +103,36 @@ public class SequentialWASDTutorial : MonoBehaviour
 #if UNITY_EDITOR
         if (Input.GetKeyDown(KeyCode.F4))
         {
-            ApplyTutorialHintsSetting(false);
+            SkipTutorialForEditor();
             Debug.Log("[SequentialWASDTutorial] F4 pressed: Tutorial skipped via editor shortcut.");
         }
 #endif
     }
 
-    private bool wasSkippedBySettings = false;
-
-    public void ApplyTutorialHintsSetting(bool enabled)
+#if UNITY_EDITOR
+    private void SkipTutorialForEditor()
     {
-        if (!enabled)
+        StopAllCoroutines();
+        MinimapController.IsMapStepActive = false;
+        MinimapController.IsMapTutorialUnlocked = true;
+        if (MinimapController.Instance != null)
         {
-            if (!isCompleted) wasSkippedBySettings = true;
-            StopAllCoroutines();
-            MinimapController.IsMapStepActive = false;
-            MinimapController.IsMapTutorialUnlocked = true;
-            if (MinimapController.Instance != null)
-            {
-                MinimapController.Instance.SetTutorialHighlightActive(false, immediate: true);
-            }
-            if (IntroSequenceController.Instance != null && IntroSequenceController.Instance.CurrentState == IntroSequenceController.IntroState.Gameplay)
-            {
-                IntroSequenceController.Instance.SetCursorState(false);
-                IntroSequenceController.Instance.SetPlayerControlsFrozen(false);
-            }
-            isActionTipsCompleted = true;
-            isCompleted = true;
-            AllowedState = TutorialState.All;
-            if (tipCardUI == null) tipCardUI = FindFirstObjectByType<ControlTipCardUI>(FindObjectsInactive.Include);
-            if (tipCardUI != null) tipCardUI.SetImmediateHidden();
-            var npc = FindFirstObjectByType<NPCInteraction>();
-            if (npc != null) npc.OnTutorialUnlocked();
+            MinimapController.Instance.SetTutorialHighlightActive(false, immediate: true);
         }
-        else if (wasSkippedBySettings)
+        if (IntroSequenceController.Instance != null && IntroSequenceController.Instance.CurrentState == IntroSequenceController.IntroState.Gameplay)
         {
-            wasSkippedBySettings = false;
-            isActionTipsCompleted = false;
-            isCompleted = false;
-            AllowedState = TutorialState.All;
-            StopAllCoroutines();
-            StartCoroutine(RunTutorialSequence());
+            IntroSequenceController.Instance.SetCursorState(false);
+            IntroSequenceController.Instance.SetPlayerControlsFrozen(false);
         }
+        isActionTipsCompleted = true;
+        isCompleted = true;
+        AllowedState = TutorialState.All;
+        if (tipCardUI == null) tipCardUI = FindFirstObjectByType<ControlTipCardUI>(FindObjectsInactive.Include);
+        if (tipCardUI != null) tipCardUI.SetImmediateHidden();
+        var npc = FindFirstObjectByType<NPCInteraction>();
+        if (npc != null) npc.OnTutorialUnlocked();
     }
+#endif
 
     private IEnumerator WaitForModals()
     {

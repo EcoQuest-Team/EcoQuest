@@ -198,6 +198,45 @@ public class QuizUIController : MonoBehaviour
         };
     }
 
+    private static float ScaledFont(float baseSize)
+    {
+        return Mathf.Round(baseSize * SettingsManager.CurrentTextScale * 10f) / 10f;
+    }
+
+    public void ApplyTextSizeScale(HashSet<int> managedTmpIds = null)
+    {
+        RegisterScaledTmp(managedTmpIds, questionText, 34f);
+        RegisterScaledTmp(managedTmpIds, feedbackTitleText, 22f);
+        if (explanationText != null)
+        {
+            if (managedTmpIds != null) managedTmpIds.Add(explanationText.GetInstanceID());
+            explanationText.fontSize = ScaledFont(18f);
+            if (explanationText.enableAutoSizing)
+            {
+                explanationText.fontSizeMin = ScaledFont(15.5f);
+                explanationText.fontSizeMax = ScaledFont(19.5f);
+            }
+        }
+        RegisterScaledTmp(managedTmpIds, resultsTitleText, 35f);
+        RegisterScaledTmp(managedTmpIds, preScoreText, 26f);
+        RegisterScaledTmp(managedTmpIds, postScoreText, 26f);
+        RegisterScaledTmp(managedTmpIds, improvementText, 26f);
+        RegisterScaledTmp(managedTmpIds, encouragingMessageText, 24f);
+        RegisterScaledTmp(managedTmpIds, bonusGoldText, 25f);
+        if (continueButton != null)
+        {
+            var btnTxt = continueButton.GetComponentInChildren<TextMeshProUGUI>();
+            RegisterScaledTmp(managedTmpIds, btnTxt, 24f);
+        }
+    }
+
+    private static void RegisterScaledTmp(HashSet<int> managedTmpIds, TextMeshProUGUI tmp, float baseSize)
+    {
+        if (tmp == null) return;
+        if (managedTmpIds != null) managedTmpIds.Add(tmp.GetInstanceID());
+        tmp.fontSize = ScaledFont(baseSize);
+    }
+
     private void StyleAndPositionFeedbackPanel(Color? accentColor = null)
     {
         if (feedbackPanel == null) return;
@@ -238,7 +277,7 @@ public class QuizUIController : MonoBehaviour
         {
             var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
             if (titleFont != null) feedbackTitleText.font = titleFont;
-            feedbackTitleText.fontSize = 22f;
+            feedbackTitleText.fontSize = ScaledFont(22f);
             feedbackTitleText.fontStyle = FontStyles.Bold;
             feedbackTitleText.alignment = TextAlignmentOptions.MidlineLeft;
             var rt = feedbackTitleText.rectTransform;
@@ -253,10 +292,10 @@ public class QuizUIController : MonoBehaviour
         {
             var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
             if (bodyFont != null) explanationText.font = bodyFont;
-            explanationText.fontSize = 18f;
+            explanationText.fontSize = ScaledFont(18f);
             explanationText.enableAutoSizing = true;
-            explanationText.fontSizeMin = 15.5f;
-            explanationText.fontSizeMax = 19.5f;
+            explanationText.fontSizeMin = ScaledFont(15.5f);
+            explanationText.fontSizeMax = ScaledFont(19.5f);
             explanationText.lineSpacing = 2f;
             explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
             explanationText.textWrappingMode = TextWrappingModes.Normal;
@@ -442,7 +481,7 @@ public class QuizUIController : MonoBehaviour
                     var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
                     if (titleFont != null) resultsTitleText.font = titleFont;
                     resultsTitleText.color = Color.white;
-                    resultsTitleText.fontSize = 35f;
+                    resultsTitleText.fontSize = ScaledFont(35f);
                     resultsTitleText.fontStyle = FontStyles.Bold;
                 }
 
@@ -451,7 +490,7 @@ public class QuizUIController : MonoBehaviour
                     var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
                     if (bodyFont != null) preScoreText.font = bodyFont;
                     preScoreText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
-                    preScoreText.fontSize = 26f;
+                    preScoreText.fontSize = ScaledFont(26f);
                     preScoreText.fontStyle = FontStyles.Bold;
                 }
 
@@ -460,7 +499,7 @@ public class QuizUIController : MonoBehaviour
                     var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
                     if (bodyFont != null) postScoreText.font = bodyFont;
                     postScoreText.color = new Color(0.29f, 0.88f, 0.46f, 1f); // Bright success green #4AE076
-                    postScoreText.fontSize = 26f;
+                    postScoreText.fontSize = ScaledFont(26f);
                     postScoreText.fontStyle = FontStyles.Bold;
                 }
 
@@ -480,7 +519,7 @@ public class QuizUIController : MonoBehaviour
                     var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
                     if (titleFont != null) improvementText.font = titleFont;
                     improvementText.color = Color.white;
-                    improvementText.fontSize = 26f;
+                    improvementText.fontSize = ScaledFont(26f);
                     improvementText.fontStyle = FontStyles.Bold;
                 }
 
@@ -489,7 +528,7 @@ public class QuizUIController : MonoBehaviour
                     var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
                     if (bodyFont != null) encouragingMessageText.font = bodyFont;
                     encouragingMessageText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
-                    encouragingMessageText.fontSize = 24f;
+                    encouragingMessageText.fontSize = ScaledFont(24f);
                 }
 
                 if (bonusGoldText != null)
@@ -497,7 +536,7 @@ public class QuizUIController : MonoBehaviour
                     var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
                     if (titleFont != null) bonusGoldText.font = titleFont;
                     bonusGoldText.color = UITheme.Instance != null ? UITheme.Instance.warnColor : new Color(0.95f, 0.76f, 0.31f, 1f);
-                    bonusGoldText.fontSize = 25f;
+                    bonusGoldText.fontSize = ScaledFont(25f);
                     bonusGoldText.fontStyle = FontStyles.Bold;
                 }
 
@@ -514,15 +553,15 @@ public class QuizUIController : MonoBehaviour
                         var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
                         if (titleFont != null) btnTxt.font = titleFont;
                         btnTxt.color = Color.white;
-                        btnTxt.fontSize = 24f;
+                        btnTxt.fontSize = ScaledFont(24f);
                         btnTxt.fontStyle = FontStyles.Bold;
                     }
                     var contRtb = ResponsiveTextButton.AttachOrGet(continueButton);
                     contRtb.Configure(
                         labelRef: btnTxt,
                         backgroundRef: btnImg,
-                        minFont: 16f,
-                        maxFont: 22f,
+                        minFont: ScaledFont(16f),
+                        maxFont: ScaledFont(22f),
                         minBtnHeight: 50f,
                         maxBtnHeight: 96f,
                         minBtnWidth: 180f,
@@ -544,7 +583,7 @@ public class QuizUIController : MonoBehaviour
             if (questionText != null)
             {
                 questionText.color = Color.white;
-                questionText.fontSize = 34f;
+                questionText.fontSize = ScaledFont(34f);
             }
 
             if (progressText != null)
@@ -603,7 +642,7 @@ public class QuizUIController : MonoBehaviour
             var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
             if (titleFont != null) tText.font = titleFont;
             tText.text = defaultLabel;
-            tText.fontSize = 22f;
+            tText.fontSize = ScaledFont(22f);
             tText.fontStyle = FontStyles.Bold;
             tText.alignment = TextAlignmentOptions.Center;
             tText.color = Color.white;
@@ -1517,7 +1556,7 @@ public class QuizUIController : MonoBehaviour
                 postScoreText.rectTransform.anchorMax = new Vector2(1f, 0.74f);
                 postScoreText.rectTransform.offsetMin = Vector2.zero;
                 postScoreText.rectTransform.offsetMax = Vector2.zero;
-                postScoreText.fontSize = 28f;
+                postScoreText.fontSize = ScaledFont(28f);
                 postScoreText.color = new Color(0.29f, 0.88f, 0.46f, 1f); // #4AE076
             }
             if (rewardGiftIcon != null)
@@ -1572,8 +1611,8 @@ public class QuizUIController : MonoBehaviour
             {
                 encouragingMessageText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
                 encouragingMessageText.enableAutoSizing = true;
-                encouragingMessageText.fontSizeMin = 12f;
-                encouragingMessageText.fontSizeMax = 15f;
+                encouragingMessageText.fontSizeMin = ScaledFont(12f);
+                encouragingMessageText.fontSizeMax = ScaledFont(15f);
                 encouragingMessageText.rectTransform.anchorMin = new Vector2(0.08f, 0.26f);
                 encouragingMessageText.rectTransform.anchorMax = new Vector2(0.92f, 0.42f);
 

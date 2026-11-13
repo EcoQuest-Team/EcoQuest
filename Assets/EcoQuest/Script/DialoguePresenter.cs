@@ -348,11 +348,22 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    private float EffectiveFontSize => Mathf.Round(baseFontSize * SettingsManager.CurrentTextScale * 10f) / 10f;
+
+    public void ApplyTextSizeScale(HashSet<int> managedTmpIds = null)
+    {
+        if (dialogueBodyText != null)
+        {
+            if (managedTmpIds != null) managedTmpIds.Add(dialogueBodyText.GetInstanceID());
+            dialogueBodyText.fontSize = EffectiveFontSize;
+        }
+    }
+
     private void EnsureBodyAreaSettings()
     {
         if (dialogueBodyText != null)
         {
-            dialogueBodyText.fontSize = baseFontSize;
+            dialogueBodyText.fontSize = EffectiveFontSize;
             dialogueBodyText.enableAutoSizing = false;
             dialogueBodyText.enableWordWrapping = true;
             dialogueBodyText.overflowMode = TextOverflowModes.Truncate;
@@ -400,12 +411,13 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         else if (dialogueBodyText != null && dialogueBodyText.rectTransform.rect.width > 100f)
             bodyWidth = dialogueBodyText.rectTransform.rect.width;
 
+        float scaledFont = EffectiveFontSize;
         // Build paginated lines via Text-Fit Guard
         activePages.Clear();
         foreach (var rawLine in lines)
         {
             if (string.IsNullOrWhiteSpace(rawLine)) continue;
-            activePages.AddRange(SplitIntoPagesWithFitGuard(rawLine.Trim(), dialogueBodyText, bodyWidth, maxLinesPerPage, baseFontSize));
+            activePages.AddRange(SplitIntoPagesWithFitGuard(rawLine.Trim(), dialogueBodyText, bodyWidth, maxLinesPerPage, scaledFont));
         }
 
         if (activePages.Count == 0) return;

@@ -160,6 +160,31 @@ namespace StarterAssets
 			ResolveAnimator();
 		}
 
+		private void OnEnable()
+		{
+			ApplySavedMouseSensitivity();
+			if (SettingsManager.Instance != null)
+			{
+				SettingsManager.Instance.OnSettingsChanged += ApplySavedMouseSensitivity;
+			}
+		}
+
+		private void OnDisable()
+		{
+			if (SettingsManager.Instance != null)
+			{
+				SettingsManager.Instance.OnSettingsChanged -= ApplySavedMouseSensitivity;
+			}
+		}
+
+		private void ApplySavedMouseSensitivity()
+		{
+			if (SettingsManager.Instance != null)
+			{
+				RotationSpeed = SettingsManager.Instance.MouseSensitivity;
+			}
+		}
+
 		private void Start()
 		{
 			if (_controller == null) _controller = GetComponent<CharacterController>();
@@ -167,6 +192,7 @@ namespace StarterAssets
 			_playerInput = GetComponent<PlayerInput>();
 			if (FootstepAudioSource == null) FootstepAudioSource = GetComponent<AudioSource>();
 			ResolveAnimator();
+			ApplySavedMouseSensitivity();
 
 			_jumpTimeoutDelta = JumpTimeout;
 			_fallTimeoutDelta = FallTimeout;

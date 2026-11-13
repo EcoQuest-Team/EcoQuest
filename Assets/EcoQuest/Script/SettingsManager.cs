@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -22,11 +23,12 @@ public class SettingsManager : MonoBehaviour
     public const string KeyFullscreen = "EcoQuest_Settings_Fullscreen";
     public const string KeyResolutionWidth = "EcoQuest_Settings_ResolutionWidth";
     public const string KeyResolutionHeight = "EcoQuest_Settings_ResolutionHeight";
+    public const string KeyResolutionAuto = "EcoQuest_Settings_ResolutionAuto";
     public const string KeyVSync = "EcoQuest_Settings_VSync";
     public const string KeyFPSLimit = "EcoQuest_Settings_FPSLimit";
     public const string KeyMouseSensitivity = "EcoQuest_Settings_MouseSensitivity";
-    public const string KeyTutorialHints = "EcoQuest_Settings_TutorialHints";
     public const string KeyTextSize = "EcoQuest_Settings_TextSize";
+    private const string KeyTextSizeV2Migrated = "EcoQuest_Settings_TextSize_v2_Migrated";
 
     // Default Values
     public const float DefaultMasterVol = 1.0f;
@@ -35,13 +37,11 @@ public class SettingsManager : MonoBehaviour
     public const bool DefaultMuteAll = false;
     public const int DefaultQuality = 2; // High (0 = Low, 1 = Medium, 2 = High, 3 = Ultra)
     public const bool DefaultFullscreen = true;
-    public const int DefaultResolutionWidth = 1920;
-    public const int DefaultResolutionHeight = 1080;
+    public const bool DefaultResolutionAuto = true;
     public const bool DefaultVSync = true;
     public const int DefaultFPSLimit = -1; // Unlimited
     public const float DefaultMouseSensitivity = 1.0f;
-    public const bool DefaultTutorialHints = true;
-    public const int DefaultTextSize = 0; // 0 = Normal, 1 = Large
+    public const int DefaultTextSize = 1; // 0 = Small, 1 = Medium, 2 = Large
 
     // Current Settings State
     public float MasterVolume { get; private set; } = DefaultMasterVol;
@@ -51,14 +51,26 @@ public class SettingsManager : MonoBehaviour
 
     public int QualityIndex { get; private set; } = DefaultQuality;
     public bool Fullscreen { get; private set; } = DefaultFullscreen;
-    public int ResolutionWidth { get; private set; } = DefaultResolutionWidth;
-    public int ResolutionHeight { get; private set; } = DefaultResolutionHeight;
+    public bool IsAutoResolution { get; private set; } = DefaultResolutionAuto;
+    public int ResolutionWidth { get; private set; }
+    public int ResolutionHeight { get; private set; }
     public bool VSync { get; private set; } = DefaultVSync;
     public int FPSLimit { get; private set; } = DefaultFPSLimit;
 
     public float MouseSensitivity { get; private set; } = DefaultMouseSensitivity;
-    public bool TutorialHints { get; private set; } = DefaultTutorialHints;
-    public int TextSize { get; private set; } = DefaultTextSize; // 0 = Normal, 1 = Large
+    public int TextSize { get; private set; } = DefaultTextSize; // 0 = Small, 1 = Medium, 2 = Large
+
+    public static float CurrentTextScale => Instance != null ? GetTextScaleFactor(Instance.TextSize) : 1.0f;
+
+    public static float GetTextScaleFactor(int textSize)
+    {
+        switch (textSize)
+        {
+            case 0: return 0.88f; // Small
+            case 2: return 1.18f; // Large
+            default: return 1.0f; // Medium
+        }
+    }
 
     public event Action OnSettingsChanged;
 
@@ -99,7 +111,7 @@ public class SettingsManager : MonoBehaviour
 
         EnsureAudioManagerExists();
         LoadSettings();
-        ApplyAllSettings();
+        ApplyAllSettings(applyResolution: true);
 
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
@@ -107,7 +119,7 @@ public class SettingsManager : MonoBehaviour
     private void Start()
     {
         EnsureAudioManagerExists();
-        ApplyAllSettings();
+        ApplyAllSettings(applyResolution: false);
     }
 
     private void OnDestroy()
@@ -122,7 +134,7 @@ public class SettingsManager : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         EnsureAudioManagerExists();
-        ApplyAllSettings();
+        ApplyAllSettings(applyResolution: false);
     }
 
     private void EnsureAudioManagerExists()
@@ -164,19 +176,37 @@ public class SettingsManager : MonoBehaviour
         }
 
         QualityIndex = Mathf.Clamp(PlayerPrefs.GetInt(KeyQuality, defaultQual), 0, maxQuality);
+        IsAutoResolution = PlayerPrefs.GetInt(KeyResolutionAuto, DefaultResolutionAuto ? 1 : 0) == 1;
         Fullscreen = PlayerPrefs.GetInt(KeyFullscreen, DefaultFullscreen ? 1 : 0) == 1;
 
-        int fallbackW = Screen.currentResolution.width >= 800 ? Screen.currentResolution.width : DefaultResolutionWidth;
-        int fallbackH = Screen.currentResolution.height >= 600 ? Screen.currentResolution.height : DefaultResolutionHeight;
-        ResolutionWidth = PlayerPrefs.GetInt(KeyResolutionWidth, fallbackW);
-        ResolutionHeight = PlayerPrefs.GetInt(KeyResolutionHeight, fallbackH);
+        Vector2Int nativeRes = GetCurrentDisplayNativeResolution();
+        int savedW = PlayerPrefs.GetInt(KeyResolutionWidth, nativeRes.x);
+        int savedH = PlayerPrefs.GetInt(KeyResolutionHeight, nativeRes.y);
+        if (savedW < 800 || savedH < 600)
+        {
+            savedW = nativeRes.x;
+            savedH = nativeRes.y;
+        }
+        ResolutionWidth = savedW;
+        ResolutionHeight = savedH;
 
         VSync = PlayerPrefs.GetInt(KeyVSync, DefaultVSync ? 1 : 0) == 1;
         FPSLimit = PlayerPrefs.GetInt(KeyFPSLimit, DefaultFPSLimit);
 
         MouseSensitivity = Mathf.Clamp(PlayerPrefs.GetFloat(KeyMouseSensitivity, DefaultMouseSensitivity), 0.2f, 3.0f);
-        TutorialHints = PlayerPrefs.GetInt(KeyTutorialHints, DefaultTutorialHints ? 1 : 0) == 1;
-        TextSize = Mathf.Clamp(PlayerPrefs.GetInt(KeyTextSize, DefaultTextSize), 0, 1);
+
+        // Migrate legacy 2-option TextSize (0 = Normal, 1 = Large) -> 3-option (0 = Small, 1 = Medium, 2 = Large)
+        if (PlayerPrefs.GetInt(KeyTextSizeV2Migrated, 0) == 0)
+        {
+            if (PlayerPrefs.HasKey(KeyTextSize))
+            {
+                int legacy = PlayerPrefs.GetInt(KeyTextSize, 0);
+                PlayerPrefs.SetInt(KeyTextSize, legacy >= 1 ? 2 : 1);
+            }
+            PlayerPrefs.SetInt(KeyTextSizeV2Migrated, 1);
+            PlayerPrefs.Save();
+        }
+        TextSize = Mathf.Clamp(PlayerPrefs.GetInt(KeyTextSize, DefaultTextSize), 0, 2);
     }
 
     public void SaveAllSettings()
@@ -188,22 +218,23 @@ public class SettingsManager : MonoBehaviour
 
         PlayerPrefs.SetInt(KeyQuality, QualityIndex);
         PlayerPrefs.SetInt(KeyFullscreen, Fullscreen ? 1 : 0);
+        PlayerPrefs.SetInt(KeyResolutionAuto, IsAutoResolution ? 1 : 0);
         PlayerPrefs.SetInt(KeyResolutionWidth, ResolutionWidth);
         PlayerPrefs.SetInt(KeyResolutionHeight, ResolutionHeight);
         PlayerPrefs.SetInt(KeyVSync, VSync ? 1 : 0);
         PlayerPrefs.SetInt(KeyFPSLimit, FPSLimit);
 
         PlayerPrefs.SetFloat(KeyMouseSensitivity, MouseSensitivity);
-        PlayerPrefs.SetInt(KeyTutorialHints, TutorialHints ? 1 : 0);
         PlayerPrefs.SetInt(KeyTextSize, TextSize);
+        PlayerPrefs.SetInt(KeyTextSizeV2Migrated, 1);
 
         PlayerPrefs.Save();
     }
 
-    public void ApplyAllSettings()
+    public void ApplyAllSettings(bool applyResolution = true)
     {
         ApplyAudioSettings();
-        ApplyGraphicsSettings();
+        ApplyGraphicsSettings(applyResolution);
         ApplyGameplaySettings();
         OnSettingsChanged?.Invoke();
     }
@@ -245,22 +276,24 @@ public class SettingsManager : MonoBehaviour
     // GRAPHICS
     // =====================================================================
 
-    public void SetAndApplyGraphics(int qualityIndex, bool fullscreen, int resWidth, int resHeight, bool vsync, int fpsLimit, bool save = true)
+    public void SetAndApplyGraphics(int qualityIndex, bool fullscreen, bool isAutoResolution, int resWidth, int resHeight, bool vsync, int fpsLimit, bool save = true)
     {
         int maxQuality = Mathf.Max(0, QualitySettings.names.Length - 1);
         QualityIndex = Mathf.Clamp(qualityIndex, 0, maxQuality);
-        Fullscreen = fullscreen;
-        ResolutionWidth = Mathf.Max(640, resWidth);
-        ResolutionHeight = Mathf.Max(480, resHeight);
+        IsAutoResolution = isAutoResolution;
+        Fullscreen = isAutoResolution ? true : fullscreen;
+        ResolutionWidth = Mathf.Max(800, resWidth);
+        ResolutionHeight = Mathf.Max(600, resHeight);
         VSync = vsync;
         FPSLimit = fpsLimit;
 
-        ApplyGraphicsSettings();
+        ApplyGraphicsSettings(applyResolution: true);
 
         if (save)
         {
             PlayerPrefs.SetInt(KeyQuality, QualityIndex);
             PlayerPrefs.SetInt(KeyFullscreen, Fullscreen ? 1 : 0);
+            PlayerPrefs.SetInt(KeyResolutionAuto, IsAutoResolution ? 1 : 0);
             PlayerPrefs.SetInt(KeyResolutionWidth, ResolutionWidth);
             PlayerPrefs.SetInt(KeyResolutionHeight, ResolutionHeight);
             PlayerPrefs.SetInt(KeyVSync, VSync ? 1 : 0);
@@ -271,41 +304,76 @@ public class SettingsManager : MonoBehaviour
         OnSettingsChanged?.Invoke();
     }
 
-    public void ApplyGraphicsSettings()
+    public void ApplyGraphicsSettings(bool applyResolution = true)
     {
+        int clampedQ = 0;
         if (QualitySettings.names != null && QualitySettings.names.Length > 0)
         {
-            int clampedQ = Mathf.Clamp(QualityIndex, 0, QualitySettings.names.Length - 1);
+            clampedQ = Mathf.Clamp(QualityIndex, 0, QualitySettings.names.Length - 1);
             if (QualitySettings.GetQualityLevel() != clampedQ)
             {
                 QualitySettings.SetQualityLevel(clampedQ, true);
             }
         }
 
-        QualitySettings.vSyncCount = VSync ? 1 : 0;
-        Application.targetFrameRate = FPSLimit;
+        ApplyPostProcessingForQuality(clampedQ);
 
-        FullScreenMode mode = Fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
-        Screen.SetResolution(ResolutionWidth, ResolutionHeight, mode);
+        QualitySettings.vSyncCount = VSync ? 1 : 0;
+        Application.targetFrameRate = VSync ? -1 : FPSLimit;
+
+        Vector2Int nativeRes = GetCurrentDisplayNativeResolution();
+        int targetW = IsAutoResolution ? nativeRes.x : ResolutionWidth;
+        int targetH = IsAutoResolution ? nativeRes.y : ResolutionHeight;
+        if (targetW < 800 || targetH < 600)
+        {
+            targetW = nativeRes.x;
+            targetH = nativeRes.y;
+        }
+        FullScreenMode mode = IsAutoResolution
+            ? FullScreenMode.FullScreenWindow
+            : (Fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed);
+
+        if (applyResolution)
+        {
+            Screen.SetResolution(targetW, targetH, mode);
+            string qName = (QualitySettings.names != null && clampedQ < QualitySettings.names.Length)
+                ? QualitySettings.names[clampedQ]
+                : clampedQ.ToString();
+            Debug.Log($"[SettingsManager] Applied Graphics -> Quality: {qName} ({clampedQ}), Auto: {IsAutoResolution}, Resolution: {targetW}x{targetH}, Mode: {mode}, VSync: {VSync}, FPSLimit: {Application.targetFrameRate}");
+        }
+    }
+
+    public static void ApplyPostProcessingForQuality(int qualityIndex)
+    {
+        // Keep Low (0) & Medium (1) free of heavy post-processing (SSAO/Bloom/CA/Tonemapping),
+        // while leaving UI_Blur_Volume enabled so modal blur still works cleanly.
+        bool enableScenePost = qualityIndex >= 2;
+        var volumes = FindObjectsByType<Volume>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < volumes.Length; i++)
+        {
+            Volume vol = volumes[i];
+            if (vol == null || !vol.isGlobal) continue;
+            if (vol.gameObject.name.IndexOf("Blur", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+            vol.enabled = enableScenePost;
+        }
     }
 
     // =====================================================================
     // GAMEPLAY
     // =====================================================================
 
-    public void SetGameplaySettings(float mouseSens, bool tutorialHints, int textSize, bool save = true)
+    public void SetGameplaySettings(float mouseSens, int textSize, bool save = true)
     {
         MouseSensitivity = Mathf.Clamp(mouseSens, 0.2f, 3.0f);
-        TutorialHints = tutorialHints;
-        TextSize = Mathf.Clamp(textSize, 0, 1);
+        TextSize = Mathf.Clamp(textSize, 0, 2);
 
         ApplyGameplaySettings();
 
         if (save)
         {
             PlayerPrefs.SetFloat(KeyMouseSensitivity, MouseSensitivity);
-            PlayerPrefs.SetInt(KeyTutorialHints, TutorialHints ? 1 : 0);
             PlayerPrefs.SetInt(KeyTextSize, TextSize);
+            PlayerPrefs.SetInt(KeyTextSizeV2Migrated, 1);
             PlayerPrefs.Save();
         }
 
@@ -321,36 +389,42 @@ public class SettingsManager : MonoBehaviour
             fpc.RotationSpeed = MouseSensitivity;
         }
 
-        // 2. Tutorial Hints -> SequentialWASDTutorial & GameplayControlTipsManager
-        if (SequentialWASDTutorial.Instance != null)
-        {
-            SequentialWASDTutorial.Instance.ApplyTutorialHintsSetting(TutorialHints);
-        }
-        if (GameplayControlTipsManager.Instance != null)
-        {
-            GameplayControlTipsManager.Instance.ApplyTutorialHintsSetting(TutorialHints);
-        }
-
-        // 3. Text Size (Normal = 1.0x, Large = 1.15x) -> scales Quiz and Dialogue text ONLY
+        // 2. Text Size (Small / Medium / Large) -> scales Quiz and Dialogue text ONLY
         ApplyQuizAndDialogueTextSize();
     }
 
     public void ApplyQuizAndDialogueTextSize()
     {
-        float scale = (TextSize == 1) ? 1.15f : 1.0f;
+        float scale = GetTextScaleFactor(TextSize);
 
-        // Find UI_Quiz and UI_Dialogue roots (including inactive)
+        // Controllers that compute explicit font sizes from constants
+        HashSet<int> controllerManagedIds = new HashSet<int>();
+        var dp = FindFirstObjectByType<DialoguePresenter>(FindObjectsInactive.Include);
+        if (dp != null)
+        {
+            dp.ApplyTextSizeScale(controllerManagedIds);
+        }
+
+        var quiz = FindFirstObjectByType<QuizUIController>(FindObjectsInactive.Include);
+        if (quiz != null)
+        {
+            quiz.ApplyTextSizeScale(controllerManagedIds);
+        }
+
+        // Scale all other TMPs under Quiz / Dialogue canvases using cached unscaled baselines
         var canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var c in canvases)
         {
             if (c == null) continue;
-            if (c.name == "UI_Quiz" || c.name == "UI_Dialogue")
+            if (c.name == "UI_Quiz" || c.name == "UI_Dialogue" || c.name == "UI_LitterbugQuest")
             {
                 var texts = c.GetComponentsInChildren<TextMeshProUGUI>(true);
                 foreach (var t in texts)
                 {
                     if (t == null) continue;
                     int id = t.GetInstanceID();
+                    if (controllerManagedIds.Contains(id)) continue;
+
                     if (!baseFontMetrics.TryGetValue(id, out OriginalFontMetrics orig))
                     {
                         orig = new OriginalFontMetrics
@@ -372,15 +446,7 @@ public class SettingsManager : MonoBehaviour
 
     public void ResetToDefaults()
     {
-        int fallbackW = DefaultResolutionWidth;
-        int fallbackH = DefaultResolutionHeight;
-        var validRes = GetUniqueValidResolutions();
-        if (validRes.Count > 0)
-        {
-            var last = validRes[validRes.Count - 1];
-            fallbackW = last.x;
-            fallbackH = last.y;
-        }
+        Vector2Int nativeRes = GetCurrentDisplayNativeResolution();
 
         MasterVolume = DefaultMasterVol;
         MusicVolume = DefaultMusicVol;
@@ -389,58 +455,70 @@ public class SettingsManager : MonoBehaviour
 
         int maxQuality = Mathf.Max(0, QualitySettings.names.Length - 1);
         QualityIndex = Mathf.Clamp(DefaultQuality, 0, maxQuality);
+        IsAutoResolution = DefaultResolutionAuto;
         Fullscreen = DefaultFullscreen;
-        ResolutionWidth = fallbackW;
-        ResolutionHeight = fallbackH;
+        ResolutionWidth = nativeRes.x;
+        ResolutionHeight = nativeRes.y;
         VSync = DefaultVSync;
         FPSLimit = DefaultFPSLimit;
 
         MouseSensitivity = DefaultMouseSensitivity;
-        TutorialHints = DefaultTutorialHints;
         TextSize = DefaultTextSize;
 
         SaveAllSettings();
-        ApplyAllSettings();
+        ApplyAllSettings(applyResolution: true);
     }
 
     /// <summary>
-    /// Returns deduplicated, valid screen resolutions (width x height) sorted ascending.
+    /// Returns the native resolution (width x height) of the display the window is currently on.
     /// </summary>
-    public static List<Vector2Int> GetUniqueValidResolutions()
+    public static Vector2Int GetCurrentDisplayNativeResolution()
+    {
+        DisplayInfo di = Screen.mainWindowDisplayInfo;
+        if (di.width >= 800 && di.height >= 600)
+        {
+            return new Vector2Int(di.width, di.height);
+        }
+
+        if (Display.main != null && Display.main.systemWidth >= 800 && Display.main.systemHeight >= 600)
+        {
+            return new Vector2Int(Display.main.systemWidth, Display.main.systemHeight);
+        }
+
+        return new Vector2Int(
+            Mathf.Max(800, Screen.currentResolution.width),
+            Mathf.Max(600, Screen.currentResolution.height));
+    }
+
+    /// <summary>
+    /// Pure helper: filters resolutions to those >= 800x600 and within the current monitor's native bounds,
+    /// deduplicates (width x height), and sorts ascending. Never injects hardcoded fallback resolutions.
+    /// </summary>
+    public static List<Vector2Int> BuildFilteredUniqueResolutions(Resolution[] rawResolutions, int nativeWidth, int nativeHeight)
     {
         List<Vector2Int> list = new List<Vector2Int>();
-        HashSet<string> seen = new HashSet<string>();
+        HashSet<Vector2Int> seen = new HashSet<Vector2Int>();
 
-        Resolution[] raw = Screen.resolutions;
-        if (raw != null)
+        if (rawResolutions != null)
         {
-            for (int i = 0; i < raw.Length; i++)
+            for (int i = 0; i < rawResolutions.Length; i++)
             {
-                int w = raw[i].width;
-                int h = raw[i].height;
+                int w = rawResolutions[i].width;
+                int h = rawResolutions[i].height;
                 if (w < 800 || h < 600) continue;
-                string key = $"{w}x{h}";
-                if (seen.Add(key))
+                if (nativeWidth > 0 && nativeHeight > 0 && (w > nativeWidth || h > nativeHeight)) continue;
+
+                Vector2Int candidate = new Vector2Int(w, h);
+                if (seen.Add(candidate))
                 {
-                    list.Add(new Vector2Int(w, h));
+                    list.Add(candidate);
                 }
             }
         }
 
-        // Ensure standard 16:9 resolutions exist if running in headless/editor window with only 1 resolution
-        Vector2Int[] standards = new[]
+        if (list.Count == 0 && nativeWidth >= 800 && nativeHeight >= 600)
         {
-            new Vector2Int(1280, 720),
-            new Vector2Int(1600, 900),
-            new Vector2Int(1920, 1080)
-        };
-        foreach (var st in standards)
-        {
-            string key = $"{st.x}x{st.y}";
-            if (seen.Add(key))
-            {
-                list.Add(st);
-            }
+            list.Add(new Vector2Int(nativeWidth, nativeHeight));
         }
 
         list.Sort((a, b) =>
@@ -450,5 +528,14 @@ public class SettingsManager : MonoBehaviour
         });
 
         return list;
+    }
+
+    /// <summary>
+    /// Returns deduplicated, valid screen resolutions (width x height) supported by the current monitor, sorted ascending.
+    /// </summary>
+    public static List<Vector2Int> GetUniqueValidResolutions()
+    {
+        Vector2Int nativeRes = GetCurrentDisplayNativeResolution();
+        return BuildFilteredUniqueResolutions(Screen.resolutions, nativeRes.x, nativeRes.y);
     }
 }

@@ -756,8 +756,7 @@ public class MinimapController : MonoBehaviour
 
         if (SequentialWASDTutorial.Instance != null && !SequentialWASDTutorial.Instance.IsCompleted && !IsMapTutorialUnlocked)
         {
-            if (SettingsManager.Instance == null || SettingsManager.Instance.TutorialHints)
-                return false;
+            return false;
         }
 
         return true;

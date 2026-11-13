@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEngine.UI;
 
 /// <summary>
@@ -23,6 +24,7 @@ public class SettingsPanelUI : MonoBehaviour
     private bool isClosing = false;
 
     [Header("Audio Controls")]
+    public AudioMixer mainMixerAsset;
     public Slider masterSlider;
     public TextMeshProUGUI masterPercentText;
     public Slider musicSlider;
@@ -42,7 +44,6 @@ public class SettingsPanelUI : MonoBehaviour
     [Header("Gameplay Controls")]
     public Slider sensitivitySlider;
     public TextMeshProUGUI sensitivityValueText;
-    public Toggle tutorialHintsToggle;
     public TMP_Dropdown textSizeDropdown;
 
     [Header("Action Buttons")]
@@ -55,6 +56,9 @@ public class SettingsPanelUI : MonoBehaviour
     public Button confirmResetYesButton;
     public Button confirmResetNoButton;
 
+    private static readonly HashSet<SettingsPanelUI> activeOpenPanels = new HashSet<SettingsPanelUI>();
+    public static bool IsAnySettingsOpen => activeOpenPanels.Count > 0;
+
     private List<Vector2Int> availableResolutions = new List<Vector2Int>();
     private readonly int[] fpsOptions = new[] { 30, 60, 120, -1 };
 
@@ -66,17 +70,29 @@ public class SettingsPanelUI : MonoBehaviour
 
     private void Awake()
     {
+        AudioManager.RegisterMixerAsset(mainMixerAsset);
         EnsureValidLayoutAndScale();
         InitializeListeners();
     }
 
     private void OnEnable()
     {
+        activeOpenPanels.Add(this);
+        AudioManager.RegisterMixerAsset(mainMixerAsset);
         EnsureValidLayoutAndScale();
         InitializeListeners();
         if (confirmResetOverlay != null) confirmResetOverlay.SetActive(false);
 
         RefreshUIFromSettings();
+
+        if (UIOrchestrator.Instance != null)
+        {
+            UIOrchestrator.Instance.ApplyCurrentProfile(0f);
+        }
+        if (PauseMenuController.Instance != null)
+        {
+            PauseMenuController.Instance.UpdateHudSettingsButtonVisibility();
+        }
 
         if (animCoroutine != null) StopCoroutine(animCoroutine);
         animCoroutine = StartCoroutine(AnimateOpenRoutine());
@@ -215,11 +231,17 @@ public class SettingsPanelUI : MonoBehaviour
         if (muteAllToggle != null)
             muteAllToggle.onValueChanged.AddListener(_ => OnAudioControlChanged(false));
 
+        // Graphics live dependency callbacks
+        if (vsyncToggle != null)
+            vsyncToggle.onValueChanged.AddListener(_ => OnVSyncToggleChanged());
+        if (resolutionDropdown != null)
+            resolutionDropdown.onValueChanged.AddListener(OnResolutionDropdownChanged);
+        if (fullscreenToggle != null)
+            fullscreenToggle.onValueChanged.AddListener(OnFullscreenToggleChanged);
+
         // Gameplay live callbacks
         if (sensitivitySlider != null)
             sensitivitySlider.onValueChanged.AddListener(_ => OnGameplayControlChanged(true));
-        if (tutorialHintsToggle != null)
-            tutorialHintsToggle.onValueChanged.AddListener(_ => OnGameplayControlChanged(false));
         if (textSizeDropdown != null)
             textSizeDropdown.onValueChanged.AddListener(_ => OnGameplayControlChanged(false));
 
@@ -247,19 +269,21 @@ public class SettingsPanelUI : MonoBehaviour
             List<string> qNames = new List<string>(QualitySettings.names);
             if (qNames.Count == 0) qNames.Add("Default");
             qualityDropdown.AddOptions(qNames);
+            EnsureDropdownTemplateLayout(qualityDropdown, 180f);
         }
 
-        // 2. Valid unique resolutions
+        // 2. Dynamic monitor-supported resolutions + "Auto (Fit Screen)"
         availableResolutions = SettingsManager.GetUniqueValidResolutions();
         if (resolutionDropdown != null)
         {
             resolutionDropdown.ClearOptions();
-            List<string> resLabels = new List<string>();
+            List<string> resLabels = new List<string> { "Auto (Fit Screen)" };
             for (int i = 0; i < availableResolutions.Count; i++)
             {
                 resLabels.Add($"{availableResolutions[i].x} x {availableResolutions[i].y}");
             }
             resolutionDropdown.AddOptions(resLabels);
+            EnsureDropdownTemplateLayout(resolutionDropdown, 238f);
         }
 
         // 3. FPS Limit (30, 60, 120, Unlimited)
@@ -267,13 +291,30 @@ public class SettingsPanelUI : MonoBehaviour
         {
             fpsLimitDropdown.ClearOptions();
             fpsLimitDropdown.AddOptions(new List<string> { "30 FPS", "60 FPS", "120 FPS", "Unlimited" });
+            EnsureDropdownTemplateLayout(fpsLimitDropdown, 180f);
         }
 
-        // 4. Text Size (Normal / Large)
+        // 4. Text Size (Small / Medium / Large)
         if (textSizeDropdown != null)
         {
             textSizeDropdown.ClearOptions();
-            textSizeDropdown.AddOptions(new List<string> { "Normal", "Large" });
+            textSizeDropdown.AddOptions(new List<string> { "Small", "Medium", "Large" });
+            EnsureDropdownTemplateLayout(textSizeDropdown, 145f);
+        }
+    }
+
+    private static void EnsureDropdownTemplateLayout(TMP_Dropdown dropdown, float targetHeight)
+    {
+        if (dropdown == null || dropdown.template == null) return;
+        RectTransform tpl = dropdown.template;
+        if (tpl.sizeDelta.y < targetHeight)
+        {
+            tpl.sizeDelta = new Vector2(tpl.sizeDelta.x, targetHeight);
+        }
+        ScrollRect sr = tpl.GetComponent<ScrollRect>();
+        if (sr != null && sr.scrollSensitivity < 20f)
+        {
+            sr.scrollSensitivity = 25f;
         }
     }
 
@@ -303,13 +344,17 @@ public class SettingsPanelUI : MonoBehaviour
             qualityDropdown.value = Mathf.Clamp(sm.QualityIndex, 0, Mathf.Max(0, qualityDropdown.options.Count - 1));
             qualityDropdown.RefreshShownValue();
         }
-        if (fullscreenToggle != null) fullscreenToggle.isOn = sm.Fullscreen;
+        if (fullscreenToggle != null) fullscreenToggle.isOn = sm.IsAutoResolution ? true : sm.Fullscreen;
 
-        if (resolutionDropdown != null && availableResolutions.Count > 0)
+        if (resolutionDropdown != null && resolutionDropdown.options.Count > 0)
         {
-            int idx = availableResolutions.FindIndex(r => r.x == sm.ResolutionWidth && r.y == sm.ResolutionHeight);
-            if (idx < 0) idx = availableResolutions.Count - 1;
-            resolutionDropdown.value = idx;
+            int targetOptionIndex = 0; // "Auto (Fit Screen)"
+            if (!sm.IsAutoResolution && availableResolutions.Count > 0)
+            {
+                int idx = availableResolutions.FindIndex(r => r.x == sm.ResolutionWidth && r.y == sm.ResolutionHeight);
+                if (idx >= 0) targetOptionIndex = idx + 1;
+            }
+            resolutionDropdown.value = Mathf.Clamp(targetOptionIndex, 0, resolutionDropdown.options.Count - 1);
             resolutionDropdown.RefreshShownValue();
         }
 
@@ -322,14 +367,14 @@ public class SettingsPanelUI : MonoBehaviour
             fpsLimitDropdown.value = fpsIdx;
             fpsLimitDropdown.RefreshShownValue();
         }
+        UpdateFPSLimitInteractable();
 
         // Gameplay
         if (sensitivitySlider != null) sensitivitySlider.value = sm.MouseSensitivity;
         UpdateSensitivityLabel();
-        if (tutorialHintsToggle != null) tutorialHintsToggle.isOn = sm.TutorialHints;
         if (textSizeDropdown != null)
         {
-            textSizeDropdown.value = Mathf.Clamp(sm.TextSize, 0, 1);
+            textSizeDropdown.value = Mathf.Clamp(sm.TextSize, 0, 2);
             textSizeDropdown.RefreshShownValue();
         }
 
@@ -345,14 +390,107 @@ public class SettingsPanelUI : MonoBehaviour
         if (sfxPercentText != null && sfxSlider != null)
             sfxPercentText.text = $"{Mathf.RoundToInt(sfxSlider.value * 100f)}%";
 
-        if (muteSwitchKnob == null && muteAllToggle != null)
+        UpdateMuteSwitchVisual();
+    }
+
+    private void UpdateMuteSwitchVisual()
+    {
+        if (muteAllToggle == null) return;
+        bool isMuted = muteAllToggle.isOn;
+
+        if (muteSwitchKnob == null)
         {
             Transform k = muteAllToggle.transform.Find("Background/Knob");
             if (k != null) muteSwitchKnob = k as RectTransform;
         }
-        if (muteSwitchKnob != null && muteAllToggle != null)
+
+        if (muteSwitchKnob != null)
         {
-            muteSwitchKnob.anchoredPosition = new Vector2(muteAllToggle.isOn ? 15f : -15f, 0f);
+            muteSwitchKnob.anchoredPosition = new Vector2(isMuted ? 15f : -15f, 0f);
+            var knobImg = muteSwitchKnob.GetComponent<Image>();
+            if (knobImg != null)
+            {
+                knobImg.color = new Color(0.98f, 0.96f, 0.91f, 1f);
+            }
+        }
+
+        Transform bgTr = muteAllToggle.transform.Find("Background");
+        if (bgTr != null)
+        {
+            var bgImg = bgTr.GetComponent<Image>();
+            if (bgImg != null)
+            {
+                bgImg.color = isMuted
+                    ? new Color(0.11f, 0.31f, 0.13f, 1f)
+                    : new Color(0.35f, 0.29f, 0.24f, 1f);
+            }
+        }
+
+        if (muteAllToggle.graphic != null)
+        {
+            muteAllToggle.toggleTransition = Toggle.ToggleTransition.None;
+            muteAllToggle.graphic.gameObject.SetActive(isMuted);
+            muteAllToggle.graphic.color = new Color(0.20f, 0.62f, 0.26f, 1f);
+            muteAllToggle.graphic.CrossFadeAlpha(isMuted ? 1f : 0f, 0f, true);
+        }
+    }
+
+    private void OnVSyncToggleChanged()
+    {
+        UpdateFPSLimitInteractable();
+        if (!suppressCallbacks && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayButtonClick();
+        }
+    }
+
+    private void OnResolutionDropdownChanged(int index)
+    {
+        if (suppressCallbacks) return;
+        if (index == 0 && fullscreenToggle != null && !fullscreenToggle.isOn)
+        {
+            suppressCallbacks = true;
+            fullscreenToggle.isOn = true;
+            suppressCallbacks = false;
+        }
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayButtonClick();
+        }
+    }
+
+    private void OnFullscreenToggleChanged(bool isFullscreen)
+    {
+        if (suppressCallbacks) return;
+        // When explicitly unchecking Fullscreen while "Auto (Fit Screen)" is selected,
+        // switch resolution selection to the matching monitor resolution so Windowed mode applies cleanly.
+        if (!isFullscreen && resolutionDropdown != null && resolutionDropdown.value == 0 && availableResolutions.Count > 0)
+        {
+            Vector2Int nativeRes = SettingsManager.GetCurrentDisplayNativeResolution();
+            int idx = availableResolutions.FindIndex(r => r.x == nativeRes.x && r.y == nativeRes.y);
+            if (idx < 0) idx = availableResolutions.Count - 1;
+            suppressCallbacks = true;
+            resolutionDropdown.value = idx + 1;
+            resolutionDropdown.RefreshShownValue();
+            suppressCallbacks = false;
+        }
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayButtonClick();
+        }
+    }
+
+    private void UpdateFPSLimitInteractable()
+    {
+        bool vsyncOn = vsyncToggle != null && vsyncToggle.isOn;
+        if (fpsLimitDropdown != null)
+        {
+            fpsLimitDropdown.interactable = !vsyncOn;
+            var cg = fpsLimitDropdown.GetComponent<CanvasGroup>();
+            if (cg == null) cg = fpsLimitDropdown.gameObject.AddComponent<CanvasGroup>();
+            cg.alpha = vsyncOn ? 0.5f : 1f;
+            cg.interactable = !vsyncOn;
+            cg.blocksRaycasts = !vsyncOn;
         }
     }
 
@@ -393,9 +531,8 @@ public class SettingsPanelUI : MonoBehaviour
         if (SettingsManager.Instance != null)
         {
             float sens = sensitivitySlider != null ? sensitivitySlider.value : SettingsManager.DefaultMouseSensitivity;
-            bool hints = tutorialHintsToggle == null || tutorialHintsToggle.isOn;
             int textSize = textSizeDropdown != null ? textSizeDropdown.value : SettingsManager.DefaultTextSize;
-            SettingsManager.Instance.SetGameplaySettings(sens, hints, textSize, true);
+            SettingsManager.Instance.SetGameplaySettings(sens, textSize, true);
         }
 
         if (AudioManager.Instance != null)
@@ -413,20 +550,23 @@ public class SettingsPanelUI : MonoBehaviour
         int qIdx = qualityDropdown != null ? qualityDropdown.value : SettingsManager.DefaultQuality;
         bool fs = fullscreenToggle == null || fullscreenToggle.isOn;
 
-        int resW = SettingsManager.DefaultResolutionWidth;
-        int resH = SettingsManager.DefaultResolutionHeight;
-        if (resolutionDropdown != null && availableResolutions.Count > 0)
+        bool isAuto = resolutionDropdown == null || resolutionDropdown.value <= 0 || availableResolutions.Count == 0;
+        Vector2Int nativeRes = SettingsManager.GetCurrentDisplayNativeResolution();
+        int resW = nativeRes.x;
+        int resH = nativeRes.y;
+        if (!isAuto && availableResolutions.Count > 0)
         {
-            int rIdx = Mathf.Clamp(resolutionDropdown.value, 0, availableResolutions.Count - 1);
+            int rIdx = Mathf.Clamp(resolutionDropdown.value - 1, 0, availableResolutions.Count - 1);
             resW = availableResolutions[rIdx].x;
             resH = availableResolutions[rIdx].y;
         }
+        if (isAuto) fs = true;
 
         bool vsync = vsyncToggle != null && vsyncToggle.isOn;
         int fpsIdx = fpsLimitDropdown != null ? Mathf.Clamp(fpsLimitDropdown.value, 0, fpsOptions.Length - 1) : 3;
         int fpsLimit = fpsOptions[fpsIdx];
 
-        SettingsManager.Instance.SetAndApplyGraphics(qIdx, fs, resW, resH, vsync, fpsLimit, true);
+        SettingsManager.Instance.SetAndApplyGraphics(qIdx, fs, isAuto, resW, resH, vsync, fpsLimit, true);
 
         if (AudioManager.Instance != null)
         {
@@ -486,6 +626,7 @@ public class SettingsPanelUI : MonoBehaviour
 
     private void OnDisable()
     {
+        activeOpenPanels.Remove(this);
         isClosing = false;
         if (animCoroutine != null)
         {
@@ -497,7 +638,20 @@ public class SettingsPanelUI : MonoBehaviour
         {
             UIBackgroundBlur.Cleanup();
             SetHudAlpha(1f);
+            if (UIOrchestrator.Instance != null)
+            {
+                UIOrchestrator.Instance.ApplyCurrentProfile(0f);
+            }
+            if (PauseMenuController.Instance != null)
+            {
+                PauseMenuController.Instance.UpdateHudSettingsButtonVisibility();
+            }
         }
+    }
+
+    private void OnDestroy()
+    {
+        activeOpenPanels.Remove(this);
     }
 
     public void ClosePanel()
@@ -528,8 +682,7 @@ public class SettingsPanelUI : MonoBehaviour
             "UI_Coins",
             "UI_Minimap",
             "UI_Notification",
-            "WASDTutorial",
-            "UI_HUD_SettingsButton"
+            "WASDTutorial"
         };
 
         foreach (var name in hudNames)

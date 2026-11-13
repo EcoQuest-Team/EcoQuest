@@ -834,10 +834,12 @@ public class UIOrchestrator : MonoBehaviour
             return false;
         }
 
-        // Cinematic / Dialogue overlay check: Gear, Coins, Crosshair, and InteractPrompt stay consistently hidden
+        // Cinematic / Dialogue / Pause / Settings overlay check: Gear, Coins, Crosshair, and InteractPrompt stay consistently hidden
         bool isCinematicOrDialogue = (HudVisibilityService.Instance != null && HudVisibilityService.Instance.IsHUDHidden) ||
                                      (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue) ||
                                      LitterbugQuestManager.IsDialogueOpen ||
+                                     PauseMenuController.IsPaused ||
+                                     SettingsPanelUI.IsAnySettingsOpen ||
                                      (IsCityScavengerOverlayOpenHook != null && IsCityScavengerOverlayOpenHook()) ||
                                      activeOverlays.Count > 0;
 

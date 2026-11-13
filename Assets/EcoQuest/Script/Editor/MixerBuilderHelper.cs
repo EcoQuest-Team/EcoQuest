@@ -403,15 +403,14 @@ public static class MixerBuilderHelper
         CreateSectionHeader("GameplayHeader", colLeft.transform, fredoka, "GAMEPLAY", new Vector2(0f, -34f), 420f);
         ui.sensitivitySlider = CreateLabeledSlider("SensitivityRow", colLeft.transform, fredoka, nunito, barBgSprite, barFillSprite, btnSprite, "Mouse Speed", new Vector2(0f, -78f), 0.2f, 3.0f, 1.0f, out ui.sensitivityValueText);
         ui.sensitivityValueText.text = "1.0x";
-        ui.tutorialHintsToggle = CreateLabeledToggle("TutorialHintsRow", colLeft.transform, nunito, btnSprite, checkSprite, "Tutorial Hints", new Vector2(0f, -122f), true);
-        ui.textSizeDropdown = CreateLabeledDropdown("TextSizeRow", colLeft.transform, fredoka, nunito, btnSprite, checkSprite, "Quiz/Chat Text", new Vector2(0f, -168f), new List<string> { "Normal", "Large" });
+        ui.textSizeDropdown = CreateLabeledDropdown("TextSizeRow", colLeft.transform, fredoka, nunito, btnSprite, checkSprite, "Quiz/Chat Text", new Vector2(0f, -132f), new List<string> { "Small", "Medium", "Large" });
 
         // 2f. Right Settings Column (x = 485): GRAPHICS
         GameObject colRight = CreateUIObject("GraphicsColumn", modalFrame.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(485f, 10f), new Vector2(420f, 420f));
 
         CreateSectionHeader("GraphicsHeader", colRight.transform, fredoka, "GRAPHICS", new Vector2(0f, 192f), 410f);
         ui.qualityDropdown = CreateLabeledDropdown("QualityRow", colRight.transform, fredoka, nunito, btnSprite, checkSprite, "Quality Preset", new Vector2(0f, 142f), new List<string>(QualitySettings.names));
-        ui.resolutionDropdown = CreateLabeledDropdown("ResolutionRow", colRight.transform, fredoka, nunito, btnSprite, checkSprite, "Resolution", new Vector2(0f, 88f), new List<string> { "1920 x 1080" });
+        ui.resolutionDropdown = CreateLabeledDropdown("ResolutionRow", colRight.transform, fredoka, nunito, btnSprite, checkSprite, "Resolution", new Vector2(0f, 88f), new List<string> { "Auto (Fit Screen)" });
         ui.fpsLimitDropdown = CreateLabeledDropdown("FPSLimitRow", colRight.transform, fredoka, nunito, btnSprite, checkSprite, "FPS Limit", new Vector2(0f, 34f), new List<string> { "30 FPS", "60 FPS", "120 FPS", "Unlimited" });
         ui.fullscreenToggle = CreateLabeledToggle("FullscreenRow", colRight.transform, nunito, btnSprite, checkSprite, "Fullscreen Mode", new Vector2(0f, -20f), true);
         ui.vsyncToggle = CreateLabeledToggle("VSyncRow", colRight.transform, nunito, btnSprite, checkSprite, "VSync", new Vector2(0f, -66f), true);
