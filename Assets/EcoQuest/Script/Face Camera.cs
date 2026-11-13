@@ -10,6 +10,8 @@ public class FaceCamera : MonoBehaviour
     [Tooltip("Adjust Y to make it float higher or lower over the head")]
     public Vector3 offset = new Vector3(0f, 2.3f, 0f);
 
+    private Camera cachedCamera;
+
     void LateUpdate()
     {
         // 1. If we haven't assigned the NPC yet, do nothing to prevent errors
@@ -19,9 +21,15 @@ public class FaceCamera : MonoBehaviour
         transform.position = targetNPC.position + offset;
 
         // 3. Force the canvas to perfectly match the camera's rotation (billboarding)
-        if (Camera.main != null)
+        Camera cam = cachedCamera;
+        if (cam == null || !cam.isActiveAndEnabled)
         {
-            transform.rotation = Camera.main.transform.rotation;
+            cam = Camera.main;
+            cachedCamera = cam;
+        }
+        if (cam != null)
+        {
+            transform.rotation = cam.transform.rotation;
         }
     }
 }

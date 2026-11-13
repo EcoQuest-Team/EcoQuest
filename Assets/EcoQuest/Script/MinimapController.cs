@@ -118,6 +118,11 @@ public class MinimapController : MonoBehaviour
     private bool isRenderingMinimapCam = false;
     private float savedLodBias = 1f;
     private int lastZoomButtonClickFrame = -1;
+    private bool isMinimapViewActive = false;
+    private bool forceNextMinimapRender = true;
+    private int framesSinceMinimapRender = 0;
+    private Vector3 lastMinimapRenderPos;
+    private float lastMinimapRenderYaw = float.NaN;
 
     // Saved cursor & player control state prior to opening full map
     private CursorLockMode savedCursorLockMode = CursorLockMode.Locked;
@@ -146,6 +151,10 @@ public class MinimapController : MonoBehaviour
     private static readonly List<MinimapIcon> registeredIcons = new List<MinimapIcon>();
     private readonly Dictionary<MinimapIcon, RectTransform> iconUIRects = new Dictionary<MinimapIcon, RectTransform>();
     private readonly Dictionary<MinimapIcon, Image> iconUIImages = new Dictionary<MinimapIcon, Image>();
+    private readonly List<VisibleIconInfo> visibleIcons = new List<VisibleIconInfo>(32);
+    private NPCInteraction[] cachedNpcInteractions;
+    private TutorialManager cachedTutorialManager;
+    private int cachedSceneHandle = int.MinValue;
 
     public bool IsFullMapOpen => isFullMapOpen;
     public bool HasOpenedMapOnce => hasOpenedMapOnce;
@@ -273,16 +282,17 @@ public class MinimapController : MonoBehaviour
             minimapCam.orthographicSize = minimapOrthoSize;
             minimapCam.clearFlags = CameraClearFlags.SolidColor;
             minimapCam.backgroundColor = new Color(0.18f, 0.28f, 0.18f, 1f);
-            minimapCam.allowMSAA = true;
+            minimapCam.allowMSAA = false;
+            minimapCam.useOcclusionCulling = false;
+            minimapCam.farClipPlane = Mathf.Max(250f, cameraHeight + 150f);
             minimapCam.cullingMask = (1 << 0) | (1 << 4) | (1 << 6); // Default, Water, MinimapOnly
 
             uac = minimapCam.GetComponent<UniversalAdditionalCameraData>();
-            if (uac != null)
-            {
-                uac.renderPostProcessing = false;
-                uac.volumeLayerMask = 0; // Nothing
-                uac.renderShadows = true;
-            }
+            ConfigureMapCameraData(uac);
+
+            minimapCam.enabled = false;
+            isMinimapViewActive = true;
+            forceNextMinimapRender = true;
 
             minimapRenderTexture = minimapCam.targetTexture;
             if (minimapRenderTexture != null)
@@ -341,7 +351,8 @@ public class MinimapController : MonoBehaviour
             fullMapCam.orthographic = true;
             fullMapCam.orthographicSize = currentOrthoSize > 0.001f ? currentOrthoSize : autoFitOrthoSize;
             fullMapCam.nearClipPlane = 0.1f;
-            fullMapCam.farClipPlane = 1000f;
+            fullMapCam.farClipPlane = Mathf.Max(500f, fullMapCameraHeight + 150f);
+            fullMapCam.allowMSAA = false;
             fullMapCam.useOcclusionCulling = false;
             fullMapCam.layerCullDistances = new float[32];
             fullMapCam.clearFlags = CameraClearFlags.SolidColor;
@@ -359,15 +370,22 @@ public class MinimapController : MonoBehaviour
             fullMapCam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             fullMapCam.transform.position = new Vector3(currentCamPos.x, fullMapCameraHeight, currentCamPos.z);
 
-            if (fullMapUac != null)
-            {
-                fullMapUac.renderPostProcessing = false;
-                fullMapUac.volumeLayerMask = 0;
-                fullMapUac.renderShadows = false;
-            }
+            ConfigureMapCameraData(fullMapUac);
 
             fullMapCam.enabled = false;
         }
+    }
+
+    private static void ConfigureMapCameraData(UniversalAdditionalCameraData camData)
+    {
+        if (camData == null) return;
+        camData.SetRenderer(1);
+        camData.renderPostProcessing = false;
+        camData.volumeLayerMask = 0; // Nothing
+        camData.renderShadows = false;
+        camData.antialiasing = AntialiasingMode.None;
+        camData.requiresColorOption = CameraOverrideOption.Off;
+        camData.requiresDepthOption = CameraOverrideOption.Off;
     }
 
 
@@ -637,9 +655,9 @@ public class MinimapController : MonoBehaviour
     private void CreateFullMapRenderTexture()
     {
         if (fullMapRenderTexture != null) return;
-        fullMapRenderTexture = new RenderTexture(2048, 2048, 24, RenderTextureFormat.ARGB32);
+        fullMapRenderTexture = new RenderTexture(1024, 1024, 16, RenderTextureFormat.ARGB32);
         fullMapRenderTexture.name = "FullMapRuntimeRT";
-        fullMapRenderTexture.antiAliasing = 4;
+        fullMapRenderTexture.antiAliasing = 1;
         fullMapRenderTexture.filterMode = FilterMode.Bilinear;
         fullMapRenderTexture.wrapMode = TextureWrapMode.Clamp;
         fullMapRenderTexture.useMipMap = false;
@@ -743,15 +761,24 @@ public class MinimapController : MonoBehaviour
             }
         }
 
-        var npcs = FindObjectsByType<NPCInteraction>(FindObjectsSortMode.None);
-        for (int i = 0; i < npcs.Length; i++)
+        int activeSceneHandle = UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle;
+        if (cachedSceneHandle != activeSceneHandle)
         {
-            if (npcs[i] != null && npcs[i].IsTalking)
-                return false;
+            cachedSceneHandle = activeSceneHandle;
+            cachedNpcInteractions = FindObjectsByType<NPCInteraction>(FindObjectsSortMode.None);
+            cachedTutorialManager = FindFirstObjectByType<TutorialManager>();
         }
 
-        var tm = FindFirstObjectByType<TutorialManager>();
-        if (tm != null && tm.tutorialOverlay != null && tm.tutorialOverlay.activeInHierarchy)
+        if (cachedNpcInteractions != null)
+        {
+            for (int i = 0; i < cachedNpcInteractions.Length; i++)
+            {
+                if (cachedNpcInteractions[i] != null && cachedNpcInteractions[i].IsTalking)
+                    return false;
+            }
+        }
+
+        if (cachedTutorialManager != null && cachedTutorialManager.tutorialOverlay != null && cachedTutorialManager.tutorialOverlay.activeInHierarchy)
             return false;
 
         if (SequentialWASDTutorial.Instance != null && !SequentialWASDTutorial.Instance.IsCompleted && !IsMapTutorialUnlocked)
@@ -1066,6 +1093,7 @@ public class MinimapController : MonoBehaviour
             fullMapCam.enabled = true;
             fullMapCam.Render(); // Render at least one frame immediately to avoid black flash
         }
+        isMinimapViewActive = false;
         if (minimapCam != null)
         {
             minimapCam.enabled = false;
@@ -1216,9 +1244,11 @@ public class MinimapController : MonoBehaviour
             fullMapCam.enabled = false;
         }
         QualitySettings.lodBias = savedLodBias;
+        isMinimapViewActive = true;
+        forceNextMinimapRender = true;
         if (minimapCam != null)
         {
-            minimapCam.enabled = true;
+            minimapCam.enabled = false;
             minimapCam.orthographicSize = minimapOrthoSize;
             if (minimapRenderTexture != null)
             {
@@ -1259,12 +1289,27 @@ public class MinimapController : MonoBehaviour
 
         float easedT = SmoothEase(transitionProgress);
 
-        // 1. Update Minimap Camera (tighter zoom following player)
-        if (minimapCam != null && minimapCam.enabled)
+        // 1. Update Minimap Camera (tighter zoom following player) on cadence
+        if (minimapCam != null && isMinimapViewActive)
         {
-            minimapCam.transform.position = new Vector3(player.position.x, cameraHeight, player.position.z);
-            minimapCam.transform.rotation = Quaternion.Euler(90f, player.eulerAngles.y, 0f);
+            Vector3 playerPos = player.position;
+            float playerYaw = player.eulerAngles.y;
+            minimapCam.transform.position = new Vector3(playerPos.x, cameraHeight, playerPos.z);
+            minimapCam.transform.rotation = Quaternion.Euler(90f, playerYaw, 0f);
             minimapCam.orthographicSize = minimapOrthoSize;
+
+            framesSinceMinimapRender++;
+            bool movedOrTurned = (playerPos - lastMinimapRenderPos).sqrMagnitude > 0.0025f
+                || Mathf.Abs(Mathf.DeltaAngle(lastMinimapRenderYaw, playerYaw)) > 0.5f;
+            int renderInterval = movedOrTurned ? 2 : 6;
+            if (forceNextMinimapRender || framesSinceMinimapRender >= renderInterval)
+            {
+                minimapCam.Render();
+                framesSinceMinimapRender = 0;
+                forceNextMinimapRender = false;
+                lastMinimapRenderPos = playerPos;
+                lastMinimapRenderYaw = playerYaw;
+            }
         }
 
         // 2. Update Full Map Camera (ONE smoothing path for targetCamPos and targetOrthoSize)
@@ -1357,7 +1402,7 @@ public class MinimapController : MonoBehaviour
         float currentIconSize = Mathf.Lerp(minimapIconSize, fullMapIconSize, easedT);
         Vector2 containerSize = mapIconsContainer.rect.size;
 
-        List<VisibleIconInfo> visibleIcons = new List<VisibleIconInfo>();
+        visibleIcons.Clear();
         RectTransform playerRt = null;
         RectTransform npcRt = null;
 

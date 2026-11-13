@@ -30,17 +30,15 @@ public class LitterbugQuestManager : MonoBehaviour
 
     public static bool IsDialogueOpen { get; private set; }
     private static LitterbugQuestManager instance;
+    private static int instanceEpoch;
     public static LitterbugQuestManager Instance
     {
-        get
+        get => SceneSingletonLookup.GetOrFind(ref instance, ref instanceEpoch);
+        private set
         {
-            if (instance == null)
-            {
-                instance = FindFirstObjectByType<LitterbugQuestManager>(FindObjectsInactive.Include);
-            }
-            return instance;
+            instance = value;
+            if (value == null) instanceEpoch = 0;
         }
-        private set => instance = value;
     }
 
     public static void ResetStaticState()
@@ -762,19 +760,22 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         if (giverMarkerRoot == null) return;
 
+        // Hide marker during dialogue, blocking UI, cooldown, when not available/ready, or within InteractRadius + 1.0m
+        if (IsDialogueOpen
+            || (questState != LitterbugQuestState.Available && questState != LitterbugQuestState.ReadyToTurnIn)
+            || (questState == LitterbugQuestState.Available && lastGuardianCooldownActive)
+            || CursorState.IsAnyBlockingUIOpen())
+        {
+            if (giverMarkerRoot.gameObject.activeSelf)
+                giverMarkerRoot.gameObject.SetActive(false);
+            return;
+        }
+
         float distToPlayer = (playerTransform != null && questGiverTransform != null)
             ? Vector3.Distance(questGiverTransform.position, playerTransform.position)
             : 999f;
 
-        // Hide marker during dialogue, blocking UI, cooldown, when not available/ready, or within InteractRadius + 1.0m
-        bool onCooldown = questState == LitterbugQuestState.Available && IsOnGuardianCooldown(out _);
-        bool shouldHide = IsDialogueOpen
-            || CursorState.IsAnyBlockingUIOpen()
-            || onCooldown
-            || (questState != LitterbugQuestState.Available && questState != LitterbugQuestState.ReadyToTurnIn)
-            || (distToPlayer <= (questGiverInteractRadius + 1.0f));
-
-        if (shouldHide)
+        if (distToPlayer <= (questGiverInteractRadius + 1.0f))
         {
             if (giverMarkerRoot.gameObject.activeSelf)
                 giverMarkerRoot.gameObject.SetActive(false);

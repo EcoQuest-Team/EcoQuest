@@ -34,6 +34,29 @@ namespace EcoQuest.Inventory
         private Coroutine popRoutine;
         private bool isHovered = false;
         private bool isPressed = false;
+        private bool isAllowedScene = false;
+
+        private void OnEnable()
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+            RefreshSceneAllowance();
+        }
+
+        private void OnDisable()
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            RefreshSceneAllowance();
+        }
+
+        private void RefreshSceneAllowance()
+        {
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            isAllowedScene = !sceneName.Contains("MainMenu") && UIOrchestrator.IsCityScene();
+        }
 
         public void Initialize(InventoryController ctrl, InventoryService srv)
         {
@@ -71,11 +94,14 @@ namespace EcoQuest.Inventory
             if (canvasGroup == null) return;
 
             // Hide in Main Menu or outside City Scene (Inventory is World 2 / City only)
-            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("MainMenu") || !UIOrchestrator.IsCityScene())
+            if (!isAllowedScene)
             {
-                canvasGroup.alpha = 0f;
-                canvasGroup.interactable = false;
-                canvasGroup.blocksRaycasts = false;
+                if (canvasGroup.alpha > 0f || canvasGroup.interactable || canvasGroup.blocksRaycasts)
+                {
+                    canvasGroup.alpha = 0f;
+                    canvasGroup.interactable = false;
+                    canvasGroup.blocksRaycasts = false;
+                }
                 return;
             }
 

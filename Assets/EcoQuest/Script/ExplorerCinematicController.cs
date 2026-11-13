@@ -89,9 +89,11 @@ public class ExplorerCinematicController : MonoBehaviour
         }
     }
 
-    public void ResetLetterboxImmediate()
+    public void ResetLetterboxImmediate() => ResetLetterboxInternal(true);
+
+    private void ResetLetterboxInternal(bool allowSearch)
     {
-        FindLetterboxBars();
+        if (allowSearch && gameObject.scene.isLoaded) FindLetterboxBars();
         if (topLetterboxBar != null) topLetterboxBar.anchoredPosition = new Vector2(0f, 86f);
         if (bottomLetterboxBar != null) bottomLetterboxBar.anchoredPosition = new Vector2(0f, -86f);
     }
@@ -211,7 +213,7 @@ public class ExplorerCinematicController : MonoBehaviour
         }
         else
         {
-            ResetLetterboxImmediate();
+            ResetLetterboxInternal(false);
         }
 
         if (facePlayerRoutine != null)
@@ -238,7 +240,7 @@ public class ExplorerCinematicController : MonoBehaviour
             StopCoroutine(letterboxRoutine);
             letterboxRoutine = null;
         }
-        ResetLetterboxImmediate();
+        ResetLetterboxInternal(false);
     }
 
     public void PlayWave()

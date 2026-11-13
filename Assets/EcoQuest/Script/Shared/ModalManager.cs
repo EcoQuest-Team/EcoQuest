@@ -15,17 +15,8 @@ using UnityEngine.Rendering;
 public class ModalManager : MonoBehaviour
 {
     private static ModalManager instance;
-    public static ModalManager Instance
-    {
-        get
-        {
-            if (instance == null)
-            {
-                instance = FindFirstObjectByType<ModalManager>(FindObjectsInactive.Include);
-            }
-            return instance;
-        }
-    }
+    private static int instanceEpoch;
+    public static ModalManager Instance => SceneSingletonLookup.GetOrFind(ref instance, ref instanceEpoch);
 
     public enum ModalType
     {

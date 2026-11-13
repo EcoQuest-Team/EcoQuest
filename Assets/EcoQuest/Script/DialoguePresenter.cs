@@ -15,17 +15,15 @@ using TMPro;
 public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
 {
     private static DialoguePresenter instance;
+    private static int instanceEpoch;
     public static DialoguePresenter Instance
     {
-        get
+        get => SceneSingletonLookup.GetOrFind(ref instance, ref instanceEpoch);
+        private set
         {
-            if (instance == null)
-            {
-                instance = FindFirstObjectByType<DialoguePresenter>(FindObjectsInactive.Include);
-            }
-            return instance;
+            instance = value;
+            if (value == null) instanceEpoch = 0;
         }
-        private set => instance = value;
     }
 
     [Header("UI Containers & Background")]

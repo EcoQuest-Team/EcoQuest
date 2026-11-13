@@ -10,17 +10,15 @@ using UnityEngine;
 public class IntroSequenceController : MonoBehaviour
 {
     private static IntroSequenceController instance;
+    private static int instanceEpoch;
     public static IntroSequenceController Instance
     {
-        get
+        get => SceneSingletonLookup.GetOrFind(ref instance, ref instanceEpoch);
+        private set
         {
-            if (instance == null)
-            {
-                instance = FindFirstObjectByType<IntroSequenceController>(FindObjectsInactive.Include);
-            }
-            return instance;
+            instance = value;
+            if (value == null) instanceEpoch = 0;
         }
-        private set => instance = value;
     }
 
     public enum IntroState

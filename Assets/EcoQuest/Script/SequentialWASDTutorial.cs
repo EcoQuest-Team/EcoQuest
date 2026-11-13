@@ -14,14 +14,15 @@ using TMPro;
 public class SequentialWASDTutorial : MonoBehaviour
 {
     private static SequentialWASDTutorial _instance;
+    private static int _instanceEpoch;
     public static SequentialWASDTutorial Instance
     {
-        get
+        get => SceneSingletonLookup.GetOrFind(ref _instance, ref _instanceEpoch);
+        private set
         {
-            if (_instance == null) _instance = Object.FindFirstObjectByType<SequentialWASDTutorial>(FindObjectsInactive.Include);
-            return _instance;
+            _instance = value;
+            if (value == null) _instanceEpoch = 0;
         }
-        private set => _instance = value;
     }
 
     public enum TutorialState { None, Move, Jump, Sprint, FreeMouse, All }

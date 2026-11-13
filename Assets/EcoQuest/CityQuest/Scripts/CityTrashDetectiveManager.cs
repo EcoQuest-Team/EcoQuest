@@ -29,14 +29,15 @@ namespace EcoQuest.CityQuest
     public class CityTrashDetectiveManager : MonoBehaviour
     {
         private static CityTrashDetectiveManager _instance;
+        private static int _instanceEpoch;
         public static CityTrashDetectiveManager Instance
         {
-            get
+            get => SceneSingletonLookup.GetOrFind(ref _instance, ref _instanceEpoch, includeInactive: false);
+            private set
             {
-                if (_instance == null) _instance = FindFirstObjectByType<CityTrashDetectiveManager>();
-                return _instance;
+                _instance = value;
+                if (value == null) _instanceEpoch = 0;
             }
-            private set => _instance = value;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

@@ -26,14 +26,8 @@ namespace EcoQuest.Inventory
     public class UI_EcoShop : MonoBehaviour
     {
         private static UI_EcoShop instance;
-        public static UI_EcoShop Instance
-        {
-            get
-            {
-                if (instance == null) instance = FindFirstObjectByType<UI_EcoShop>(FindObjectsInactive.Include);
-                return instance;
-            }
-        }
+        private static int instanceEpoch;
+        public static UI_EcoShop Instance => SceneSingletonLookup.GetOrFind(ref instance, ref instanceEpoch);
 
         [Header("Backdrop & Panel")]
         [SerializeField] private CanvasGroup backdropGroup;

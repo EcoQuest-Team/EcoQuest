@@ -61,6 +61,10 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     private Coroutine _needsToastRoutine;
     private int _pendingHungerThreshold = -1;
     private bool _hasPendingHungerWarning;
+    private int _lastDisplayedHungerInt = -1;
+    private int _lastDisplayedStaminaInt = -1;
+    private int _lastDisplayedSpeedBuffSec = -1;
+    private int _lastDisplayedStaminaBuffSec = -1;
 
     private UIOrchestrator _cachedOrchestrator;
     private ModalManager _cachedModalManager;
@@ -77,6 +81,10 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
     private void OnEnable()
     {
+        _lastDisplayedHungerInt = -1;
+        _lastDisplayedStaminaInt = -1;
+        _lastDisplayedSpeedBuffSec = -1;
+        _lastDisplayedStaminaBuffSec = -1;
         PlayerSurvivalStats.OnHungerRumbleWarning -= HandleHungerRumbleWarning;
         PlayerSurvivalStats.OnHungerRumbleWarning += HandleHungerRumbleWarning;
     }
@@ -299,7 +307,12 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
         if (_hungerText != null)
         {
-            _hungerText.text = $"{_hungerTextPrefix}{Mathf.CeilToInt(stats.CurrentHunger)}%";
+            int hungerInt = Mathf.CeilToInt(stats.CurrentHunger);
+            if (hungerInt != _lastDisplayedHungerInt)
+            {
+                _lastDisplayedHungerInt = hungerInt;
+                _hungerText.text = $"{_hungerTextPrefix}{hungerInt}%";
+            }
         }
 
         // Pulse hunger badge if low (10% or below)
@@ -330,7 +343,12 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
         if (_staminaText != null)
         {
-            _staminaText.text = $"{_staminaTextPrefix}{Mathf.CeilToInt(stats.CurrentStamina)}%";
+            int staminaInt = Mathf.CeilToInt(stats.CurrentStamina);
+            if (staminaInt != _lastDisplayedStaminaInt)
+            {
+                _lastDisplayedStaminaInt = staminaInt;
+                _staminaText.text = $"{_staminaTextPrefix}{staminaInt}%";
+            }
         }
 
         // Pulse stamina badge if exhausted
@@ -371,14 +389,22 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         {
             if (hasSpeed)
             {
-                if (!_speedBuffPillGo.activeSelf) _speedBuffPillGo.SetActive(true);
+                if (!_speedBuffPillGo.activeSelf)
+                {
+                    _speedBuffPillGo.SetActive(true);
+                    _lastDisplayedSpeedBuffSec = -1;
+                }
                 int sec = Mathf.CeilToInt(stats.SpeedBuffRemaining);
-                if (_speedBuffTimerText != null)
+                if (_speedBuffTimerText != null && sec != _lastDisplayedSpeedBuffSec)
+                {
+                    _lastDisplayedSpeedBuffSec = sec;
                     _speedBuffTimerText.text = $"{sec / 60}:{sec % 60:00}";
+                }
             }
             else if (_speedBuffPillGo.activeSelf)
             {
                 _speedBuffPillGo.SetActive(false);
+                _lastDisplayedSpeedBuffSec = -1;
             }
         }
 
@@ -387,14 +413,22 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         {
             if (hasStamina)
             {
-                if (!_staminaBuffPillGo.activeSelf) _staminaBuffPillGo.SetActive(true);
+                if (!_staminaBuffPillGo.activeSelf)
+                {
+                    _staminaBuffPillGo.SetActive(true);
+                    _lastDisplayedStaminaBuffSec = -1;
+                }
                 int sec = Mathf.CeilToInt(stats.StaminaBuffRemaining);
-                if (_staminaBuffTimerText != null)
+                if (_staminaBuffTimerText != null && sec != _lastDisplayedStaminaBuffSec)
+                {
+                    _lastDisplayedStaminaBuffSec = sec;
                     _staminaBuffTimerText.text = $"{sec / 60}:{sec % 60:00}";
+                }
             }
             else if (_staminaBuffPillGo.activeSelf)
             {
                 _staminaBuffPillGo.SetActive(false);
+                _lastDisplayedStaminaBuffSec = -1;
             }
         }
     }

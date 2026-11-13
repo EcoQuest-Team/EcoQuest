@@ -7,28 +7,32 @@ using TMPro;
 public class SceneTransition : MonoBehaviour
 {
     private static SceneTransition _instance;
+    private static int _instanceEpoch;
     public static SceneTransition Instance
     {
         get
         {
-            if (_instance == null)
-            {
-                _instance = FindFirstObjectByType<SceneTransition>();
+            if (_instance != null) return _instance;
+            int prevEpoch = _instanceEpoch;
+            SceneSingletonLookup.GetOrFind(ref _instance, ref _instanceEpoch, includeInactive: false);
 #if UNITY_EDITOR
-                if (_instance == null)
+            if (_instance == null && _instanceEpoch != prevEpoch)
+            {
+                var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/EcoQuest/Prefabs/SceneTransition.prefab");
+                if (prefab != null)
                 {
-                    var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/EcoQuest/Prefabs/SceneTransition.prefab");
-                    if (prefab != null)
-                    {
-                        var go = Instantiate(prefab);
-                        _instance = go.GetComponent<SceneTransition>();
-                    }
+                    var go = Instantiate(prefab);
+                    _instance = go.GetComponent<SceneTransition>();
                 }
-#endif
             }
+#endif
             return _instance;
         }
-        private set => _instance = value;
+        private set
+        {
+            _instance = value;
+            if (value == null) _instanceEpoch = 0;
+        }
     }
 
     [Header("Timing & Easing (Unscaled Time)")]

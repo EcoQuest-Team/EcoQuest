@@ -102,6 +102,29 @@ namespace EcoQuest.CityTraffic
         private static AudioClip _synthesizedBeepClip;
         private static AudioClip _sharedEngineHumClip;
         private static Material _sharedExhaustParticleMat;
+        private static int _trafficSensorMask = -1;
+        private static readonly Dictionary<int, (int frame, bool occupied)> CrosswalkCache = new Dictionary<int, (int frame, bool occupied)>();
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticTrafficCaches()
+        {
+            _trafficSensorMask = -1;
+            CrosswalkCache.Clear();
+        }
+
+        private static int GetTrafficSensorLayerMask()
+        {
+            if (_trafficSensorMask == -1)
+            {
+                int mask = 1 << 0; // Default
+                int playerLayer = LayerMask.NameToLayer("Player");
+                int trafficLayer = LayerMask.NameToLayer("Traffic");
+                if (playerLayer >= 0) mask |= (1 << playerLayer);
+                if (trafficLayer >= 0) mask |= (1 << trafficLayer);
+                _trafficSensorMask = mask;
+            }
+            return _trafficSensorMask;
+        }
 
         public int CurrentEdgeId => _currentEdgeId;
         public int NextEdgeId => _nextEdgeId;
@@ -237,7 +260,7 @@ namespace EcoQuest.CityTraffic
             _rb.isKinematic = true;
             _rb.useGravity = false;
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
-            _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            _rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
 
             // Find wheels (supports 2, 4, or 6 wheels)
             if (wheelFL == null || wheelFR == null)
@@ -904,11 +927,14 @@ namespace EcoQuest.CityTraffic
             float signedTurnAngle = Vector3.SignedAngle(currentRot * Vector3.forward, moveDir, Vector3.up);
             Quaternion smoothedRot = Quaternion.RotateTowards(currentRot, targetRot, 140f * dt);
 
-            transform.SetPositionAndRotation(targetPos, smoothedRot);
             if (_rb != null && Application.isPlaying)
             {
                 _rb.MovePosition(targetPos);
                 _rb.MoveRotation(smoothedRot);
+            }
+            else
+            {
+                transform.SetPositionAndRotation(targetPos, smoothedRot);
             }
 
             AnimateWheels(dt, simulationBand == TrafficSimulationBand.Near ? signedTurnAngle : 0f);
@@ -1041,8 +1067,16 @@ namespace EcoQuest.CityTraffic
 
             Vector3 nextPos = new Vector3(lane.laneX, 0.01f, nextZ);
             Quaternion rot = Quaternion.Euler(0f, dirZ > 0f ? 0f : 180f, 0f);
-            transform.SetPositionAndRotation(nextPos, rot);
-            if (_rb != null && Application.isPlaying)
+            if (reachedEnd || _rb == null || !Application.isPlaying)
+            {
+                transform.SetPositionAndRotation(nextPos, rot);
+                if (_rb != null)
+                {
+                    _rb.position = nextPos;
+                    _rb.rotation = rot;
+                }
+            }
+            else
             {
                 _rb.MovePosition(nextPos);
                 _rb.MoveRotation(rot);
@@ -1374,11 +1408,12 @@ namespace EcoQuest.CityTraffic
             }
 
             // 3. Non-alloc Physics SphereCast ahead for NavMeshAgents / Player / Traffic colliders
-            int hitCount = Physics.SphereCastNonAlloc(frontBumper, sensorRadius, fwd, SharedHitBuffer, sensorLength + minPedestrianGap, ~0, QueryTriggerInteraction.Ignore);
+            int sensorMask = GetTrafficSensorLayerMask();
+            int hitCount = Physics.SphereCastNonAlloc(frontBumper, sensorRadius, fwd, SharedHitBuffer, sensorLength + minPedestrianGap, sensorMask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < hitCount; i++)
             {
                 Collider col = SharedHitBuffer[i].collider;
-                if (col == null || col == _boxCollider || col.transform.IsChildOf(transform)) continue;
+                if (col == null || col == _boxCollider || col.gameObject.isStatic || col.transform.IsChildOf(transform)) continue;
 
                 float hitDist = SharedHitBuffer[i].distance;
                 if (col.GetComponentInParent<CharacterController>() != null)
@@ -1420,7 +1455,7 @@ namespace EcoQuest.CityTraffic
                 if (edge.approachingCrosswalkIndex >= 0 && edge.approachingCrosswalkIndex < _graph.crosswalkZones.Count)
                 {
                     TrafficCrosswalkZone zone = _graph.crosswalkZones[edge.approachingCrosswalkIndex];
-                    bool pedInZone = IsPedestrianInCrosswalkZone(zone, playerTr);
+                    bool pedInZone = IsPedestrianInCrosswalkZone(edge.approachingCrosswalkIndex, zone, playerTr);
                     if (pedInZone)
                     {
                         _crosswalkOccupiedTimer = crosswalkClearWaitSeconds;
@@ -1444,8 +1479,15 @@ namespace EcoQuest.CityTraffic
             }
         }
 
-        private static bool IsPedestrianInCrosswalkZone(TrafficCrosswalkZone zone, Transform playerTr)
+        private static bool IsPedestrianInCrosswalkZone(int crosswalkIndex, TrafficCrosswalkZone zone, Transform playerTr)
         {
+            int frame = Time.frameCount;
+            if (CrosswalkCache.TryGetValue(crosswalkIndex, out var cached) && frame >= cached.frame && (frame - cached.frame) < 3)
+            {
+                return cached.occupied;
+            }
+
+            bool occupied = false;
             // Check road width (+/- 3.05m from centerline) and crossing length so stationary sidewalk NPCs don't trigger permanent stops
             Vector3 roadCheckHalf = new Vector3(Mathf.Min(zone.halfExtents.x, 3.05f), 0.5f, zone.halfExtents.z + 0.35f);
 
@@ -1454,24 +1496,30 @@ namespace EcoQuest.CityTraffic
                 Vector3 localP = Quaternion.Inverse(zone.rotation) * (playerTr.position - zone.center);
                 if (Mathf.Abs(localP.x) <= roadCheckHalf.x && Mathf.Abs(localP.z) <= roadCheckHalf.z)
                 {
-                    return true;
+                    occupied = true;
                 }
             }
 
-            int count = Physics.OverlapBoxNonAlloc(zone.center, roadCheckHalf, SharedOverlapBuffer, zone.rotation, ~0, QueryTriggerInteraction.Ignore);
-            for (int i = 0; i < count; i++)
+            if (!occupied)
             {
-                Collider c = SharedOverlapBuffer[i];
-                if (c == null) continue;
-                if (c.GetComponentInParent<CharacterController>() != null || c.GetComponentInParent<NavMeshAgent>() != null)
+                int count = Physics.OverlapBoxNonAlloc(zone.center, roadCheckHalf, SharedOverlapBuffer, zone.rotation, GetTrafficSensorLayerMask(), QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < count; i++)
                 {
-                    if (c.transform.position.y < 0.15f)
+                    Collider c = SharedOverlapBuffer[i];
+                    if (c == null || c.gameObject.isStatic) continue;
+                    if (c.GetComponentInParent<CharacterController>() != null || c.GetComponentInParent<NavMeshAgent>() != null)
                     {
-                        return true;
+                        if (c.transform.position.y < 0.15f)
+                        {
+                            occupied = true;
+                            break;
+                        }
                     }
                 }
             }
-            return false;
+
+            CrosswalkCache[crosswalkIndex] = (frame, occupied);
+            return occupied;
         }
 
         private void ChooseNextEdge(bool forceAlternative)
