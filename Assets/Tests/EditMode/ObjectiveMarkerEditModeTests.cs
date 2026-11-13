@@ -23,6 +23,7 @@ namespace EcoQuest.Tests.EditMode
         private readonly List<(MonoBehaviour comp, bool wasEnabled)> disabledServices = new List<(MonoBehaviour, bool)>();
 
         private Camera testCamera;
+        private RenderTexture testRenderTexture;
         private Component markerService;
         private bool initialPaused;
         private bool initialQuizOpen;
@@ -74,6 +75,12 @@ namespace EcoQuest.Tests.EditMode
             testCamera.fieldOfView = 60f;
             testCamera.nearClipPlane = 0.1f;
             testCamera.farClipPlane = 500f;
+            if (testCamera.pixelWidth < 2 || testCamera.pixelHeight < 2)
+            {
+                testRenderTexture = new RenderTexture(1920, 1080, 16);
+                testRenderTexture.Create();
+                testCamera.targetTexture = testRenderTexture;
+            }
             createdObjects.Add(camGo);
 
             var serviceGo = new GameObject("TestObjectiveMarkerService");
@@ -83,6 +90,8 @@ namespace EcoQuest.Tests.EditMode
             InvokeLifecycle(markerService, "OnEnable");
             InvokeLifecycle(markerService, "Start");
             InvokeInstance(markerService, "CacheSceneReferences");
+            // Isolate from any scene Player (e.g. Forest Scene left open by earlier EditMode tests).
+            markerServiceType.GetField("playerTransform", InstanceFlags)?.SetValue(markerService, camGo.transform);
             Physics.SyncTransforms();
         }
 
@@ -106,6 +115,13 @@ namespace EcoQuest.Tests.EditMode
                 {
                     UnityEngine.Object.DestroyImmediate(createdObjects[i]);
                 }
+            }
+            if (testCamera != null) testCamera.targetTexture = null;
+            if (testRenderTexture != null)
+            {
+                testRenderTexture.Release();
+                UnityEngine.Object.DestroyImmediate(testRenderTexture);
+                testRenderTexture = null;
             }
             createdObjects.Clear();
 

@@ -83,7 +83,8 @@ public class SequentialWASDTutorial : MonoBehaviour
     private static bool HasPersistedTutorialCompletion()
     {
         return PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1 ||
-               PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 1;
+               PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 1 ||
+               PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
     }
 
     private void ApplyCompletedFlags(bool persistPref)
@@ -92,9 +93,10 @@ public class SequentialWASDTutorial : MonoBehaviour
         isCompleted = true;
         AllowedState = TutorialState.All;
         MinimapController.IsMapTutorialUnlocked = true;
-        if (persistPref && PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) != 1)
+        if (persistPref && (PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) != 1 || PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialStep, 0) < 6))
         {
             PlayerPrefs.SetInt(EcoQuestSaveKeys.SequentialWASD, 1);
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.SequentialStep, 6);
             PlayerPrefs.Save();
         }
     }
@@ -227,10 +229,22 @@ public class SequentialWASDTutorial : MonoBehaviour
         }
     }
 
+    private static void SaveCompletedStepCheckpoint(int completedStepIndex)
+    {
+        int prev = PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialStep, 0);
+        if (completedStepIndex > prev)
+        {
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.SequentialStep, completedStepIndex);
+            PlayerPrefs.Save();
+        }
+    }
+
     private IEnumerator RunTutorialSequence()
     {
-        // Short breath / title intro
-        if (titleGroup != null && titleGroup.gameObject.activeInHierarchy)
+        int resumeFromStep = Mathf.Clamp(PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialStep, 0), 0, 5);
+
+        // Short breath / title intro (skip extra intro card wait when resuming mid-tutorial)
+        if (resumeFromStep == 0 && titleGroup != null && titleGroup.gameObject.activeInHierarchy)
         {
             yield return StartCoroutine(FadeSingleTo(titleGroup, 1f, 0.3f));
             yield return new WaitForSecondsRealtime(titleHoldDuration);
@@ -239,7 +253,8 @@ public class SequentialWASDTutorial : MonoBehaviour
         }
         else
         {
-            yield return new WaitForSecondsRealtime(0.3f);
+            if (titleGroup != null) titleGroup.alpha = 0f;
+            yield return new WaitForSecondsRealtime(0.2f);
         }
 
         if (tipCardUI == null) tipCardUI = FindFirstObjectByType<ControlTipCardUI>(FindObjectsInactive.Include);
@@ -248,32 +263,52 @@ public class SequentialWASDTutorial : MonoBehaviour
         // -------------------------------------------------------------
         // STEP 1 OF 6: MOVE (W A S D)
         // -------------------------------------------------------------
-        yield return StartCoroutine(WaitForModals());
-        yield return StartCoroutine(RunMoveStep());
+        if (resumeFromStep < 1)
+        {
+            yield return StartCoroutine(WaitForModals());
+            yield return StartCoroutine(RunMoveStep());
+            SaveCompletedStepCheckpoint(1);
+        }
 
         // -------------------------------------------------------------
         // STEP 2 OF 6: JUMP (SPACE)
         // -------------------------------------------------------------
-        yield return StartCoroutine(WaitForModals());
-        yield return StartCoroutine(RunJumpStep());
+        if (resumeFromStep < 2)
+        {
+            yield return StartCoroutine(WaitForModals());
+            yield return StartCoroutine(RunJumpStep());
+            SaveCompletedStepCheckpoint(2);
+        }
 
         // -------------------------------------------------------------
         // STEP 3 OF 6: SPRINT (SHIFT)
         // -------------------------------------------------------------
-        yield return StartCoroutine(WaitForModals());
-        yield return StartCoroutine(RunSprintStep());
+        if (resumeFromStep < 3)
+        {
+            yield return StartCoroutine(WaitForModals());
+            yield return StartCoroutine(RunSprintStep());
+            SaveCompletedStepCheckpoint(3);
+        }
 
         // -------------------------------------------------------------
         // STEP 4 OF 6: FREE MOUSE (CTRL)
         // -------------------------------------------------------------
-        yield return StartCoroutine(WaitForModals());
-        yield return StartCoroutine(RunCtrlStep());
+        if (resumeFromStep < 4)
+        {
+            yield return StartCoroutine(WaitForModals());
+            yield return StartCoroutine(RunCtrlStep());
+            SaveCompletedStepCheckpoint(4);
+        }
 
         // -------------------------------------------------------------
         // STEP 5 OF 6: OPEN THE MAP (M / CLICK MINIMAP)
         // -------------------------------------------------------------
-        yield return StartCoroutine(WaitForModals());
-        yield return StartCoroutine(RunMapStep());
+        if (resumeFromStep < 5)
+        {
+            yield return StartCoroutine(WaitForModals());
+            yield return StartCoroutine(RunMapStep());
+            SaveCompletedStepCheckpoint(5);
+        }
 
         // -------------------------------------------------------------
         // MAP STEP COMPLETED -> UNLOCK NPC & OVERHEAD ARROW

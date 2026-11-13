@@ -97,6 +97,7 @@ public class QuestManager : MonoBehaviour
     private static float lastMistakeTime = 0f;
     private static bool isQuestComplete = false;
     private static int lastInitializedSceneHandle = -1;
+    private static bool restoredTrashItemsForScene = false;
     public static bool IsQuestComplete => isQuestComplete;
     public static bool IsRepeatQuest { get; set; } = false;
 
@@ -142,6 +143,7 @@ public class QuestManager : MonoBehaviour
             }
         }
         collectedTrash.Clear();
+        ClearForestQuestProgressPrefs();
         var allBins = FindObjectsByType<QuestManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var bin in allBins)
         {
@@ -181,6 +183,7 @@ public class QuestManager : MonoBehaviour
         if (gameObject.scene.IsValid() && gameObject.scene.handle != lastInitializedSceneHandle)
         {
             lastInitializedSceneHandle = gameObject.scene.handle;
+            restoredTrashItemsForScene = false;
             currentCounts.Clear();
             targets.Clear();
             progressBars.Clear();
@@ -200,6 +203,9 @@ public class QuestManager : MonoBehaviour
             else if (gName.Contains("non")) acceptedTag = "NonBiodegradable";
         }
 
+        bool shouldRestoreForest = ShouldPersistForestProgress();
+        int restoredCategoryCount = 0;
+
         if (!string.IsNullOrEmpty(acceptedTag))
         {
             if (!targets.ContainsKey(acceptedTag) || targets[acceptedTag] < totalItemsNeeded)
@@ -207,9 +213,18 @@ public class QuestManager : MonoBehaviour
                 targets[acceptedTag] = totalItemsNeeded;
             }
 
-            if (!currentCounts.ContainsKey(acceptedTag))
+            if (shouldRestoreForest)
             {
-                currentCounts[acceptedTag] = 0;
+                string countKey = EcoQuestSaveKeys.GetForestCountKey(acceptedTag);
+                if (!string.IsNullOrEmpty(countKey))
+                {
+                    restoredCategoryCount = Mathf.Clamp(PlayerPrefs.GetInt(countKey, 0), 0, targets[acceptedTag]);
+                }
+            }
+
+            if (!currentCounts.ContainsKey(acceptedTag) || restoredCategoryCount > currentCounts[acceptedTag])
+            {
+                currentCounts[acceptedTag] = restoredCategoryCount;
             }
 
             if (fillImage != null)
@@ -234,7 +249,117 @@ public class QuestManager : MonoBehaviour
         isQuestComplete = false;
         IsRepeatQuest = false;
         if (binVisualLayer == null) binVisualLayer = GetComponent<BinVisualTrashLayer>();
-        depositedInThisBinCount = 0;
+        depositedInThisBinCount = shouldRestoreForest ? restoredCategoryCount : 0;
+
+        if (shouldRestoreForest)
+        {
+            RestoreSavedCollectedTrashOnce();
+            if (binVisualLayer != null)
+            {
+                binVisualLayer.SetDepositCount(depositedInThisBinCount, animatePop: false);
+            }
+            QuestPanelToggleController.Instance?.RefreshProgressBars(true);
+        }
+    }
+
+    private bool ShouldPersistForestProgress()
+    {
+        if (!Application.isPlaying || IsRepeatQuest) return false;
+        if (!gameObject.scene.IsValid() || gameObject.scene.name.IndexOf("Forest", System.StringComparison.OrdinalIgnoreCase) < 0) return false;
+        bool questDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
+        bool questStarted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1 ||
+                            PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        return questStarted && !questDone;
+    }
+
+    private static void SaveForestQuestProgress(GameObject trashObject, string categoryTag, int newCount)
+    {
+        string countKey = EcoQuestSaveKeys.GetForestCountKey(categoryTag);
+        if (!string.IsNullOrEmpty(countKey))
+        {
+            PlayerPrefs.SetInt(countKey, Mathf.Max(0, newCount));
+        }
+
+        if (trashObject != null)
+        {
+            TrashItem ti = trashObject.GetComponent<TrashItem>();
+            string id = ti != null ? ti.GetOrComputePersistenceId() : trashObject.name;
+            if (!string.IsNullOrEmpty(id))
+            {
+                string existing = PlayerPrefs.GetString(EcoQuestSaveKeys.ForestCollectedTrash, string.Empty);
+                bool alreadyListed = false;
+                if (!string.IsNullOrEmpty(existing))
+                {
+                    var parts = existing.Split('|');
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        if (parts[i] == id) { alreadyListed = true; break; }
+                    }
+                }
+                if (!alreadyListed)
+                {
+                    string updated = string.IsNullOrEmpty(existing) ? id : (existing + "|" + id);
+                    PlayerPrefs.SetString(EcoQuestSaveKeys.ForestCollectedTrash, updated);
+                }
+            }
+        }
+
+        PlayerPrefs.Save();
+    }
+
+    private static void ClearForestQuestProgressPrefs()
+    {
+        string[] keys =
+        {
+            EcoQuestSaveKeys.ForestCollectedTrash,
+            EcoQuestSaveKeys.ForestCountBio,
+            EcoQuestSaveKeys.ForestCountNonBio,
+            EcoQuestSaveKeys.ForestCountRecyclable
+        };
+        bool changed = false;
+        for (int i = 0; i < keys.Length; i++)
+        {
+            if (PlayerPrefs.HasKey(keys[i]))
+            {
+                PlayerPrefs.DeleteKey(keys[i]);
+                changed = true;
+            }
+        }
+        if (changed) PlayerPrefs.Save();
+    }
+
+    private static void RestoreSavedCollectedTrashOnce()
+    {
+        if (restoredTrashItemsForScene) return;
+        restoredTrashItemsForScene = true;
+
+        string raw = PlayerPrefs.GetString(EcoQuestSaveKeys.ForestCollectedTrash, string.Empty);
+        if (string.IsNullOrEmpty(raw)) return;
+
+        var savedIds = new HashSet<string>(raw.Split('|'));
+        savedIds.Remove(string.Empty);
+        if (savedIds.Count == 0) return;
+
+        var allTrash = FindObjectsByType<TrashItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < allTrash.Length; i++)
+        {
+            TrashItem item = allTrash[i];
+            if (item == null) continue;
+            string id = item.GetOrComputePersistenceId();
+            if (!savedIds.Contains(id)) continue;
+
+            item.IsDeposited = true;
+            var drag = item.GetComponent<DragAndDrop>();
+            if (drag != null)
+            {
+                drag.SetState(DragAndDrop.ItemState.InBin, "restored saved deposit");
+            }
+            item.gameObject.SetActive(false);
+            if (!collectedTrash.Contains(item.gameObject))
+            {
+                collectedTrash.Add(item.gameObject);
+            }
+        }
     }
 
     public bool TryProcessTrashItem(TrashItem trash)
@@ -460,6 +585,11 @@ public class QuestManager : MonoBehaviour
                 countLabels[acceptedTag].text = $"{currentCounts[acceptedTag]}/{targets[acceptedTag]}";
             }
 
+            if (ShouldPersistForestProgress())
+            {
+                SaveForestQuestProgress(trashObject, acceptedTag, currentCounts[acceptedTag]);
+            }
+
             CheckForWin();
         }
     }
@@ -528,6 +658,7 @@ public class QuestManager : MonoBehaviour
         }
 
         isQuestComplete = true;
+        ClearForestQuestProgressPrefs();
         Debug.Log("Quest Complete!");
 
         if (AudioManager.Instance != null)
@@ -567,6 +698,7 @@ public class QuestManager : MonoBehaviour
     {
         mistakes = 0;
         isQuestComplete = false;
+        ClearForestQuestProgressPrefs();
 
         if (QuizManager.Instance != null)
         {

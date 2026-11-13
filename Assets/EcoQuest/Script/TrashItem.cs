@@ -68,6 +68,24 @@ public class TrashItem : MonoBehaviour
     private static Transform playerTransform;
 
     public bool IsDeposited { get; set; } = false;
+    public string PersistenceId { get; private set; }
+
+    public string GetOrComputePersistenceId()
+    {
+        if (!string.IsNullOrEmpty(PersistenceId)) return PersistenceId;
+
+        var parts = new System.Collections.Generic.List<string>(4);
+        Transform current = transform;
+        while (current != null)
+        {
+            parts.Add($"{current.name}#{current.GetSiblingIndex()}");
+            current = current.parent;
+        }
+        parts.Reverse();
+        PersistenceId = string.Join("/", parts);
+        return PersistenceId;
+    }
+
     private float depositCooldownUntil = 0f;
     public bool IsOnDepositCooldown => Time.time < depositCooldownUntil;
 
@@ -83,6 +101,7 @@ public class TrashItem : MonoBehaviour
 
     private void Awake()
     {
+        GetOrComputePersistenceId();
         if (!allTrashItems.Contains(this)) allTrashItems.Add(this);
         rb = GetComponent<Rigidbody>();
         dragAndDrop = GetComponent<DragAndDrop>();
@@ -194,6 +213,7 @@ public class TrashItem : MonoBehaviour
         if (drag != null)
         {
             drag.ForceRelease();
+            drag.SetState(DragAndDrop.ItemState.Idle, "ResetTrash");
             drag.RestoreOriginalState();
         }
 

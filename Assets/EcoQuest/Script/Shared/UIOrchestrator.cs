@@ -85,8 +85,9 @@ public class UIOrchestrator : MonoBehaviour
         else
         {
             bool tabTipDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+            bool questAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
             bool forestTrashDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
-            if ((tabTipDone && !forestTrashDone) || (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning))
+            if ((!forestTrashDone && (tabTipDone || questAccepted)) || (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning))
             {
                 return GamePhase.QuestActive;
             }
@@ -493,6 +494,7 @@ public class UIOrchestrator : MonoBehaviour
         }
 
         bool tabTipDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        bool questAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
         bool forestTrashDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
         if (tabTipDone && (!forestTrashDone || (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning)))
         {
@@ -503,6 +505,11 @@ public class UIOrchestrator : MonoBehaviour
         {
             currentFlowStep = FlowStep.FreePlay;
             currentPhase = GamePhase.FreePlay;
+        }
+        else if (questAccepted && !forestTrashDone)
+        {
+            currentFlowStep = FlowStep.TabTutorial;
+            currentPhase = GamePhase.QuestActive;
         }
         else if (NPCInteraction.IsAnyQuestActiveSignal && !NPCInteraction.IsAnyGuardianFlowRunning)
         {
@@ -1001,6 +1008,12 @@ public class UIOrchestrator : MonoBehaviour
 
     private IEnumerator QuestPanelSlideRoutine(CanvasGroup cg, RectTransform rt, bool visible, float duration)
     {
+        if (cg == null || rt == null)
+        {
+            questPanelSlideRoutine = null;
+            yield break;
+        }
+
         float startAlpha = cg.alpha;
         float targetAlpha = visible ? 1f : 0f;
         Vector2 targetPos = questPanelBasePos;
@@ -1009,12 +1022,23 @@ public class UIOrchestrator : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.unscaledDeltaTime;
+            if (cg == null || rt == null)
+            {
+                questPanelSlideRoutine = null;
+                yield break;
+            }
             float t = Mathf.Clamp01(elapsed / duration);
             float ease = 1f - Mathf.Pow(1f - t, 2.5f);
             cg.alpha = Mathf.Lerp(startAlpha, targetAlpha, ease);
             rt.anchoredPosition = targetPos;
             rt.localScale = Vector3.one;
             yield return null;
+        }
+
+        if (cg == null || rt == null)
+        {
+            questPanelSlideRoutine = null;
+            yield break;
         }
 
         cg.alpha = targetAlpha;

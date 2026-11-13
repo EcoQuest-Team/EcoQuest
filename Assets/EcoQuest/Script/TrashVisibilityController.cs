@@ -15,7 +15,8 @@ public static class TrashVisibilityController
     public static bool ShouldTrashBeVisible()
     {
         bool tutorialDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
-        bool questStarted = tutorialDone || NPCInteraction.IsAnyQuestActive;
+        bool questAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
+        bool questStarted = tutorialDone || questAccepted || NPCInteraction.IsAnyQuestActive;
         bool questCompleted = QuestManager.IsQuestComplete ||
                               PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
 

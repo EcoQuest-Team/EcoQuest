@@ -661,6 +661,13 @@ public class LoadingScreenController : MonoBehaviour
 
         _isLoading = false;
         activeLoadRoutine = null;
+
+        // Ensure cursor locks immediately upon entering a gameplay scene (without waiting for a user click)
+        var sceneInputs = FindFirstObjectByType<StarterAssets.StarterAssetsInputs>();
+        if (sceneInputs != null && sceneInputs.cursorLocked)
+        {
+            CursorState.SetLocked(true, sceneInputs);
+        }
     }
 
     private IEnumerator TipCycleRoutine(LoadingTips.SceneFilter sceneFilter)

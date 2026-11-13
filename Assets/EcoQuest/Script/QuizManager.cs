@@ -65,6 +65,13 @@ public class QuizManager : MonoBehaviour
         {
             quizUI = FindFirstObjectByType<QuizUIController>();
         }
+
+        int savedPreScore = PlayerPrefs.GetInt(EcoQuestSaveKeys.PreQuizScore, -1);
+        if (savedPreScore >= 0)
+        {
+            preQuizScore = savedPreScore;
+            isPreQuizCompleted = true;
+        }
     }
 
     private void OnDestroy()
@@ -76,12 +83,13 @@ public class QuizManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Resets quiz progression. Preserves the first Pre-Quiz baseline score once completed.
+    /// Resets quiz progression. Preserves the first Pre-Quiz baseline score unless cleared or missing in PlayerPrefs.
     /// </summary>
-    public void ResetQuizzes()
+    public void ResetQuizzes(bool clearPreQuiz = false)
     {
-        if (!isPreQuizCompleted)
+        if (clearPreQuiz || !PlayerPrefs.HasKey(EcoQuestSaveKeys.PreQuizScore) || !isPreQuizCompleted)
         {
+            isPreQuizCompleted = false;
             preQuizScore = 0;
         }
         postQuizScore = 0;

@@ -563,8 +563,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
         bool isChoicePage = isLastPage && hasChoicesAtEnd;
         if (isChoicePage)
         {
-            if (choiceButtonsRoot != null) choiceButtonsRoot.gameObject.SetActive(true);
-            if (continuePromptRoot != null) continuePromptRoot.gameObject.SetActive(false);
+            ShowChoiceButtons();
         }
         else
         {
@@ -574,6 +573,7 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
                 continuePromptRoot.gameObject.SetActive(true);
                 if (continueKeyCap != null)
                 {
+                    continueKeyCap.gameObject.SetActive(true);
                     continueKeyCap.SetPrompt("E", isLastPage ? "Finish" : "Continue");
                 }
             }
@@ -681,6 +681,19 @@ public class DialoguePresenter : MonoBehaviour, IPointerClickHandler
 
     private void ShowChoiceButtons()
     {
+        if (acceptQuestButton != null)
+        {
+            acceptQuestButton.gameObject.SetActive(true);
+            if (acceptQuestButton.TryGetComponent<ResponsiveTextButton>(out var acceptFit)) acceptFit.RefreshFit();
+        }
+        if (acceptKeyCap != null) acceptKeyCap.gameObject.SetActive(true);
+        if (notNowButton != null)
+        {
+            notNowButton.gameObject.SetActive(true);
+            if (notNowButton.TryGetComponent<ResponsiveTextButton>(out var declineFit)) declineFit.RefreshFit();
+        }
+        if (notNowKeyCap != null) notNowKeyCap.gameObject.SetActive(true);
+
         if (choiceButtonsRoot != null)
         {
             choiceButtonsRoot.gameObject.SetActive(true);

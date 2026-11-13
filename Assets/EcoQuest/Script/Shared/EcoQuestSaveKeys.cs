@@ -14,10 +14,16 @@ public static class EcoQuestSaveKeys
     public const string PreQuizScore = "EcoQuest_PreQuizScore";
     public const string PostQuizScore = "EcoQuest_PostQuizScore";
     public const string SequentialWASD = "SequentialWASD_TutorialCompleted";
+    public const string SequentialStep = "EcoQuest_SequentialStep";
+    public const string GuardianFlowStage = "EcoQuest_GuardianFlowStage";
     public const string LastLoadingTipText = "EcoQuest_LastLoadingTipText";
 
     // Gate & Completion Keys
     public const string ForestQuestAccepted = "EcoQuest_ForestQuestAccepted";
+    public const string ForestCollectedTrash = "EcoQuest_Forest_CollectedTrash";
+    public const string ForestCountBio = "EcoQuest_Forest_Count_Biodegradable";
+    public const string ForestCountNonBio = "EcoQuest_Forest_Count_NonBiodegradable";
+    public const string ForestCountRecyclable = "EcoQuest_Forest_Count_Recyclable";
     public const string ForestTrashQuestDone = "EcoQuest_ForestTrashQuestDone";
     public const string ForestRewardClaimed = "EcoQuest_ForestRewardClaimed";
     public const string ForestExplorerGateNotified = "EcoQuest_ForestExplorerGateNotified";
@@ -69,8 +75,14 @@ public static class EcoQuestSaveKeys
         PreQuizScore,
         PostQuizScore,
         SequentialWASD,
+        SequentialStep,
+        GuardianFlowStage,
         LastLoadingTipText,
         ForestQuestAccepted,
+        ForestCollectedTrash,
+        ForestCountBio,
+        ForestCountNonBio,
+        ForestCountRecyclable,
         ForestTrashQuestDone,
         ForestRewardClaimed,
         ForestExplorerGateNotified,
@@ -135,16 +147,29 @@ public static class EcoQuestSaveKeys
 
         NPCInteraction.ResetStaticFlowState();
 
+        DeleteCustomSaveFilesIfPresent();
+        int removedCount = DeleteProgressKeysInternal();
+
         if (Application.isPlaying)
         {
-            QuizManager.Instance?.ResetQuizzes();
+            QuizManager.Instance?.ResetQuizzes(clearPreQuiz: true);
             GameplayControlTipsManager.Instance?.ResetTipsState();
             QuestManager.ResetAllQuestCountsToZero();
             IntroSequenceController.Instance?.SetTrashVisible(false, false, "ResetAllPlayerProgress");
         }
 
-        DeleteCustomSaveFilesIfPresent();
-        return DeleteProgressKeysInternal();
+        return removedCount;
+    }
+
+    public static string GetForestCountKey(string categoryTag)
+    {
+        switch (categoryTag)
+        {
+            case "Biodegradable": return ForestCountBio;
+            case "NonBiodegradable": return ForestCountNonBio;
+            case "Recyclable": return ForestCountRecyclable;
+            default: return null;
+        }
     }
 
     private static int DeleteProgressKeysInternal()

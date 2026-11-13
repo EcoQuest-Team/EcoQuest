@@ -89,10 +89,11 @@ public class IntroSequenceController : MonoBehaviour
         CacheTrashItemsOnce();
 
         bool alreadyDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        bool questAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
         bool questDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
-        bool showTrashAtAwake = alreadyDone && !questDone;
+        bool showTrashAtAwake = (alreadyDone || questAccepted) && !questDone;
         SetTrashVisible(showTrashAtAwake, false, showTrashAtAwake
-            ? "Returning player at Awake (EcoQuest_TabTipDone == 1)"
+            ? "Returning player at Awake (EcoQuest_TabTipDone or ForestQuestAccepted == 1)"
             : (alreadyDone
                 ? "Returning player at Awake (Forest quest already completed)"
                 : "Fresh start at Awake - hiding trash until Step 6 (FreePlay)"));
@@ -120,6 +121,7 @@ public class IntroSequenceController : MonoBehaviour
         // Fresh start (EcoQuest_TabTipDone == 0): trash and quest tab stay hidden for Steps 1-5 until Step 6.
         // Returning player (EcoQuest_TabTipDone == 1): skip tutorial and enable quest tab & trash right at scene start.
         bool alreadyDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        bool questAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
         bool questDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
         if (alreadyDone)
         {
@@ -136,6 +138,14 @@ public class IntroSequenceController : MonoBehaviour
                 questDone
                     ? "Returning player at Scene Start (Forest quest already completed)"
                     : "Returning player at Scene Start (EcoQuest_TabTipDone == 1)");
+        }
+        else if (questAccepted && !questDone)
+        {
+            hasRunIntro = true;
+            NPCInteraction.IsAnyQuestActive = true;
+            SetTrashVisible(true, false, "Returning player at Scene Start (Step 5 TabTutorial resumed)");
+            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.TabTutorial,
+                "Returning player at Scene Start (EcoQuest_ForestQuestAccepted == 1)");
         }
         else
         {
@@ -520,8 +530,9 @@ public class IntroSequenceController : MonoBehaviour
 
     public void HandleTabTipCompleted()
     {
-        QuestManager.ResetAllQuestCountsToZero();
-        SetTrashVisible(true, animateReveal: true, "Step 6 (FreePlay): TAB tutorial completed");
+        // Never reset quest counts here: players may already have sorted trash during Step 5 (TabTutorial)
+        bool wasTrashVisible = IsTrashVisible;
+        SetTrashVisible(true, animateReveal: !wasTrashVisible, "Step 6 (FreePlay): TAB tutorial completed");
         UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "TAB tutorial completed -> FreePlay (trash enabled)");
         OnTutorialCompleted?.Invoke();
         HudVisibilityService.Instance?.ShowToast("Find the trash and sort it into the right bin!", 3.5f);
@@ -533,15 +544,20 @@ public class IntroSequenceController : MonoBehaviour
         if (trashContainer == null) yield break;
         int childCount = trashContainer.transform.childCount;
         var initialScales = new Vector3[childCount];
+        var animateChild = new bool[childCount];
         for (int i = 0; i < childCount; i++)
         {
             var child = trashContainer.transform.GetChild(i);
+            var trashItem = child.GetComponent<TrashItem>();
+            if (!child.gameObject.activeSelf || (trashItem != null && trashItem.IsDeposited)) continue;
+            animateChild[i] = true;
             initialScales[i] = child.localScale;
             child.localScale = Vector3.zero;
         }
 
         for (int i = 0; i < childCount; i++)
         {
+            if (!animateChild[i]) continue;
             var child = trashContainer.transform.GetChild(i);
             StartCoroutine(ScaleChildPop(child, initialScales[i], 0.25f));
             yield return new WaitForSecondsRealtime(0.03f);

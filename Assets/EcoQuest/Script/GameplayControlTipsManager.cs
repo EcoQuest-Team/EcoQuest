@@ -49,6 +49,16 @@ public class GameplayControlTipsManager : MonoBehaviour
         ResolveReferences();
         NPCInteraction.OnFlowCompleted -= HandleFlowCompleted;
         NPCInteraction.OnFlowCompleted += HandleFlowCompleted;
+
+        // Resume Step 5 (TabTutorial) if player accepted the quest then quit or returned to Main Menu before completing TAB
+        bool questAccepted = PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0) == 1;
+        bool tabTipDone = PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 1;
+        bool questDone = QuestManager.IsQuestComplete || PlayerPrefs.GetInt(EcoQuestSaveKeys.ForestTrashQuestDone, 0) == 1;
+        if (questAccepted && !tabTipDone && !questDone && tipsSequenceRoutine == null)
+        {
+            activeFlowToken = "resume-tab-tip";
+            StartGameplayTipsSequence();
+        }
     }
 
     private void OnDestroy()

@@ -729,10 +729,10 @@ public class ObjectiveMarkerService : MonoBehaviour
         lastIsOnScreen = isOnScreen;
         lastIsArrowOccluded = isOccluded;
 
-        // Show 3D World Arrow only when active & not occluded behind geometry
+        // Show 3D World Arrow only when on-screen & not occluded behind geometry
         if (worldArrowObj != null)
         {
-            bool showWorldArrow = mainCam != null ? !isOccluded : true;
+            bool showWorldArrow = mainCam != null ? (isOnScreen && !isOccluded) : true;
             worldArrowObj.SetActive(showWorldArrow);
 
             if (showWorldArrow)

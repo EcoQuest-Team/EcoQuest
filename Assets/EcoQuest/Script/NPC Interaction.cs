@@ -134,13 +134,13 @@ public class NPCInteraction : MonoBehaviour
             DialoguePresenter.Instance.CloseDialogue();
 
         if (dialogueBox != null && DialoguePresenter.Instance == null) dialogueBox.SetActive(false);
-        if (acceptMissionButton != null)
+        if (acceptMissionButton != null && DialoguePresenter.Instance == null)
         {
             acceptMissionButton.onClick.RemoveAllListeners();
             acceptMissionButton.onClick.AddListener(AcceptMission);
             acceptMissionButton.gameObject.SetActive(false);
         }
-        if (notNowButton != null)
+        if (notNowButton != null && DialoguePresenter.Instance == null)
         {
             notNowButton.onClick.RemoveAllListeners();
             notNowButton.onClick.AddListener(DeclineRepeatMission);
@@ -775,96 +775,107 @@ public class NPCInteraction : MonoBehaviour
         if (flowWatchdogRoutine != null) StopCoroutine(flowWatchdogRoutine);
         flowWatchdogRoutine = StartCoroutine(GuardianFlowWatchdogRoutine(flowToken));
 
+        int savedGuardianStage = PlayerPrefs.GetInt(EcoQuestSaveKeys.GuardianFlowStage, 0);
+
         try
         {
             // =========================================================================
             // Step 1: Intro dialogue (NPC)
             // =========================================================================
-            if (activeGuardianFlowToken != flowToken) yield break;
-            CurrentFlowStep = "IntroDialogue";
-            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Intro, $"Step 1 Enter: IntroDialogue (token: {flowToken})");
-#if UNITY_EDITOR
-            Debug.Log($"[FlowTrace] Step 1 Enter: IntroDialogue (token: {flowToken})");
-#endif
-            FreezePlayerControls();
-            bool introDone = false;
-            DialoguePresenter.Instance.ShowDialogue(
-                speakerName: "Guardian",
-                lines: DialogueData.GetForestIntro(total),
-                showChoicesAtEnd: false,
-                onComplete: () => { introDone = true; }
-            );
-
-            while (!introDone)
+            if (savedGuardianStage < 1)
             {
                 if (activeGuardianFlowToken != flowToken) yield break;
-                yield return null;
-            }
+                CurrentFlowStep = "IntroDialogue";
+                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Intro, $"Step 1 Enter: IntroDialogue (token: {flowToken})");
+#if UNITY_EDITOR
+                Debug.Log($"[FlowTrace] Step 1 Enter: IntroDialogue (token: {flowToken})");
+#endif
+                FreezePlayerControls();
+                bool introDone = false;
+                DialoguePresenter.Instance.ShowDialogue(
+                    speakerName: "Guardian",
+                    lines: DialogueData.GetForestIntro(total),
+                    showChoicesAtEnd: false,
+                    onComplete: () => { introDone = true; }
+                );
 
-            // Fade OUT dialogue fully (0.20s: alpha 0 AND inactive) before Step 2 starts
-            DialoguePresenter.Instance.CloseDialogue();
-            yield return new WaitForSecondsRealtime(0.20f);
-            while (DialoguePresenter.Instance != null && DialoguePresenter.Instance.CurrentAlpha > 0.01f)
-            {
-                yield return null;
+                while (!introDone)
+                {
+                    if (activeGuardianFlowToken != flowToken) yield break;
+                    yield return null;
+                }
+
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.GuardianFlowStage, 1);
+                PlayerPrefs.Save();
+                savedGuardianStage = 1;
+
+                // Fade OUT dialogue fully (0.20s: alpha 0 AND inactive) before Step 2 starts
+                DialoguePresenter.Instance.CloseDialogue();
+                yield return new WaitForSecondsRealtime(0.20f);
+                while (DialoguePresenter.Instance != null && DialoguePresenter.Instance.CurrentAlpha > 0.01f)
+                {
+                    yield return null;
+                }
             }
 
             // =========================================================================
             // Step 2: Info cards ("BIN INFO" panels, one per bin)
             // =========================================================================
-            if (activeGuardianFlowToken != flowToken) yield break;
-            CurrentFlowStep = "InfoCards";
-            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.InfoCards, $"Step 2 Enter: InfoCards (token: {flowToken})");
-#if UNITY_EDITOR
-            Debug.Log($"[FlowTrace] Step 2 Enter: InfoCards (token: {flowToken})");
-#endif
-            // Keep world moving (Time.timeScale = 1f) while player input remains frozen
-            Time.timeScale = 1f;
-            FreezePlayerControls();
-
-            var tm = FindFirstObjectByType<TutorialManager>();
-            if (tm != null)
+            if (savedGuardianStage < 2)
             {
-                bool cardsDone = false;
-                Action onCardsClosed = () => { cardsDone = true; };
-                tm.OnTutorialClosed += onCardsClosed;
+                if (activeGuardianFlowToken != flowToken) yield break;
+                CurrentFlowStep = "InfoCards";
+                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.InfoCards, $"Step 2 Enter: InfoCards (token: {flowToken})");
+#if UNITY_EDITOR
+                Debug.Log($"[FlowTrace] Step 2 Enter: InfoCards (token: {flowToken})");
+#endif
+                // Keep world moving (Time.timeScale = 1f) while player input remains frozen
+                Time.timeScale = 1f;
+                FreezePlayerControls();
 
-                tm.ShowTutorial(0, singleCard: false, flowToken: flowToken);
-
-                while (!cardsDone)
+                var tm = FindFirstObjectByType<TutorialManager>();
+                if (tm != null)
                 {
-                    if (activeGuardianFlowToken != flowToken)
+                    bool cardsDone = false;
+                    Action onCardsClosed = () => { cardsDone = true; };
+                    tm.OnTutorialClosed += onCardsClosed;
+
+                    tm.ShowTutorial(0, singleCard: false, flowToken: flowToken);
+
+                    while (!cardsDone)
                     {
-                        tm.OnTutorialClosed -= onCardsClosed;
-                        yield break;
+                        if (activeGuardianFlowToken != flowToken)
+                        {
+                            tm.OnTutorialClosed -= onCardsClosed;
+                            yield break;
+                        }
+                        yield return null;
                     }
-                    yield return null;
+                    tm.OnTutorialClosed -= onCardsClosed;
+                    yield return new WaitForSecondsRealtime(0.20f); // Wait for InfoCards close transition
                 }
-                tm.OnTutorialClosed -= onCardsClosed;
-                yield return new WaitForSecondsRealtime(0.20f); // Wait for InfoCards close transition
+
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.GuardianFlowStage, 2);
+                PlayerPrefs.Save();
+                savedGuardianStage = 2;
             }
 
             // =========================================================================
             // Step 3: Questions panel (the 1-6 Pre-Quiz)
             // =========================================================================
-            if (activeGuardianFlowToken != flowToken) yield break;
-            CurrentFlowStep = "PreQuiz";
-            UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Quiz, $"Step 3 Enter: PreQuiz (token: {flowToken})");
-#if UNITY_EDITOR
-            Debug.Log($"[FlowTrace] Step 3 Enter: PreQuiz (token: {flowToken})");
-#endif
-            Time.timeScale = 1f;
-            FreezePlayerControls();
-
-            var qm = QuizManager.Instance != null ? QuizManager.Instance : FindFirstObjectByType<QuizManager>();
-            if (qm != null)
+            if (savedGuardianStage < 3 && PlayerPrefs.GetInt(EcoQuestSaveKeys.PreQuizScore, -1) < 0)
             {
-                if (qm.IsPreQuizCompleted && PlayerPrefs.GetInt("EcoQuest_TabTipDone", 0) == 0)
-                {
-                    qm.ResetQuizzes();
-                }
+                if (activeGuardianFlowToken != flowToken) yield break;
+                CurrentFlowStep = "PreQuiz";
+                UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.Quiz, $"Step 3 Enter: PreQuiz (token: {flowToken})");
+#if UNITY_EDITOR
+                Debug.Log($"[FlowTrace] Step 3 Enter: PreQuiz (token: {flowToken})");
+#endif
+                Time.timeScale = 1f;
+                FreezePlayerControls();
 
-                if (!qm.IsPreQuizCompleted)
+                var qm = QuizManager.Instance != null ? QuizManager.Instance : FindFirstObjectByType<QuizManager>();
+                if (qm != null && !qm.IsPreQuizCompleted)
                 {
                     bool quizDone = false;
                     qm.StartPreQuiz(() => { quizDone = true; });
@@ -876,6 +887,10 @@ public class NPCInteraction : MonoBehaviour
                     }
                     yield return new WaitForSecondsRealtime(0.20f); // Wait for Quiz close transition
                 }
+
+                PlayerPrefs.SetInt(EcoQuestSaveKeys.GuardianFlowStage, 3);
+                PlayerPrefs.Save();
+                savedGuardianStage = 3;
             }
 
             // =========================================================================
@@ -1328,8 +1343,8 @@ public class NPCInteraction : MonoBehaviour
             DialoguePresenter.Instance.CloseDialogue();
 
         if (dialogueBox != null && DialoguePresenter.Instance == null) dialogueBox.SetActive(false);
-        if (acceptMissionButton != null) acceptMissionButton.gameObject.SetActive(false);
-        if (notNowButton != null) notNowButton.gameObject.SetActive(false);
+        if (acceptMissionButton != null && DialoguePresenter.Instance == null) acceptMissionButton.gameObject.SetActive(false);
+        if (notNowButton != null && DialoguePresenter.Instance == null) notNowButton.gameObject.SetActive(false);
         SetContinueHintActive(false);
         WorldInteractionPrompt.Instance?.SetBlocked(false);
 
@@ -1384,8 +1399,8 @@ public class NPCInteraction : MonoBehaviour
             DialoguePresenter.Instance.CloseDialogue();
 
         if (dialogueBox != null && DialoguePresenter.Instance == null) dialogueBox.SetActive(false);
-        if (acceptMissionButton != null) acceptMissionButton.gameObject.SetActive(false);
-        if (notNowButton != null) notNowButton.gameObject.SetActive(false);
+        if (acceptMissionButton != null && DialoguePresenter.Instance == null) acceptMissionButton.gameObject.SetActive(false);
+        if (notNowButton != null && DialoguePresenter.Instance == null) notNowButton.gameObject.SetActive(false);
         SetContinueHintActive(false);
         WorldInteractionPrompt.Instance?.SetBlocked(false);
 
@@ -1840,7 +1855,7 @@ public class NPCInteraction : MonoBehaviour
 
         if (Application.isPlaying)
         {
-            QuizManager.Instance?.ResetQuizzes();
+            QuizManager.Instance?.ResetQuizzes(clearPreQuiz: true);
             GameplayControlTipsManager.Instance?.ResetTipsState();
             QuestManager.ResetAllQuestCountsToZero();
             IntroSequenceController.Instance?.SetTrashVisible(false, false, "Reset Tutorial");

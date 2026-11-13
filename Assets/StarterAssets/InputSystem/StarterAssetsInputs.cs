@@ -71,6 +71,14 @@ namespace StarterAssets
 			look = Vector2.zero;
 		}
 
+		private void Start()
+		{
+			if (cursorLocked)
+			{
+				SetCursorState(true);
+			}
+		}
+
 		private void OnApplicationFocus(bool hasFocus)
 		{
 			CursorState.NotifyApplicationFocus(hasFocus, this);

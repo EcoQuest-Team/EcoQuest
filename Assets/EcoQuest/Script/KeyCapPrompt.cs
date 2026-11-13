@@ -293,26 +293,26 @@ public class KeyCapPrompt : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         {
             promptCanvasGroup.alpha = locked ? 0.40f : 1.0f;
         }
-        else
+
+        // Keep child graphic/TMP alphas at 1.0 when CanvasGroup drives dimming so baked scene alphas (e.g. 0.4) don't persist or compound.
+        float elementAlpha = promptCanvasGroup != null ? 1.0f : (locked ? 0.40f : 1.0f);
+        if (keycapImage != null)
         {
-            if (keycapImage != null)
-            {
-                Color c = isPressed ? heldColor : normalColor;
-                c.a = locked ? 0.40f : 1.0f;
-                keycapImage.color = c;
-            }
-            if (keycapText != null)
-            {
-                Color tc = textColor;
-                tc.a = locked ? 0.40f : 1.0f;
-                keycapText.color = tc;
-            }
-            if (actionLabel != null)
-            {
-                Color ac = actionLabel.color;
-                ac.a = locked ? 0.40f : 1.0f;
-                actionLabel.color = ac;
-            }
+            Color c = isPressed ? heldColor : normalColor;
+            c.a = elementAlpha;
+            keycapImage.color = c;
+        }
+        if (keycapText != null)
+        {
+            Color tc = textColor;
+            tc.a = elementAlpha;
+            keycapText.color = tc;
+        }
+        if (actionLabel != null)
+        {
+            Color ac = actionLabel.color;
+            ac.a = elementAlpha;
+            actionLabel.color = ac;
         }
 
         if (locked)
