@@ -22,7 +22,7 @@ public class ObjectiveMarkerService : MonoBehaviour
         {
             if (instance == null)
             {
-                instance = FindFirstObjectByType<ObjectiveMarkerService>();
+                instance = FindFirstObjectByType<ObjectiveMarkerService>(FindObjectsInactive.Include);
                 if (instance == null && Application.isPlaying)
                 {
                     GameObject go = new GameObject("[ObjectiveMarkerService]");
@@ -31,6 +31,12 @@ public class ObjectiveMarkerService : MonoBehaviour
             }
             return instance;
         }
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        instance = null;
     }
 
     [Header("Current Target & Reason")]
@@ -67,10 +73,14 @@ public class ObjectiveMarkerService : MonoBehaviour
 
     // Visual instances
     private GameObject worldArrowObj;
+    private MeshFilter arrowFilter;
+    private Mesh arrowMesh;
     private MeshRenderer arrowRenderer;
     private Material arrowMaterial;
     private float currentArrowScaleFactor = 0f;
     private float currentAlpha = 0f;
+    private bool hadActiveTargetLastFrame = false;
+    private bool eventsSubscribed = false;
 
     private Canvas edgeCanvas;
     private GameObject edgeIndicatorRoot;
@@ -97,19 +107,24 @@ public class ObjectiveMarkerService : MonoBehaviour
     {
         if (instance != null && instance != this)
         {
-            Destroy(gameObject);
+            DestroySafe(gameObject);
             return;
         }
         instance = this;
 
+        if (Application.isPlaying)
+        {
+            if (transform.parent != null)
+            {
+                transform.SetParent(null, true);
+            }
+            DontDestroyOnLoad(gameObject);
+        }
+
         CleanLegacyObjects();
         CreateWorldArrow();
         CreateEdgeIndicatorUI();
-
-        SceneManager.sceneLoaded += HandleSceneLoaded;
-        TravelGate.OnGateUnlocked += HandleGateUnlocked;
-        UIOrchestrator.OnFlowStateChanged += HandleFlowStateChanged;
-        NPCInteraction.OnQuestAccepted += HandleQuestAccepted;
+        SubscribeEvents();
     }
 
     private void Start()
@@ -118,32 +133,88 @@ public class ObjectiveMarkerService : MonoBehaviour
         RefreshTargetFromState();
     }
 
+    private void OnDisable()
+    {
+        StopAllCoroutines();
+        if (worldArrowObj != null) worldArrowObj.SetActive(false);
+        if (edgeIndicatorRoot != null) edgeIndicatorRoot.SetActive(false);
+    }
+
     private void OnDestroy()
     {
-        SceneManager.sceneLoaded -= HandleSceneLoaded;
-        TravelGate.OnGateUnlocked -= HandleGateUnlocked;
-        UIOrchestrator.OnFlowStateChanged -= HandleFlowStateChanged;
-        NPCInteraction.OnQuestAccepted -= HandleQuestAccepted;
+        UnsubscribeEvents();
 
-        if (worldArrowObj != null) Destroy(worldArrowObj);
-        if (edgeCanvas != null) Destroy(edgeCanvas.gameObject);
+        DestroySafe(arrowMaterial);
+        arrowMaterial = null;
+        DestroySafe(arrowMesh);
+        arrowMesh = null;
+
+        if (worldArrowObj != null) DestroySafe(worldArrowObj);
+        if (edgeCanvas != null) DestroySafe(edgeCanvas.gameObject);
 
         if (instance == this) instance = null;
     }
 
+    private void SubscribeEvents()
+    {
+        if (eventsSubscribed) return;
+        eventsSubscribed = true;
+
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+        SceneManager.sceneUnloaded += HandleSceneUnloaded;
+        TravelGate.OnGateUnlocked += HandleGateUnlocked;
+        UIOrchestrator.OnFlowStateChanged += HandleFlowStateChanged;
+        NPCInteraction.OnQuestAccepted += HandleQuestAccepted;
+        SequentialWASDTutorial.OnStep6Reached += HandleTutorialStep6Reached;
+    }
+
+    private void UnsubscribeEvents()
+    {
+        if (!eventsSubscribed) return;
+        eventsSubscribed = false;
+
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SceneManager.sceneUnloaded -= HandleSceneUnloaded;
+        TravelGate.OnGateUnlocked -= HandleGateUnlocked;
+        UIOrchestrator.OnFlowStateChanged -= HandleFlowStateChanged;
+        NPCInteraction.OnQuestAccepted -= HandleQuestAccepted;
+        SequentialWASDTutorial.OnStep6Reached -= HandleTutorialStep6Reached;
+    }
+
+    private static void DestroySafe(UnityEngine.Object obj)
+    {
+        if (obj == null) return;
+        if (Application.isPlaying) Destroy(obj);
+        else DestroyImmediate(obj);
+    }
+
     private void CleanLegacyObjects()
     {
-        // Remove empty leftover TutorialObjectiveArrow if present
+        // Remove empty leftover TutorialObjectiveArrow or stale NPCWaypointArrow if present
         GameObject legacyArrow = GameObject.Find("TutorialObjectiveArrow");
-        if (legacyArrow != null)
-        {
-            if (Application.isPlaying) Destroy(legacyArrow);
-            else DestroyImmediate(legacyArrow);
-        }
+        if (legacyArrow != null) DestroySafe(legacyArrow);
+
+        GameObject legacyPointerArrow = GameObject.Find("NPCWaypointArrow");
+        if (legacyPointerArrow != null) DestroySafe(legacyPointerArrow);
+    }
+
+    private void ClearSceneReferences()
+    {
+        mainCam = null;
+        playerTransform = null;
+        cachedGuardian = null;
+        cachedGuardianNpc = null;
+        cachedGuardianMinimap = null;
+        cachedGuardianOverheadMarker = null;
+        cachedExplorer = null;
+        cachedExplorerGate = null;
+        cachedExplorerMinimap = null;
     }
 
     public void CacheSceneReferences()
     {
+        ClearSceneReferences();
+
         mainCam = Camera.main;
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -168,13 +239,6 @@ public class ObjectiveMarkerService : MonoBehaviour
             cachedGuardianMinimap = guardianGo.GetComponent<MinimapIcon>();
             cachedGuardianOverheadMarker = guardianGo.transform.Find("GuardianOverheadMarker");
         }
-        else
-        {
-            cachedGuardian = null;
-            cachedGuardianNpc = null;
-            cachedGuardianMinimap = null;
-            cachedGuardianOverheadMarker = null;
-        }
 
         // Cache Explorer references
         GameObject explorerGo = GameObject.Find("Explorer_Var1");
@@ -184,12 +248,6 @@ public class ObjectiveMarkerService : MonoBehaviour
             cachedExplorer = explorerGo.transform;
             cachedExplorerGate = explorerGo.GetComponent<ExplorerGateController>();
             cachedExplorerMinimap = explorerGo.GetComponent<MinimapIcon>();
-        }
-        else
-        {
-            cachedExplorer = null;
-            cachedExplorerGate = null;
-            cachedExplorerMinimap = null;
         }
     }
 
@@ -210,6 +268,12 @@ public class ObjectiveMarkerService : MonoBehaviour
         }
     }
 
+    private void HandleSceneUnloaded(Scene scene)
+    {
+        ClearTarget();
+        ClearSceneReferences();
+    }
+
     private void HandleGateUnlocked()
     {
         RefreshTargetFromState();
@@ -221,6 +285,11 @@ public class ObjectiveMarkerService : MonoBehaviour
     }
 
     private void HandleQuestAccepted()
+    {
+        RefreshTargetFromState();
+    }
+
+    private void HandleTutorialStep6Reached()
     {
         RefreshTargetFromState();
     }
@@ -281,14 +350,28 @@ public class ObjectiveMarkerService : MonoBehaviour
         }
 
         // ---------------------------------------------------------------------
-        // Decision Rule 3: Tutorial Incomplete or Guardian Quest NOT yet accepted
-        // The player must talk to Guardian to proceed.
+        // Decision Rule 3: Tutorial Step 6 ("Follow the arrow and talk to the NPC")
+        // Hide arrow during Steps 1-5 until Step 6 unlocks Guardian talk, unless
+        // tutorial/tab progress is already saved.
         // ---------------------------------------------------------------------
+        bool tutorialBlockingGuardian =
+            SequentialWASDTutorial.Instance != null
+            && !SequentialWASDTutorial.IsTutorialCompleted
+            && PlayerPrefs.GetInt(EcoQuestSaveKeys.TabTipDone, 0) == 0
+            && PlayerPrefs.GetInt(EcoQuestSaveKeys.SequentialWASD, 0) == 0;
+
+        if (tutorialBlockingGuardian)
+        {
+            currentReason = "Tutorial Steps 1-5 in progress -> Hide Guardian arrow until Step 6";
+            ClearTarget();
+            return;
+        }
+
         if (!TravelGate.CanTravelToCity && !isQuestAccepted)
         {
             if (cachedGuardian != null)
             {
-                currentReason = "Early flow / Tutorial pending -> Guide to Guardian";
+                currentReason = "Step 6 / Talk to Guardian objective -> Guide to Guardian";
                 SetTarget(cachedGuardian, "Talk to Guardian");
                 return;
             }
@@ -304,8 +387,15 @@ public class ObjectiveMarkerService : MonoBehaviour
     /// </summary>
     public void SetTarget(Transform target, string label = "")
     {
+        if (target == null)
+        {
+            ClearTarget();
+            return;
+        }
+
         currentTarget = target;
         currentLabel = label;
+        hadActiveTargetLastFrame = true;
         idleTimer = 0f;
 
         SyncMinimapAndOverheadMarkers();
@@ -318,6 +408,7 @@ public class ObjectiveMarkerService : MonoBehaviour
     {
         currentTarget = null;
         currentLabel = "";
+        hadActiveTargetLastFrame = false;
         idleTimer = 0f;
         currentAlpha = 0f;
         currentArrowScaleFactor = 0f;
@@ -357,12 +448,21 @@ public class ObjectiveMarkerService : MonoBehaviour
 
     private void Update()
     {
-        if (currentTarget == null)
+        if (currentTarget == null || !currentTarget.gameObject.activeInHierarchy)
         {
-            if (worldArrowObj != null && worldArrowObj.activeSelf) worldArrowObj.SetActive(false);
-            if (edgeIndicatorRoot != null && edgeIndicatorRoot.activeSelf) edgeIndicatorRoot.SetActive(false);
+            if (hadActiveTargetLastFrame)
+            {
+                ClearTarget();
+            }
+            else
+            {
+                if (worldArrowObj != null && worldArrowObj.activeSelf) worldArrowObj.SetActive(false);
+                if (edgeIndicatorRoot != null && edgeIndicatorRoot.activeSelf) edgeIndicatorRoot.SetActive(false);
+            }
             return;
         }
+
+        hadActiveTargetLastFrame = true;
 
         // Check dialogue and overlay suppression
         bool isSuppressed = IsOverlayOrDialogueActive();
@@ -529,8 +629,10 @@ public class ObjectiveMarkerService : MonoBehaviour
         worldArrowObj.transform.SetParent(transform);
 
         MeshFilter filter = worldArrowObj.AddComponent<MeshFilter>();
+        arrowFilter = filter;
         arrowRenderer = worldArrowObj.AddComponent<MeshRenderer>();
-        filter.mesh = GenerateArrowMesh();
+        arrowMesh = GenerateArrowMesh();
+        filter.mesh = arrowMesh;
 
         Shader urpShader = Shader.Find("Universal Render Pipeline/Lit");
         if (urpShader == null) urpShader = Shader.Find("Universal Render Pipeline/Simple Lit");

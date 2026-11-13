@@ -52,10 +52,32 @@ public class SequentialWASDTutorial : MonoBehaviour
     public GameObject npcExclamation;
 
     public event System.Action OnTutorialCompletedEvent;
+    public static event System.Action OnStep6Reached;
 
     private StarterAssets.StarterAssetsInputs playerInputs;
     private bool isCompleted = false;
     private bool isActionTipsCompleted = false;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _instance = null;
+        AllowedState = TutorialState.All;
+        IsTutorialCursorUnlocked = false;
+        OnStep6Reached = null;
+    }
+
+    public void SetActionTipsCompletedForTest(bool completed)
+    {
+        isActionTipsCompleted = completed;
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+    }
+
+    private void NotifyStep6Unlocked()
+    {
+        OnStep6Reached?.Invoke();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+    }
 
     private void Awake()
     {
@@ -143,6 +165,7 @@ public class SequentialWASDTutorial : MonoBehaviour
         if (tipCardUI != null) tipCardUI.SetImmediateHidden();
         var npc = FindFirstObjectByType<NPCInteraction>();
         if (npc != null) npc.OnTutorialUnlocked();
+        NotifyStep6Unlocked();
     }
 #endif
 
@@ -230,6 +253,8 @@ public class SequentialWASDTutorial : MonoBehaviour
             npc.OnTutorialUnlocked();
         }
 
+        NotifyStep6Unlocked();
+
         // -------------------------------------------------------------
         // STEP 6 OF 6: TALK TO NPC (Follow arrow, ends when dialogue begins)
         // -------------------------------------------------------------
@@ -271,6 +296,8 @@ public class SequentialWASDTutorial : MonoBehaviour
         {
             npc.OnTutorialUnlocked();
         }
+
+        NotifyStep6Unlocked();
 
         yield return StartCoroutine(WaitForModals());
         yield return StartCoroutine(RunTalkStep());
