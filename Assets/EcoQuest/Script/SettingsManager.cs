@@ -163,7 +163,6 @@ public class SettingsManager : MonoBehaviour
         MuteAll = PlayerPrefs.GetInt(KeyMuteAll, DefaultMuteAll ? 1 : 0) == 1;
 
         int maxQuality = Mathf.Max(0, QualitySettings.names.Length - 1);
-        int defaultQual = Mathf.Clamp(DefaultQuality, 0, maxQuality);
 
         // Migrate old saved Mobile/PC indices if not yet migrated
         const string KeyQualityMigrated = "EcoQuest_Settings_Quality_v2_Migrated";
@@ -180,7 +179,16 @@ public class SettingsManager : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-        QualityIndex = Mathf.Clamp(PlayerPrefs.GetInt(KeyQuality, defaultQual), 0, maxQuality);
+        int recommendedQual = Mathf.Clamp(DetectRecommendedQualityIndex(), 0, maxQuality);
+        if (PlayerPrefs.HasKey(KeyQuality))
+        {
+            QualityIndex = Mathf.Clamp(PlayerPrefs.GetInt(KeyQuality, recommendedQual), 0, maxQuality);
+        }
+        else
+        {
+            QualityIndex = recommendedQual;
+            PlayerPrefs.SetInt(KeyQuality, QualityIndex);
+        }
         IsAutoResolution = PlayerPrefs.GetInt(KeyResolutionAuto, DefaultResolutionAuto ? 1 : 0) == 1;
         Fullscreen = PlayerPrefs.GetInt(KeyFullscreen, DefaultFullscreen ? 1 : 0) == 1;
 
@@ -322,6 +330,7 @@ public class SettingsManager : MonoBehaviour
         }
 
         ApplyPostProcessingForQuality(clampedQ);
+        ApplyTerrainSettingsForQuality(clampedQ);
 
         QualitySettings.vSyncCount = VSync ? 1 : 0;
         Application.targetFrameRate = VSync ? -1 : FPSLimit;
@@ -361,6 +370,141 @@ public class SettingsManager : MonoBehaviour
             if (vol.gameObject.name.IndexOf("Blur", StringComparison.OrdinalIgnoreCase) >= 0) continue;
             vol.enabled = enableScenePost;
         }
+    }
+
+    /// <summary>
+    /// Scales active Terrain LOD / tree draw distances to match the selected quality preset.
+    /// </summary>
+    public static void ApplyTerrainSettingsForQuality(int qualityIndex)
+    {
+        Terrain[] terrains = Terrain.activeTerrains;
+        if (terrains == null || terrains.Length == 0) return;
+
+        int q = Mathf.Clamp(qualityIndex, 0, 3);
+        float pixelError;
+        float basemapDist;
+        float treeDist;
+        float billboardDist;
+        float crossFadeLen;
+        int maxMeshTrees;
+        ShadowCastingMode terrainShadowMode;
+
+        switch (q)
+        {
+            case 0: // Low
+                pixelError = 12f;
+                basemapDist = 400f;
+                treeDist = 45f;
+                billboardDist = 30f;
+                crossFadeLen = 5f;
+                maxMeshTrees = 150;
+                terrainShadowMode = ShadowCastingMode.Off;
+                break;
+            case 1: // Medium
+                pixelError = 8f;
+                basemapDist = 600f;
+                treeDist = 60f;
+                billboardDist = 40f;
+                crossFadeLen = 5f;
+                maxMeshTrees = 250;
+                terrainShadowMode = ShadowCastingMode.TwoSided;
+                break;
+            case 3: // Ultra
+                pixelError = 4f;
+                basemapDist = 1000f;
+                treeDist = 95f;
+                billboardDist = 70f;
+                crossFadeLen = 10f;
+                maxMeshTrees = 600;
+                terrainShadowMode = ShadowCastingMode.TwoSided;
+                break;
+            default: // High (2)
+                pixelError = 5f;
+                basemapDist = 800f;
+                treeDist = 80f;
+                billboardDist = 55f;
+                crossFadeLen = 8f;
+                maxMeshTrees = 400;
+                terrainShadowMode = ShadowCastingMode.TwoSided;
+                break;
+        }
+
+        for (int i = 0; i < terrains.Length; i++)
+        {
+            Terrain t = terrains[i];
+            if (t == null) continue;
+            t.heightmapPixelError = pixelError;
+            t.basemapDistance = basemapDist;
+            t.detailObjectDistance = 0f;
+            t.detailObjectDensity = 0f;
+            t.treeDistance = treeDist;
+            t.treeBillboardDistance = billboardDist;
+            t.treeCrossFadeLength = crossFadeLen;
+            t.treeMaximumFullLODCount = maxMeshTrees;
+            t.shadowCastingMode = terrainShadowMode;
+        }
+    }
+
+    public static int DetectRecommendedQualityIndex()
+    {
+        return DetectRecommendedQualityIndex(
+            SystemInfo.graphicsDeviceName,
+            SystemInfo.graphicsMemorySize,
+            SystemInfo.systemMemorySize,
+            SystemInfo.processorCount,
+            SystemInfo.graphicsDeviceType);
+    }
+
+    /// <summary>
+    /// Classifies player hardware into Low (0), Medium (1), or High (2).
+    /// Never automatically picks Ultra (3) so modest/laptop hardware stays responsive out of the box.
+    /// </summary>
+    public static int DetectRecommendedQualityIndex(string gpuName, int graphicsMemoryMb, int systemMemoryMb, int processorCount, GraphicsDeviceType deviceType)
+    {
+        if (deviceType == GraphicsDeviceType.Null) return 1;
+
+        string gpu = string.IsNullOrEmpty(gpuName) ? string.Empty : gpuName.ToLowerInvariant();
+
+        bool clearlyLowGpu = gpu.Contains("microsoft basic")
+            || gpu.Contains("swiftshader")
+            || gpu.Contains("llvmpipe")
+            || gpu.Contains("uhd")
+            || gpu.Contains("hd graphics")
+            || gpu.Contains("celeron")
+            || gpu.Contains("pentium")
+            || gpu.Contains("vega 3")
+            || gpu.Contains("vega 6");
+
+        if (clearlyLowGpu
+            || (systemMemoryMb > 0 && systemMemoryMb <= 6144)
+            || (processorCount > 0 && processorCount <= 2)
+            || (graphicsMemoryMb > 0 && graphicsMemoryMb <= 1024))
+        {
+            return 0; // Low
+        }
+
+        bool integratedOrEntryGpu = gpu.Contains("iris")
+            || gpu.Contains("radeon(tm) graphics")
+            || gpu.Contains("radeon graphics")
+            || gpu.Contains("vega")
+            || gpu.Contains("intel(r) graphics")
+            || gpu.Contains("mx1")
+            || gpu.Contains("mx2")
+            || gpu.Contains("mx3")
+            || gpu.Contains("mx4")
+            || gpu.Contains("mx5")
+            || gpu.Contains("gt 1030")
+            || gpu.Contains("rx 550")
+            || gpu.Contains("rx 560");
+
+        if (integratedOrEntryGpu
+            || (graphicsMemoryMb > 0 && graphicsMemoryMb < 3500)
+            || (systemMemoryMb > 0 && systemMemoryMb <= 9216))
+        {
+            return 1; // Medium
+        }
+
+        return 2; // High (never auto-select Ultra = 3)
     }
 
     // =====================================================================
@@ -459,7 +603,7 @@ public class SettingsManager : MonoBehaviour
         MuteAll = DefaultMuteAll;
 
         int maxQuality = Mathf.Max(0, QualitySettings.names.Length - 1);
-        QualityIndex = Mathf.Clamp(DefaultQuality, 0, maxQuality);
+        QualityIndex = Mathf.Clamp(DetectRecommendedQualityIndex(), 0, maxQuality);
         IsAutoResolution = DefaultResolutionAuto;
         Fullscreen = DefaultFullscreen;
         ResolutionWidth = nativeRes.x;
