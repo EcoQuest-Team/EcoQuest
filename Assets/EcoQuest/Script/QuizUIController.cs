@@ -151,6 +151,246 @@ public class QuizUIController : MonoBehaviour
         HideImmediate();
     }
 
+    public struct FeedbackColumnLayout
+    {
+        public Vector2 CenterPosition;
+        public Vector2 Size;
+    }
+
+    public static FeedbackColumnLayout ComputeFeedbackColumnLayout(
+        float columnLeftX,
+        float columnRightX,
+        float lowestAnswerBottomY,
+        float modalBottomY,
+        float desiredHeight = 148f,
+        float minBottomMargin = 16f,
+        float gapBelowAnswers = 12f,
+        float minPanelHeight = 112f,
+        float maxPanelHeight = 172f)
+    {
+        float colWidth = Mathf.Max(320f, columnRightX - columnLeftX);
+        float centerX = (columnLeftX + columnRightX) * 0.5f;
+
+        float safeBottomY = modalBottomY + minBottomMargin;
+        float topAllowedY = lowestAnswerBottomY - gapBelowAnswers;
+        float availableSpan = Mathf.Max(0f, topAllowedY - safeBottomY);
+
+        float panelHeight;
+        float panelBottomY;
+        if (availableSpan >= minPanelHeight)
+        {
+            panelHeight = Mathf.Clamp(desiredHeight, minPanelHeight, Mathf.Min(maxPanelHeight, availableSpan));
+            // Place directly below the lowest active answer option while keeping bottom safely inside modal
+            panelBottomY = Mathf.Max(safeBottomY, topAllowedY - panelHeight);
+        }
+        else
+        {
+            // Never overlap the lowest active answer button; fit within remaining span
+            panelHeight = Mathf.Max(88f, availableSpan);
+            panelBottomY = topAllowedY - panelHeight;
+        }
+
+        return new FeedbackColumnLayout
+        {
+            CenterPosition = new Vector2(centerX, panelBottomY),
+            Size = new Vector2(colWidth, panelHeight)
+        };
+    }
+
+    private void StyleAndPositionFeedbackPanel(Color? accentColor = null)
+    {
+        if (feedbackPanel == null) return;
+
+        var fbImg = feedbackPanel.GetComponent<Image>();
+        if (fbImg != null && UITheme.Instance != null && UITheme.Instance.panelBackgroundSprite != null)
+        {
+            fbImg.sprite = UITheme.Instance.panelBackgroundSprite;
+            fbImg.type = Image.Type.Sliced;
+            fbImg.color = Color.white;
+        }
+
+        // Left colored AccentBar (ensured consistently across Forest & City)
+        Transform accentTr = feedbackPanel.transform.Find("AccentBar");
+        if (accentTr == null)
+        {
+            var barGo = new GameObject("AccentBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            barGo.transform.SetParent(feedbackPanel.transform, false);
+            accentTr = barGo.transform;
+            accentTr.SetAsFirstSibling();
+        }
+        var barRt = accentTr as RectTransform;
+        if (barRt != null)
+        {
+            barRt.anchorMin = new Vector2(0f, 0f);
+            barRt.anchorMax = new Vector2(0f, 1f);
+            barRt.pivot = new Vector2(0.5f, 0.5f);
+            barRt.anchoredPosition = new Vector2(14f, 0f);
+            barRt.sizeDelta = new Vector2(6f, -24f);
+        }
+        if (accentColor.HasValue)
+        {
+            var barImg = accentTr.GetComponent<Image>();
+            if (barImg != null) barImg.color = accentColor.Value;
+        }
+
+        if (feedbackTitleText != null)
+        {
+            var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+            if (titleFont != null) feedbackTitleText.font = titleFont;
+            feedbackTitleText.fontSize = 22f;
+            feedbackTitleText.fontStyle = FontStyles.Bold;
+            feedbackTitleText.alignment = TextAlignmentOptions.MidlineLeft;
+            var rt = feedbackTitleText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.offsetMin = new Vector2(30f, -44f);
+            rt.offsetMax = new Vector2(-216f, -12f);
+        }
+
+        if (explanationText != null)
+        {
+            var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
+            if (bodyFont != null) explanationText.font = bodyFont;
+            explanationText.fontSize = 18f;
+            explanationText.enableAutoSizing = true;
+            explanationText.fontSizeMin = 15.5f;
+            explanationText.fontSizeMax = 19.5f;
+            explanationText.lineSpacing = 2f;
+            explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
+            explanationText.textWrappingMode = TextWrappingModes.Normal;
+            explanationText.overflowMode = TextOverflowModes.Ellipsis;
+            explanationText.alignment = TextAlignmentOptions.TopLeft;
+            var rt = explanationText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.offsetMin = new Vector2(30f, 14f);
+            rt.offsetMax = new Vector2(-216f, -48f);
+        }
+
+        if (nextQuestionButton != null)
+        {
+            var nextRt = nextQuestionButton.GetComponent<RectTransform>();
+            if (nextRt != null)
+            {
+                nextRt.anchorMin = new Vector2(1f, 0.5f);
+                nextRt.anchorMax = new Vector2(1f, 0.5f);
+                nextRt.pivot = new Vector2(1f, 0.5f);
+                nextRt.anchoredPosition = new Vector2(-20f, 0f);
+            }
+
+            var btnImg = nextQuestionButton.GetComponent<Image>();
+            if (btnImg != null && UITheme.Instance != null)
+            {
+                btnImg.color = UITheme.Instance.successColor;
+            }
+            var btnTxt = nextQuestionButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (btnTxt != null)
+            {
+                var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
+                if (titleFont != null) btnTxt.font = titleFont;
+                btnTxt.color = Color.white;
+                btnTxt.fontStyle = FontStyles.Bold;
+            }
+            var nextRtb = ResponsiveTextButton.AttachOrGet(nextQuestionButton);
+            nextRtb.Configure(
+                labelRef: btnTxt,
+                backgroundRef: btnImg,
+                minFont: 15f,
+                maxFont: 22f,
+                minBtnHeight: 48f,
+                maxBtnHeight: 84f,
+                minBtnWidth: 140f,
+                maxBtnWidth: 184f,
+                fitWidth: true,
+                allowHeightGrow: true,
+                padLeft: 18f,
+                padRight: 18f,
+                padVertical: 10f,
+                manageMargins: true);
+        }
+
+        PositionFeedbackPanelInsideAnswersColumn();
+    }
+
+    private void PositionFeedbackPanelInsideAnswersColumn()
+    {
+        if (feedbackPanel == null) return;
+        var fbRt = feedbackPanel.GetComponent<RectTransform>();
+        if (fbRt == null || answersContainer == null) return;
+
+        var fbParent = fbRt.parent as RectTransform;
+        if (fbParent == null) return;
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(answersContainer);
+
+        Vector3[] colCorners = new Vector3[4];
+        answersContainer.GetWorldCorners(colCorners);
+        float colLeftX = fbParent.InverseTransformPoint(colCorners[0]).x;
+        float colRightX = fbParent.InverseTransformPoint(colCorners[2]).x;
+        float lowestBottomY = ComputeLowestActiveButtonBottomY(fbParent, fbParent.InverseTransformPoint(colCorners[0]).y);
+        float parentBottomY = fbParent.rect.yMin;
+        // If space below answers is tight (e.g. City 620px modal with 4 rows), compact row height slightly before placing FeedbackPanel
+        if (lowestBottomY - 12f - (parentBottomY + 16f) < 118f && answersContainer != null && answerButtons != null)
+        {
+            var vlg = answersContainer.GetComponent<VerticalLayoutGroup>();
+            if (vlg != null) vlg.spacing = 6f;
+            int activeCount = 0;
+            for (int i = 0; i < answerButtons.Length; i++)
+            {
+                if (answerButtons[i] == null || !answerButtons[i].gameObject.activeSelf) continue;
+                activeCount++;
+                var rtb = answerButtons[i].GetComponent<ResponsiveTextButton>();
+                if (rtb != null) rtb.Configure(minBtnHeight: 46f, padVertical: 10f);
+            }
+            if (activeCount > 0) ResizeAnswersContainerToFit(activeCount);
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(answersContainer);
+            lowestBottomY = ComputeLowestActiveButtonBottomY(fbParent, lowestBottomY);
+        }
+
+        float desiredHeight = 148f;
+        if (explanationText != null && colRightX > colLeftX)
+        {
+            float expAvailW = Mathf.Max(200f, (colRightX - colLeftX) - 246f);
+            float prefH = explanationText.GetPreferredValues(explanationText.text ?? string.Empty, expAvailW, 0f).y;
+            desiredHeight = Mathf.Clamp(Mathf.Ceil(prefH) + 64f, 128f, 172f);
+        }
+
+        FeedbackColumnLayout layout = ComputeFeedbackColumnLayout(
+            colLeftX,
+            colRightX,
+            lowestBottomY,
+            parentBottomY,
+            desiredHeight);
+
+        fbRt.anchorMin = new Vector2(0.5f, 0.5f);
+        fbRt.anchorMax = new Vector2(0.5f, 0.5f);
+        fbRt.pivot = new Vector2(0.5f, 0f);
+        fbRt.sizeDelta = layout.Size;
+        fbRt.anchoredPosition = layout.CenterPosition;
+        LayoutRebuilder.ForceRebuildLayoutImmediate(fbRt);
+    }
+
+    private float ComputeLowestActiveButtonBottomY(RectTransform targetSpace, float fallbackY)
+    {
+        if (answerButtons == null || targetSpace == null) return fallbackY;
+        float lowest = float.PositiveInfinity;
+        Vector3[] corners = new Vector3[4];
+        for (int i = 0; i < answerButtons.Length; i++)
+        {
+            if (answerButtons[i] == null || !answerButtons[i].gameObject.activeSelf) continue;
+            var brt = answerButtons[i].GetComponent<RectTransform>();
+            if (brt == null) continue;
+            brt.GetWorldCorners(corners);
+            float y = targetSpace.InverseTransformPoint(corners[0]).y;
+            if (y < lowest) lowest = y;
+        }
+        return float.IsInfinity(lowest) ? fallbackY : lowest;
+    }
+
     public void ApplyThemeStyling()
     {
         bool useLegacy = UITheme.Instance != null && UITheme.Instance.useLegacyPopups;
@@ -177,85 +417,7 @@ public class QuizUIController : MonoBehaviour
 
             if (feedbackPanel != null)
             {
-                var fbImg = feedbackPanel.GetComponent<Image>();
-                if (fbImg != null && UITheme.Instance != null && UITheme.Instance.panelBackgroundSprite != null)
-                {
-                    fbImg.sprite = UITheme.Instance.panelBackgroundSprite;
-                    fbImg.type = Image.Type.Sliced;
-                    fbImg.color = Color.white;
-                }
-                var fbRt = feedbackPanel.GetComponent<RectTransform>();
-                if (fbRt != null)
-                {
-                    fbRt.anchorMin = new Vector2(0.5f, 0f);
-                    fbRt.anchorMax = new Vector2(0.5f, 0f);
-                    fbRt.pivot = new Vector2(0.5f, 0f);
-                    fbRt.anchoredPosition = new Vector2(0f, 16f);
-                    fbRt.sizeDelta = new Vector2(760f, 156f);
-                }
-                if (feedbackTitleText != null)
-                {
-                    var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
-                    if (titleFont != null) feedbackTitleText.font = titleFont;
-                    feedbackTitleText.fontSize = 20f;
-                    feedbackTitleText.fontStyle = FontStyles.Bold;
-                    var rt = feedbackTitleText.rectTransform;
-                    rt.anchorMin = new Vector2(0f, 1f);
-                    rt.anchorMax = new Vector2(0.72f, 1f);
-                    rt.offsetMin = new Vector2(24f, -44f);
-                    rt.offsetMax = new Vector2(-10f, -16f);
-                }
-                if (explanationText != null)
-                {
-                    var bodyFont = UITheme.Instance != null ? UITheme.Instance.GetBodyFont() : null;
-                    if (bodyFont != null) explanationText.font = bodyFont;
-                    explanationText.fontSize = 14f;
-                    explanationText.enableAutoSizing = true;
-                    explanationText.fontSizeMin = 11.5f;
-                    explanationText.fontSizeMax = 14.5f;
-                    explanationText.lineSpacing = -4f;
-                    explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
-                    explanationText.enableWordWrapping = true;
-                    var rt = explanationText.rectTransform;
-                    rt.anchorMin = new Vector2(0f, 0f);
-                    rt.anchorMax = new Vector2(0.72f, 1f);
-                    rt.offsetMin = new Vector2(24f, 14f);
-                    rt.offsetMax = new Vector2(-10f, -48f);
-                }
-                if (nextQuestionButton != null)
-                {
-                    var btnImg = nextQuestionButton.GetComponent<Image>();
-                    if (btnImg != null && UITheme.Instance != null)
-                    {
-                        btnImg.color = UITheme.Instance.successColor;
-                    }
-                    var btnTxt = nextQuestionButton.GetComponentInChildren<TextMeshProUGUI>();
-                    if (btnTxt != null)
-                    {
-                        var titleFont = UITheme.Instance != null ? UITheme.Instance.GetTitleFont() : null;
-                        if (titleFont != null) btnTxt.font = titleFont;
-                        btnTxt.color = Color.white;
-                        btnTxt.fontSize = 24f;
-                        btnTxt.fontStyle = FontStyles.Bold;
-                    }
-                    var nextRtb = ResponsiveTextButton.AttachOrGet(nextQuestionButton);
-                    nextRtb.Configure(
-                        labelRef: btnTxt,
-                        backgroundRef: btnImg,
-                        minFont: 15f,
-                        maxFont: 22f,
-                        minBtnHeight: 46f,
-                        maxBtnHeight: 84f,
-                        minBtnWidth: 132f,
-                        maxBtnWidth: 220f,
-                        fitWidth: true,
-                        allowHeightGrow: true,
-                        padLeft: 18f,
-                        padRight: 18f,
-                        padVertical: 10f,
-                        manageMargins: true);
-                }
-
+                StyleAndPositionFeedbackPanel();
                 ConfigureAnswerButtonsLayout();
             }
 
@@ -1275,18 +1437,9 @@ public class QuizUIController : MonoBehaviour
             {
                 explanationText.text = explanation;
                 explanationText.color = UITheme.Instance != null ? UITheme.Instance.textMuted : Color.white;
-                explanationText.enableAutoSizing = true;
-                explanationText.fontSizeMin = 11.5f;
-                explanationText.fontSizeMax = 14.5f;
-                explanationText.lineSpacing = -4f;
             }
 
-            Transform accentBar = feedbackPanel.transform.Find("AccentBar");
-            if (accentBar != null)
-            {
-                var barImg = accentBar.GetComponent<Image>();
-                if (barImg != null) barImg.color = stateColor;
-            }
+            StyleAndPositionFeedbackPanel(stateColor);
 
             if (feedbackCanvasGroup != null)
             {
