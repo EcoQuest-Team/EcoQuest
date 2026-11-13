@@ -112,6 +112,7 @@ public class ObjectiveMarkerService : MonoBehaviour
     public Vector2 CurrentIndicatorCanvasPosition => edgeIndicatorRect != null ? edgeIndicatorRect.anchoredPosition : Vector2.zero;
     public bool LastIsArrowOccluded => lastIsArrowOccluded;
     public bool LastIsOnScreen => lastIsOnScreen;
+    public bool IsSuppressed => IsOverlayOrDialogueActive();
 
     // Cached References (NO Find in Update)
     private Camera mainCam;
@@ -467,7 +468,7 @@ public class ObjectiveMarkerService : MonoBehaviour
 
         if (cachedGuardianOverheadMarker != null)
         {
-            bool isGuardianTarget = (currentTarget != null && currentTarget == cachedGuardian);
+            bool isGuardianTarget = (currentTarget != null && currentTarget == cachedGuardian) && !IsOverlayOrDialogueActive();
             cachedGuardianOverheadMarker.gameObject.SetActive(isGuardianTarget);
         }
 
@@ -526,6 +527,10 @@ public class ObjectiveMarkerService : MonoBehaviour
             currentArrowScaleFactor = Mathf.MoveTowards(currentArrowScaleFactor, 0f, dt * (fadeSpeed * 2f));
             if (worldArrowObj != null && worldArrowObj.activeSelf) worldArrowObj.SetActive(false);
             if (edgeIndicatorRoot != null && edgeIndicatorRoot.activeSelf) edgeIndicatorRoot.SetActive(false);
+            if (cachedGuardianOverheadMarker != null && cachedGuardianOverheadMarker.gameObject.activeSelf)
+            {
+                cachedGuardianOverheadMarker.gameObject.SetActive(false);
+            }
             return;
         }
 
@@ -674,12 +679,7 @@ public class ObjectiveMarkerService : MonoBehaviour
     private bool IsOverlayOrDialogueActive()
     {
         if (TravelGate.IsTraveling) return true;
-
-        if (UIOrchestrator.Instance != null && UIOrchestrator.Instance.IsOverlayActive)
-            return true;
-
-        if (DialoguePresenter.Instance != null && DialoguePresenter.Instance.IsInDialogue)
-            return true;
+        if (CursorState.IsAnyBlockingUIOpen()) return true;
 
         if (currentTarget != null)
         {

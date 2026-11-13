@@ -520,11 +520,11 @@ public class NPCInteraction : MonoBehaviour
             ? Vector3.Distance(transform.position, playerTransform.position)
             : 999f;
 
-        // Hide marker during dialogue, when quest is actively running, when travel is unlocked, or within interactDistance + 1.0m
+        // Hide marker during dialogue, blocking UI, when quest is actively running, when travel is unlocked, or within interactDistance + 1.0m
         bool isQuestActive = hasAcceptedQuest && !QuestManager.IsQuestComplete;
         bool isCityTravelUnlocked = TravelGate.CanTravelToCity;
         bool isSuppressedByService = ObjectiveMarkerService.Instance != null && ObjectiveMarkerService.Instance.CurrentTarget != transform;
-        bool shouldHide = isTalking || isQuestActive || isCityTravelUnlocked || isSuppressedByService || (distToPlayer <= (interactDistance + 1.0f));
+        bool shouldHide = isTalking || CursorState.IsAnyBlockingUIOpen() || isQuestActive || isCityTravelUnlocked || isSuppressedByService || (distToPlayer <= (interactDistance + 1.0f));
 
         if (shouldHide)
         {

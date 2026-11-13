@@ -25,7 +25,11 @@ public class NPCWaypointPointer : MonoBehaviour
 
     private void Start()
     {
-        if (ObjectiveMarkerService.Instance != null) return;
+        if (ObjectiveMarkerService.Instance != null)
+        {
+            enabled = false;
+            return;
+        }
         if (targetNPC == null) targetNPC = transform;
         mainCam = Camera.main;
 
