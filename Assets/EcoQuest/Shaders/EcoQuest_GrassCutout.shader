@@ -55,6 +55,19 @@ Shader "EcoQuest/VegetationGrassCutout"
             posOS.z += sway * 0.35h;
             return posOS;
         }
+
+        // Preserve distant mipmapped grass blade coverage (fragment-only) so thin blades don't vanish into dots.
+        half4 SampleAndClipGrass(float2 uv)
+        {
+            half4 tex = SAMPLE_TEXTURE2D(_BaseTexture, sampler_BaseTexture, uv);
+            float2 dx = ddx(uv * 256.0);
+            float2 dy = ddy(uv * 256.0);
+            float rho = max(dot(dx, dx), dot(dy, dy));
+            half mipBoost = (half)saturate(0.5 * log2(max(rho, 1.0)) * 0.16);
+            half cutoff = max(0.22h, (1.0h - _LeavesThickness) - mipBoost * 0.25h);
+            clip(tex.a - cutoff);
+            return tex;
+        }
         ENDHLSL
 
         Pass
@@ -69,7 +82,6 @@ Shader "EcoQuest/VegetationGrassCutout"
             #pragma multi_compile_instancing
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM
-            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
             #pragma shader_feature_local_fragment _RECEIVE_SHADOWS_OFF
             #pragma multi_compile_fog
@@ -112,32 +124,32 @@ Shader "EcoQuest/VegetationGrassCutout"
                 return OUT;
             }
 
-            half4 FragForward(Varyings IN, half facing : VFACE) : SV_Target
+            half4 FragForward(Varyings IN) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
 
-                half alpha = SAMPLE_TEXTURE2D(_BaseTexture, sampler_BaseTexture, IN.uv).a;
-                clip(alpha - (1.0h - _LeavesThickness));
+                half4 tex = SampleAndClipGrass(IN.uv);
+                half tipMask = saturate(IN.uv.y * _Gradient);
 
-                half3 albedo = lerp(_GroundColor.rgb, _TopColor.rgb, saturate(IN.uv.y * _Gradient));
-                half3 normalWS = NormalizeNormalPerPixel(IN.normalWS) * (facing > 0 ? 1.0h : -1.0h);
+                // Use vibrant base grass texture RGB with subtle root-to-tip depth gradient matching Polytope look.
+                half3 albedo = tex.rgb * lerp(0.76h, 1.16h, tipMask);
+
+                // Keep upward sky normal on both sides of double-sided blades so backfaces stay sunlit, not black.
+                half3 normalWS = NormalizeNormalPerPixel(IN.normalWS);
 
                 float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);
 
-                // Match lush stylized grass shading: soft wrapped diffuse so shaded backs don't turn black
-                half ndotl = saturate(dot(normalWS, mainLight.direction) * 0.5h + 0.5h);
-                half atten = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
+                half ndotl = saturate(dot(normalWS, mainLight.direction) * 0.45h + 0.55h);
+                half atten = mainLight.distanceAttenuation * lerp(0.32h, 1.0h, mainLight.shadowAttenuation);
                 half3 ambient = SampleSHPixel(IN.vertexSH, normalWS);
 
-                #if defined(_SCREEN_SPACE_OCCLUSION)
-                    float2 screenUV = GetNormalizedScreenSpaceUV(IN.positionCS);
-                    AmbientOcclusionFactor aoFactor = GetScreenSpaceAmbientOcclusion(screenUV);
-                    ambient *= aoFactor.indirectAmbientOcclusion;
-                #endif
+                half3 viewDirWS = SafeNormalize(_WorldSpaceCameraPos.xyz - IN.positionWS);
+                half transVdotL = pow(saturate(dot(viewDirWS, -(mainLight.direction + normalWS * 0.5h))), 2.0h);
+                half transTerm = (transVdotL * 0.85h + 0.16h) * lerp(0.35h, 1.0h, mainLight.shadowAttenuation) * tipMask;
 
-                half3 color = albedo * (ambient + mainLight.color * (ndotl * atten));
+                half3 color = albedo * (ambient + mainLight.color * (ndotl * atten + transTerm));
                 color = MixFog(color, IN.fogFactor);
                 return half4(color, 1.0h);
             }
@@ -190,8 +202,7 @@ Shader "EcoQuest/VegetationGrassCutout"
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
-                half alpha = SAMPLE_TEXTURE2D(_BaseTexture, sampler_BaseTexture, IN.uv).a;
-                clip(alpha - (1.0h - _LeavesThickness));
+                SampleAndClipGrass(IN.uv);
                 return IN.positionCS.z;
             }
             ENDHLSL
@@ -241,14 +252,12 @@ Shader "EcoQuest/VegetationGrassCutout"
                 return OUT;
             }
 
-            half4 FragDepthNormals(Varyings IN, half facing : VFACE) : SV_Target
+            half4 FragDepthNormals(Varyings IN) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
-                half alpha = SAMPLE_TEXTURE2D(_BaseTexture, sampler_BaseTexture, IN.uv).a;
-                clip(alpha - (1.0h - _LeavesThickness));
-                half3 n = normalize(IN.normalWS) * (facing > 0 ? 1.0h : -1.0h);
-                return half4(NormalizeNormalPerPixel(n), 0.0h);
+                SampleAndClipGrass(IN.uv);
+                return half4(NormalizeNormalPerPixel(IN.normalWS), 0.0h);
             }
             ENDHLSL
         }
@@ -318,8 +327,7 @@ Shader "EcoQuest/VegetationGrassCutout"
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
-                half alpha = SAMPLE_TEXTURE2D(_BaseTexture, sampler_BaseTexture, IN.uv).a;
-                clip(alpha - (1.0h - _LeavesThickness));
+                SampleAndClipGrass(IN.uv);
                 return 0;
             }
             ENDHLSL

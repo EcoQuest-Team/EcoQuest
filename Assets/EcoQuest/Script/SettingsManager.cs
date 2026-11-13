@@ -543,10 +543,10 @@ public class SettingsManager : MonoBehaviour
             case 3: // Ultra
                 pixelError = 4f;
                 basemapDist = 1000f;
-                detailDist = 90f;
+                detailDist = 115f;
                 detailDensity = 1.0f;
-                treeDist = 95f;
-                billboardDist = 70f;
+                treeDist = 115f;
+                billboardDist = 80f;
                 crossFadeLen = 10f;
                 maxMeshTrees = 300;
                 terrainShadowMode = ShadowCastingMode.TwoSided;
