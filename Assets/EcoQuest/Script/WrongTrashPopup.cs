@@ -110,6 +110,8 @@ public class WrongTrashPopup : MonoBehaviour
     private Vector2 restingPosition;
     private Coroutine activeAnimationCoroutine;
     private bool isVisible = false;
+    public bool IsVisible => isVisible;
+    public static bool IsAnyVisible => _instance != null && _instance.isVisible && _instance.gameObject.activeInHierarchy;
     private int lastKnownMistakeCount = 0;
     private ParsedWrongTrashMessage lastDisplayedMessage;
 

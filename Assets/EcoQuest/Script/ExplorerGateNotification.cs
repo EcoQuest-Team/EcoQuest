@@ -49,6 +49,7 @@ public class ExplorerGateNotification : MonoBehaviour
 
     private Coroutine activeNotificationRoutine;
     private bool isCheckingGate = false;
+    public static bool IsAnyShowingNotification => instance != null && instance.activeNotificationRoutine != null;
 
     private void Awake()
     {

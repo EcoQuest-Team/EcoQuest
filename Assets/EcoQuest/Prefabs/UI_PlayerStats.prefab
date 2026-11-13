@@ -532,6 +532,12 @@ MonoBehaviour:
   _staminaTextPrefix: 'STAMINA '
   _fillLerpSpeed: 10
   _criticalThreshold: 0.2
+  _hungerWarn10Message: "You're getting hungry! Find something to eat."
+  _hungerWarn5Message: "You're very hungry! Eat soon or you won't be able to sprint."
+  _hungerStarvingMessage: "You're starving! You're too weak to sprint. Find food!"
+  _hungerWarningDuration: 4
+  _hungerWarningSound: {fileID: 0}
+  _hungerWarningSoundVolume: 0.8
 --- !u!1 &2664884277548373722
 GameObject:
   m_ObjectHideFlags: 0

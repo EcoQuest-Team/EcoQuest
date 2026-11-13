@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -42,6 +43,14 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     [SerializeField] private float _fillLerpSpeed = 10f;
     [SerializeField] private float _criticalThreshold = 0.20f;
 
+    [Header("Hunger Warning Notifications")]
+    [SerializeField] private string _hungerWarn10Message = "You're getting hungry! Find something to eat.";
+    [SerializeField] private string _hungerWarn5Message = "You're very hungry! Eat soon or you won't be able to sprint.";
+    [SerializeField] private string _hungerStarvingMessage = "You're starving! You're too weak to sprint. Find food!";
+    [SerializeField] private float _hungerWarningDuration = 4.0f;
+    [SerializeField] private AudioClip _hungerWarningSound;
+    [SerializeField] [Range(0f, 1f)] private float _hungerWarningSoundVolume = 0.8f;
+
     private float _displayHunger = 1f;
     private float _displayStamina = 1f;
     private Vector3 _hungerBadgeBaseScale = Vector3.one;
@@ -50,6 +59,21 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
     private CanvasGroup _needsToastGroup;
     private TextMeshProUGUI _needsToastText;
     private Coroutine _needsToastRoutine;
+    private int _pendingHungerThreshold = -1;
+    private bool _hasPendingHungerWarning;
+
+    private UIOrchestrator _cachedOrchestrator;
+    private ModalManager _cachedModalManager;
+    private DialoguePresenter _cachedDialoguePresenter;
+    private HudVisibilityService _cachedHudVisibility;
+    private EcoQuest.Inventory.UI_EcoShop _cachedEcoShop;
+    private IntroSequenceController _cachedIntroController;
+    private ExplorerCinematicController _cachedExplorerCinematic;
+    private ControlTipCardUI _cachedControlTipCard;
+
+    public bool HasPendingHungerWarning => _hasPendingHungerWarning;
+    public bool IsNeedsToastVisible => _needsToastGo != null && _needsToastGo.activeInHierarchy && (_needsToastRoutine != null || (_needsToastGroup != null && _needsToastGroup.alpha > 0.01f));
+    public string CurrentNeedsToastMessage => _needsToastText != null ? _needsToastText.text : string.Empty;
 
     private void OnEnable()
     {
@@ -62,13 +86,120 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         PlayerSurvivalStats.OnHungerRumbleWarning -= HandleHungerRumbleWarning;
         StopAllCoroutines();
         _needsToastRoutine = null;
+        _hasPendingHungerWarning = false;
+        _pendingHungerThreshold = -1;
         if (_needsToastGroup != null) _needsToastGroup.alpha = 0f;
         if (_needsToastGo != null) _needsToastGo.SetActive(false);
     }
 
+    private void OnDestroy()
+    {
+        PlayerSurvivalStats.OnHungerRumbleWarning -= HandleHungerRumbleWarning;
+        StopAllCoroutines();
+        _needsToastRoutine = null;
+        _hasPendingHungerWarning = false;
+        _pendingHungerThreshold = -1;
+    }
+
     private void HandleHungerRumbleWarning(int thresholdPercent)
     {
-        ShowNeedsToast("Your tummy is rumbling! Eat something from your bag.", 4.0f);
+        if (IsMainMenuScene()) return;
+
+        if (!CanDisplayHungerWarningNow())
+        {
+            _pendingHungerThreshold = _hasPendingHungerWarning
+                ? Mathf.Min(_pendingHungerThreshold, thresholdPercent)
+                : thresholdPercent;
+            _hasPendingHungerWarning = true;
+            return;
+        }
+
+        ShowHungerWarningForThreshold(thresholdPercent);
+    }
+
+    private void ShowHungerWarningForThreshold(int thresholdPercent)
+    {
+        string msg;
+        if (thresholdPercent <= 0)
+        {
+            msg = string.IsNullOrEmpty(_hungerStarvingMessage)
+                ? "You're starving! You're too weak to sprint. Find food!"
+                : _hungerStarvingMessage;
+        }
+        else if (thresholdPercent <= 5)
+        {
+            msg = string.IsNullOrEmpty(_hungerWarn5Message)
+                ? "You're very hungry! Eat soon or you won't be able to sprint."
+                : _hungerWarn5Message;
+        }
+        else
+        {
+            msg = string.IsNullOrEmpty(_hungerWarn10Message)
+                ? "You're getting hungry! Find something to eat."
+                : _hungerWarn10Message;
+        }
+
+        if (_hungerWarningSound != null)
+        {
+            UITheme.PlaySound(_hungerWarningSound, _hungerWarningSoundVolume);
+        }
+
+        ShowNeedsToast(msg, Mathf.Max(1.0f, _hungerWarningDuration));
+    }
+
+    private bool IsMainMenuScene()
+    {
+        Scene scene = SceneManager.GetActiveScene();
+        if (!scene.IsValid()) return false;
+        return scene.name.IndexOf("Main Menu", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+               scene.name.IndexOf("MainMenu", System.StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    public bool CanDisplayHungerWarningNow()
+    {
+        if (!isActiveAndEnabled || IsMainMenuScene() || LoadingScreenController.IsLoading) return false;
+        if (PauseMenuController.IsPaused || SettingsPanelUI.IsAnySettingsOpen || Time.timeScale <= 0.001f) return false;
+        if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen) return false;
+        if (_cachedEcoShop != null && _cachedEcoShop.IsOpen) return false;
+        if ((_cachedDialoguePresenter != null && _cachedDialoguePresenter.IsInDialogue) ||
+            LitterbugQuestManager.IsDialogueOpen ||
+            NPCInteraction.IsAnyGuardianFlowRunning) return false;
+        if (QuizUIController.IsAnyQuizOpen) return false;
+        if (_cachedModalManager != null && _cachedModalManager.IsAnyModalActuallyVisible()) return false;
+        if (_cachedIntroController != null && _cachedIntroController.CurrentState != IntroSequenceController.IntroState.Gameplay) return false;
+        if (_cachedExplorerCinematic != null && _cachedExplorerCinematic.IsInCinematic) return false;
+        if (_cachedHudVisibility != null && _cachedHudVisibility.IsHUDHidden) return false;
+        if (_cachedOrchestrator != null && (_cachedOrchestrator.AreModalsOpen || _cachedOrchestrator.IsOverlayActive)) return false;
+        if (UIOrchestrator.IsCityScavengerOverlayOpenHook != null && UIOrchestrator.IsCityScavengerOverlayOpenHook()) return false;
+        if (WrongTrashPopup.IsAnyVisible || ExplorerGateNotification.IsAnyShowingNotification) return false;
+        if (_cachedControlTipCard != null &&
+            _cachedControlTipCard.gameObject.activeInHierarchy &&
+            _cachedControlTipCard.CurrentState != ControlTipCardUI.BannerState.Hidden) return false;
+        return true;
+    }
+
+    private int ResolveValidQueuedThreshold(PlayerSurvivalStats stats, int queuedThreshold)
+    {
+        if (stats == null) return -1;
+        float pct = stats.HungerPercent;
+        if (pct <= Mathf.Max(0f, stats.hungerStarvingThreshold)) return 0;
+        if (queuedThreshold <= 0) return -1;
+        if (pct <= stats.hungerWarningThreshold5) return 5;
+        if (queuedThreshold <= 5) return -1;
+        if (pct <= stats.hungerWarningThreshold10) return 10;
+        return -1;
+    }
+
+    public void RefreshCachedBlockers()
+    {
+        _cachedOrchestrator = FindFirstObjectByType<UIOrchestrator>(FindObjectsInactive.Include);
+        _cachedModalManager = FindFirstObjectByType<ModalManager>(FindObjectsInactive.Include);
+        _cachedDialoguePresenter = FindFirstObjectByType<DialoguePresenter>(FindObjectsInactive.Include);
+        _cachedHudVisibility = FindFirstObjectByType<HudVisibilityService>(FindObjectsInactive.Include);
+        _cachedEcoShop = FindFirstObjectByType<EcoQuest.Inventory.UI_EcoShop>(FindObjectsInactive.Include);
+        _cachedIntroController = FindFirstObjectByType<IntroSequenceController>(FindObjectsInactive.Include);
+        _cachedExplorerCinematic = FindFirstObjectByType<ExplorerCinematicController>(FindObjectsInactive.Include);
+        _cachedControlTipCard = FindFirstObjectByType<ControlTipCardUI>(FindObjectsInactive.Include);
     }
 
     private void Awake()
@@ -89,6 +220,8 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
 
     private void Start()
     {
+        RefreshCachedBlockers();
+
         // Initialize fill instantly on start
         if (PlayerSurvivalStats.Instance != null)
         {
@@ -96,6 +229,12 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
             _displayStamina = PlayerSurvivalStats.Instance.StaminaNormalized;
             if (_hungerFillImage != null) _hungerFillImage.fillAmount = _displayHunger;
             if (_staminaFillImage != null) _staminaFillImage.fillAmount = _displayStamina;
+
+            int? pendingStartup = PlayerSurvivalStats.Instance.ConsumePendingStartupWarning();
+            if (pendingStartup.HasValue)
+            {
+                HandleHungerRumbleWarning(pendingStartup.Value);
+            }
         }
     }
 
@@ -104,18 +243,45 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
         PlayerSurvivalStats stats = PlayerSurvivalStats.Instance;
         if (stats == null) return;
 
+        int? pendingStartup = stats.ConsumePendingStartupWarning();
+        if (pendingStartup.HasValue)
+        {
+            HandleHungerRumbleWarning(pendingStartup.Value);
+        }
+
+        if (_hasPendingHungerWarning)
+        {
+            if (IsMainMenuScene())
+            {
+                _hasPendingHungerWarning = false;
+                _pendingHungerThreshold = -1;
+            }
+            else if (CanDisplayHungerWarningNow())
+            {
+                int resolved = ResolveValidQueuedThreshold(stats, _pendingHungerThreshold);
+                _hasPendingHungerWarning = false;
+                _pendingHungerThreshold = -1;
+                if (resolved >= 0)
+                {
+                    ShowHungerWarningForThreshold(resolved);
+                }
+            }
+        }
+
         float dt = Time.unscaledDeltaTime;
 
         // Smooth Lerp Hunger Fill
         float targetHunger = stats.HungerNormalized;
+        float hungerPct = stats.HungerPercent;
         _displayHunger = Mathf.Lerp(_displayHunger, targetHunger, dt * _fillLerpSpeed);
         if (_hungerFillImage != null)
         {
             _hungerFillImage.fillAmount = _displayHunger;
-            if (targetHunger < 0.15f)
+            if (hungerPct <= stats.hungerWarningThreshold10)
             {
                 Color deepRed = new Color(0.78f, 0.14f, 0.14f, 1f);
-                _hungerFillImage.color = Color.Lerp(deepRed, _hungerCriticalColor, Mathf.PingPong(Time.unscaledTime * 3f, 1f));
+                float pulseSpeed = hungerPct <= stats.hungerWarningThreshold5 ? 4.5f : 3.0f;
+                _hungerFillImage.color = Color.Lerp(deepRed, _hungerCriticalColor, Mathf.PingPong(Time.unscaledTime * pulseSpeed, 1f));
             }
             else if (targetHunger < 0.30f)
             {
@@ -132,10 +298,10 @@ public class UI_SurvivalStatsHUD : MonoBehaviour
             _hungerText.text = $"{_hungerTextPrefix}{Mathf.CeilToInt(stats.CurrentHunger)}%";
         }
 
-        // Pulse hunger badge if low
+        // Pulse hunger badge if low (10% or below)
         if (_hungerBadge != null)
         {
-            if (targetHunger < 0.15f)
+            if (hungerPct <= stats.hungerWarningThreshold10)
             {
                 float pulse = 1f + Mathf.Sin(Time.unscaledTime * 6f) * 0.08f;
                 _hungerBadge.localScale = _hungerBadgeBaseScale * pulse;
