@@ -27,7 +27,7 @@ namespace EcoQuest.CityQuest
 
         private void Awake()
         {
-            if (!CityDistrictVolume.IsInAllowedCityScene())
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene))
             {
                 enabled = false;
                 gameObject.SetActive(false);
@@ -37,7 +37,7 @@ namespace EcoQuest.CityQuest
 
         private void OnEnable()
         {
-            if (!CityDistrictVolume.IsInAllowedCityScene())
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene))
             {
                 enabled = false;
                 return;
@@ -109,6 +109,8 @@ namespace EcoQuest.CityQuest
             GameObject root = new GameObject("ShimmerAnchor");
             // Low-poly diamond sparkles around the item so it reads clearly from 15m without garish beams
             Shader urpUnlit = Shader.Find("Universal Render Pipeline/Unlit");
+            if (urpUnlit == null) urpUnlit = Shader.Find("Universal Render Pipeline/Lit");
+            if (urpUnlit == null) urpUnlit = Shader.Find("Sprites/Default");
             if (urpUnlit == null) urpUnlit = Shader.Find("Unlit/Color");
             Material mat = new Material(urpUnlit != null ? urpUnlit : Shader.Find("Standard"));
             Color gold = new Color(1f, 0.90f, 0.35f, 0.95f);

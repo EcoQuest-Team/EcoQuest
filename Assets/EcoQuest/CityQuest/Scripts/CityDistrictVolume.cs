@@ -17,7 +17,7 @@ namespace EcoQuest.CityQuest
 
         private void Awake()
         {
-            if (!IsInAllowedCityScene())
+            if (!IsInAllowedCityScene(gameObject.scene))
             {
                 enabled = false;
                 return;
@@ -26,15 +26,19 @@ namespace EcoQuest.CityQuest
 
         private void OnEnable()
         {
-            if (!IsInAllowedCityScene())
+            if (!IsInAllowedCityScene(gameObject.scene))
             {
                 enabled = false;
                 return;
             }
         }
 
-        public static bool IsInAllowedCityScene()
+        public static bool IsInAllowedCityScene() => IsInAllowedCityScene(SceneManager.GetActiveScene());
+
+        public static bool IsInAllowedCityScene(Scene targetScene)
         {
+            if (targetScene.IsValid())
+                return targetScene.path == AllowedScenePath || targetScene.name == "City Scene";
             Scene active = SceneManager.GetActiveScene();
             return active.path == AllowedScenePath || active.name == "City Scene";
         }

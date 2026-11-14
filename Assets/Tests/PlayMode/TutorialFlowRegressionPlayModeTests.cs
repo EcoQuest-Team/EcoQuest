@@ -17,6 +17,9 @@ namespace EcoQuest.Tests.PlayMode
         {
             "EcoQuest_City_BestTime",
             "EcoQuest_City_RobinCooldownRemaining",
+            "EcoQuest_ForestGuardianCooldownRemaining",
+            "EcoQuest_CityRobin_RemainingSeconds",
+            "EcoQuest_CityRobin_HintCooldown",
             "EcoQuest_Player_HungerRemaining",
             "EcoQuest_Player_SpeedBuffRemaining",
             "EcoQuest_Player_SpeedBuffDuration",
@@ -35,6 +38,8 @@ namespace EcoQuest.Tests.PlayMode
             "EcoQuest_RobinCooldownUntil",
             "EcoQuest_CityTip_Checklist",
             "EcoQuest_CityTip_Hint",
+            "EcoQuest_CityLitterbug_SlotData",
+            "EcoQuest_CityRobin_SlotData",
             "EcoQuest_Inventory_Slots",
             "EcoQuest_Inventory_SeenNew"
         };

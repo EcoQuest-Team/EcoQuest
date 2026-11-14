@@ -61,6 +61,11 @@ public class NpcBrain : MonoBehaviour
     public int IslandId => islandId;
     public void SetIslandId(int id) => islandId = id;
     public void SetWalkGraph(CityWalkGraph graph) => walkGraph = graph;
+    public void SetOverrideControllers(RuntimeAnimatorController male, RuntimeAnimatorController female)
+    {
+        if (maleOverrideController == null && male != null) maleOverrideController = male;
+        if (femaleOverrideController == null && female != null) femaleOverrideController = female;
+    }
 
     public bool IsQuestTarget { get; private set; }
     public bool IsLoiteringForQuest => loiteringForQuest;

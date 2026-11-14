@@ -25821,8 +25821,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1621982509deb7a4584a5233846bb2e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcSpawner
-  walkGraph: {fileID: 0}
+  walkGraph: {fileID: 11400000, guid: d7f3f8e8aad867641b82ea0ca874ebdb, type: 2}
   outfitProfile: {fileID: 11400000, guid: a9d5694d7a7d1564d979167c64ae901a, type: 2}
+  maleOverrideController: {fileID: 22100000, guid: e95944f3a38c13543863b2b4fdc57120, type: 2}
+  femaleOverrideController: {fileID: 22100000, guid: 3170af7f5b1a4d540a286c89ccfa2ce4, type: 2}
   outfitBaseSeed: 202610
   targetNpcCount: 20
   minPlayerDistance: 15
@@ -1027473,6 +1027475,7 @@ MonoBehaviour:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 989373110}
   - {fileID: 315136621}
   - {fileID: 1758095165}
   - {fileID: 1057544435}
@@ -1027485,7 +1027488,6 @@ SceneRoots:
   - {fileID: 1073499265}
   - {fileID: 1560021991}
   - {fileID: 1314234611}
-  - {fileID: 989373110}
   - {fileID: 1314527765}
   - {fileID: 1060003479}
   - {fileID: 2098961684}

@@ -28,6 +28,7 @@ public static class EcoQuestSaveKeys
     public const string ForestRewardClaimed = "EcoQuest_ForestRewardClaimed";
     public const string ForestExplorerGateNotified = "EcoQuest_ForestExplorerGateNotified";
     public const string GuardianCooldownUntil = "EcoQuest_GuardianCooldownUntil";
+    public const string ForestGuardianCooldownRemaining = "EcoQuest_ForestGuardianCooldownRemaining";
 
     // Currency Keys
     public const string PlayerGold = "PlayerGold";
@@ -43,6 +44,20 @@ public static class EcoQuestSaveKeys
     public const string CityRobinCooldownLegacyUntil = "EcoQuest_RobinCooldownUntil";
     public const string CityTipChecklist = "EcoQuest_CityTip_Checklist";
     public const string CityTipHint = "EcoQuest_CityTip_Hint";
+
+    // City Mid-Quest Persistence Keys
+    public const string CityLitterbugHasSavedProgress = "EcoQuest_CityLitterbug_HasSavedProgress";
+    public const string CityLitterbugQuestState = "EcoQuest_CityLitterbug_QuestState";
+    public const string CityLitterbugCurrentRound = "EcoQuest_CityLitterbug_CurrentRound";
+    public const string CityLitterbugCompletedRounds = "EcoQuest_CityLitterbug_CompletedRounds";
+    public const string CityLitterbugSlotData = "EcoQuest_CityLitterbug_SlotData";
+    public const string CityRobinHasSavedProgress = "EcoQuest_CityRobin_HasSavedProgress";
+    public const string CityRobinQuestState = "EcoQuest_CityRobin_QuestState";
+    public const string CityRobinRemainingSeconds = "EcoQuest_CityRobin_RemainingSeconds";
+    public const string CityRobinHintCharges = "EcoQuest_CityRobin_HintCharges";
+    public const string CityRobinHintCooldown = "EcoQuest_CityRobin_HintCooldown";
+    public const string CityRobinPickupCoins = "EcoQuest_CityRobin_PickupCoins";
+    public const string CityRobinSlotData = "EcoQuest_CityRobin_SlotData";
 
     // Survival / Needs Keys
     public const string PlayerHungerRemaining = "EcoQuest_Player_HungerRemaining";
@@ -87,6 +102,7 @@ public static class EcoQuestSaveKeys
         ForestRewardClaimed,
         ForestExplorerGateNotified,
         GuardianCooldownUntil,
+        ForestGuardianCooldownRemaining,
         PlayerGold,
         PlayerCoins,
         CityBestStars,
@@ -98,6 +114,18 @@ public static class EcoQuestSaveKeys
         CityRobinCooldownLegacyUntil,
         CityTipChecklist,
         CityTipHint,
+        CityLitterbugHasSavedProgress,
+        CityLitterbugQuestState,
+        CityLitterbugCurrentRound,
+        CityLitterbugCompletedRounds,
+        CityLitterbugSlotData,
+        CityRobinHasSavedProgress,
+        CityRobinQuestState,
+        CityRobinRemainingSeconds,
+        CityRobinHintCharges,
+        CityRobinHintCooldown,
+        CityRobinPickupCoins,
+        CityRobinSlotData,
         PlayerHungerRemaining,
         PlayerHungerRumble20Shown,
         PlayerHungerRumble0Shown,
@@ -152,6 +180,7 @@ public static class EcoQuestSaveKeys
 
         if (Application.isPlaying)
         {
+            EcoQuest.CityQuest.CityTrashDetectiveManager.SkipRobinCooldown();
             QuizManager.Instance?.ResetQuizzes(clearPreQuiz: true);
             GameplayControlTipsManager.Instance?.ResetTipsState();
             QuestManager.ResetAllQuestCountsToZero();

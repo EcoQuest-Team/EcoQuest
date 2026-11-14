@@ -71,6 +71,12 @@ public class NPCInteraction : MonoBehaviour
     [Header("Repeat Quest Settings")]
     [Tooltip("If true, repeat quests also run the Post-Test at the end. If false (default), shows a simple completion message instead.")]
     public bool repeatQuestRunsPostTest = false;
+    [Tooltip("Cooldown duration in seconds after completing the Forest Guardian quest before it can be repeated (default 300s = 5:00).")]
+    [SerializeField] private float repeatCooldownSeconds = 300f;
+
+    [Header("Marker & Animator Assets")]
+    [SerializeField] private Sprite hourglassMarkerSprite;
+    [SerializeField] private RuntimeAnimatorController guardianAnimatorController;
 
     private int currentLineIndex = 0;
     private bool isPlayerNearby = false;
@@ -80,9 +86,12 @@ public class NPCInteraction : MonoBehaviour
     private bool isRepeatOfferDialogue = false;
     private QuestManager[] allQuests;
     private Transform playerTransform;
+    private SpriteRenderer overheadMarkerRenderer;
+    private Sprite defaultOverheadSprite;
 
     private Coroutine typingCoroutine;
     private Coroutine cameraBlendCoroutine;
+    private Coroutine cooldownDialogueRoutine;
     private bool isTyping = false;
     private float advanceLockTimer = 0f;
     private bool canContinue = false;
@@ -93,6 +102,28 @@ public class NPCInteraction : MonoBehaviour
     private float originalCamFOV;
     private static float globalNpcInteractCooldownUntil = 0f;
 
+    private const float DefaultRepeatCooldownSeconds = 300f;
+    private static bool _cooldownInitialized = false;
+    private static float _cooldownRemainingSeconds = 0f;
+    private static int _lastCooldownTickFrame = -1;
+    private static float _lastCooldownSaveUnscaledTime = -100f;
+    private static Sprite _fallbackHourglassSprite;
+
+    public static bool IsCooldownDialogueOpen { get; private set; }
+    public static event System.Action OnGuardianCooldownStateChanged;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetGuardianStaticCooldownState()
+    {
+        _cooldownInitialized = false;
+        _cooldownRemainingSeconds = 0f;
+        _lastCooldownTickFrame = -1;
+        _lastCooldownSaveUnscaledTime = -100f;
+        IsCooldownDialogueOpen = false;
+        OnGuardianCooldownStateChanged = null;
+        OnQuestAccepted = null;
+    }
+
     public bool IsTalking => isTalking;
     public bool IsPlayerNearby => isPlayerNearby;
     public bool IsQuestActive => hasAcceptedQuest && !QuestManager.IsQuestComplete;
@@ -100,8 +131,147 @@ public class NPCInteraction : MonoBehaviour
 
     public static event System.Action OnQuestAccepted;
 
+    public static string FormatCooldownMS(float remainingSeconds)
+    {
+        int totalSec = Mathf.Max(0, Mathf.CeilToInt(remainingSeconds));
+        return $"{totalSec / 60}:{totalSec % 60:00}";
+    }
+
+    private static void EnsureCooldownLoaded()
+    {
+        if (_cooldownInitialized) return;
+        _cooldownInitialized = true;
+        _cooldownRemainingSeconds = Mathf.Max(0f, PlayerPrefs.GetFloat(EcoQuestSaveKeys.ForestGuardianCooldownRemaining, 0f));
+    }
+
+    public static bool IsOnCooldown(out float remainingSeconds)
+    {
+        EnsureCooldownLoaded();
+        if (_cooldownRemainingSeconds > 0.001f)
+        {
+            remainingSeconds = _cooldownRemainingSeconds;
+            return true;
+        }
+        remainingSeconds = 0f;
+        return false;
+    }
+
+    public static void StartCooldown(float? durationSeconds = null)
+    {
+        float duration = durationSeconds.HasValue ? durationSeconds.Value : ResolveConfiguredCooldownSeconds();
+        if (duration <= 0f)
+        {
+            ClearCooldown();
+            return;
+        }
+
+        _cooldownInitialized = true;
+        _cooldownRemainingSeconds = duration;
+        _lastCooldownSaveUnscaledTime = Time.unscaledTime;
+        SaveCooldownRemainingImmediate();
+        OnGuardianCooldownStateChanged?.Invoke();
+    }
+
+    public static void ClearCooldown()
+    {
+        _cooldownInitialized = true;
+        _cooldownRemainingSeconds = 0f;
+        SaveCooldownRemainingImmediate();
+        OnGuardianCooldownStateChanged?.Invoke();
+    }
+
+    public static void FlushCooldownSave()
+    {
+        if (!_cooldownInitialized) return;
+        SaveCooldownRemainingImmediate();
+    }
+
+    private static float ResolveConfiguredCooldownSeconds()
+    {
+        var npc = FindFirstObjectByType<NPCInteraction>(FindObjectsInactive.Include);
+        if (npc != null && npc.repeatCooldownSeconds > 0f)
+        {
+            return npc.repeatCooldownSeconds;
+        }
+        return DefaultRepeatCooldownSeconds;
+    }
+
+    private static void SaveCooldownRemainingImmediate()
+    {
+        if (_cooldownRemainingSeconds > 0.01f)
+        {
+            PlayerPrefs.SetFloat(EcoQuestSaveKeys.ForestGuardianCooldownRemaining, _cooldownRemainingSeconds);
+        }
+        else if (PlayerPrefs.HasKey(EcoQuestSaveKeys.ForestGuardianCooldownRemaining))
+        {
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.ForestGuardianCooldownRemaining);
+        }
+        PlayerPrefs.Save();
+    }
+
+    public static bool ShouldTickCooldown()
+    {
+        if (!Application.isPlaying) return false;
+        if (PauseMenuController.IsPaused || Time.timeScale <= 0.001f) return false;
+        if (LoadingScreenController.IsLoading) return false;
+        if (QuizUIController.IsAnyQuizOpen) return false;
+        if (EcoQuest.Inventory.InventoryController.Instance != null && EcoQuest.Inventory.InventoryController.Instance.IsOpen) return false;
+        if (EcoQuest.Inventory.UI_EcoShop.Instance != null && EcoQuest.Inventory.UI_EcoShop.Instance.IsOpen) return false;
+        if (IsAnyGuardianFlowRunning || LitterbugQuestManager.IsDialogueOpen) return false;
+        if (ModalManager.Instance != null && ModalManager.Instance.IsAnyModalActuallyVisible()) return false;
+
+        var detective = EcoQuest.CityQuest.CityTrashDetectiveManager.Instance;
+        if (detective != null && ((detective.ui != null && detective.ui.IsAnyModalOpen) ||
+                                  (detective.bonusQuizAdapter != null && detective.bonusQuizAdapter.IsQuizRunning)))
+        {
+            return false;
+        }
+
+        if (DialoguePresenter.Instance != null && (DialoguePresenter.Instance.IsInDialogue || DialoguePresenter.Instance.IsSuspended))
+        {
+            if (!IsCooldownDialogueOpen) return false;
+        }
+
+        if (UIOrchestrator.Instance != null)
+        {
+            if (UIOrchestrator.Instance.AreModalsOpen) return false;
+            if (UIOrchestrator.Instance.IsOverlayActive && !IsCooldownDialogueOpen) return false;
+        }
+
+        return true;
+    }
+
+    public static void TickCooldownGlobal(float? explicitUnscaledDelta = null)
+    {
+        int frame = Time.frameCount;
+        if (!explicitUnscaledDelta.HasValue && frame == _lastCooldownTickFrame) return;
+        _lastCooldownTickFrame = frame;
+
+        EnsureCooldownLoaded();
+        if (_cooldownRemainingSeconds <= 0f) return;
+        if (!explicitUnscaledDelta.HasValue && !ShouldTickCooldown()) return;
+
+        float dt = explicitUnscaledDelta.HasValue ? Mathf.Max(0f, explicitUnscaledDelta.Value) : Time.unscaledDeltaTime;
+        if (dt <= 0f) return;
+
+        _cooldownRemainingSeconds = Mathf.Max(0f, _cooldownRemainingSeconds - dt);
+
+        if (_cooldownRemainingSeconds <= 0.001f)
+        {
+            _cooldownRemainingSeconds = 0f;
+            SaveCooldownRemainingImmediate();
+            OnGuardianCooldownStateChanged?.Invoke();
+        }
+        else if (Time.unscaledTime - _lastCooldownSaveUnscaledTime >= 1.0f)
+        {
+            _lastCooldownSaveUnscaledTime = Time.unscaledTime;
+            PlayerPrefs.SetFloat(EcoQuestSaveKeys.ForestGuardianCooldownRemaining, _cooldownRemainingSeconds);
+        }
+    }
+
     public static void NotifyAllQuestCompleted()
     {
+        float configuredDuration = DefaultRepeatCooldownSeconds;
         NPCInteraction[] npcs = FindObjectsByType<NPCInteraction>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (NPCInteraction npc in npcs)
         {
@@ -109,10 +279,15 @@ public class NPCInteraction : MonoBehaviour
             {
                 npc.hasCompletedFirstQuest = true;
                 npc.hasAcceptedQuest = false;
+                if (npc.repeatCooldownSeconds > 0f)
+                {
+                    configuredDuration = npc.repeatCooldownSeconds;
+                }
             }
         }
         PlayerPrefs.SetInt(EcoQuestSaveKeys.ForestQuestAccepted, 0);
         PlayerPrefs.Save();
+        StartCooldown(configuredDuration);
         ObjectiveMarkerService.Instance?.RefreshTargetFromState();
     }
 
@@ -256,6 +431,7 @@ public class NPCInteraction : MonoBehaviour
 
     private void Update()
     {
+        TickCooldownGlobal();
         AnimateOverheadMarker();
 
         if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
@@ -307,8 +483,9 @@ public class NPCInteraction : MonoBehaviour
             StartDialogue();
         }
 
-        // Support advancing dialogue via Click, E, Space, or Return, and declining with Q
-        if (isTalking)
+        // Support advancing dialogue via Click, E, Space, or Return, and declining with Q (legacy UI fallback only)
+        if (isTalking && !IsCooldownDialogueOpen && !IsRunningGuardianFlow &&
+            (DialoguePresenter.Instance == null || !DialoguePresenter.Instance.IsInDialogue))
         {
             if (advanceLockTimer > 0f)
             {
@@ -475,23 +652,30 @@ public class NPCInteraction : MonoBehaviour
             }
             else if (anim.runtimeAnimatorController == null)
             {
-#if UNITY_EDITOR
-                string n = gameObject.name.ToLowerInvariant();
-                bool isFemale = n.Contains("female") || n.Contains("woman") || n.Contains("girl");
-                string overridePath = isFemale
-                    ? "Assets/EcoQuest/Asset/NPC_Female_Override.overrideController"
-                    : "Assets/EcoQuest/Asset/NPC_Male_Override.overrideController";
-                RuntimeAnimatorController overrideCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(overridePath);
-                if (overrideCtrl != null)
+                if (guardianAnimatorController != null)
                 {
-                    anim.runtimeAnimatorController = overrideCtrl;
+                    anim.runtimeAnimatorController = guardianAnimatorController;
                 }
-                else
+#if UNITY_EDITOR
+                if (anim.runtimeAnimatorController == null)
                 {
-                    RuntimeAnimatorController guardianCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/EcoQuest/Asset/GuardianAnimatorController.controller");
-                    if (guardianCtrl != null)
+                    string n = gameObject.name.ToLowerInvariant();
+                    bool isFemale = n.Contains("female") || n.Contains("woman") || n.Contains("girl");
+                    string overridePath = isFemale
+                        ? "Assets/EcoQuest/Asset/NPC_Female_Override.overrideController"
+                        : "Assets/EcoQuest/Asset/NPC_Male_Override.overrideController";
+                    RuntimeAnimatorController overrideCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(overridePath);
+                    if (overrideCtrl != null)
                     {
-                        anim.runtimeAnimatorController = guardianCtrl;
+                        anim.runtimeAnimatorController = overrideCtrl;
+                    }
+                    else
+                    {
+                        RuntimeAnimatorController guardianCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/EcoQuest/Asset/GuardianAnimatorController.controller");
+                        if (guardianCtrl != null)
+                        {
+                            anim.runtimeAnimatorController = guardianCtrl;
+                        }
                     }
                 }
 #endif
@@ -536,19 +720,100 @@ public class NPCInteraction : MonoBehaviour
         }
     }
 
+    private Sprite GetOrCreateHourglassSprite()
+    {
+        if (hourglassMarkerSprite != null) return hourglassMarkerSprite;
+#if UNITY_EDITOR
+        var loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/EcoQuest/UI/Icons/Icon_Hourglass.png");
+        if (loaded != null)
+        {
+            hourglassMarkerSprite = loaded;
+            return loaded;
+        }
+#endif
+        if (_fallbackHourglassSprite != null) return _fallbackHourglassSprite;
+
+        const int size = 64;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+        Color clear = new Color(0f, 0f, 0f, 0f);
+        Color outline = new Color(0.10f, 0.14f, 0.10f, 0.90f);
+        Color frame = new Color(1f, 0.96f, 0.80f, 1f);
+        Color sand = new Color(1f, 0.85f, 0.28f, 1f);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float nx = (x + 0.5f) / size * 2f - 1f;
+                float ny = (y + 0.5f) / size * 2f - 1f;
+                float absX = Mathf.Abs(nx);
+                float absY = Mathf.Abs(ny);
+
+                Color c = clear;
+                if (absY >= 0.72f && absY <= 0.88f && absX <= 0.62f)
+                {
+                    c = frame;
+                }
+                else if (absY < 0.72f)
+                {
+                    float halfWidth = Mathf.Lerp(0.08f, 0.54f, absY / 0.72f);
+                    if (absX <= halfWidth + 0.08f)
+                    {
+                        if (absX >= halfWidth - 0.05f) c = frame;
+                        else if ((ny > 0f && ny <= 0.48f) || (ny < -0.35f && ny >= -0.70f && absX <= halfWidth - 0.06f)) c = sand;
+                        else c = outline;
+                    }
+                }
+                tex.SetPixel(x, y, c);
+            }
+        }
+        tex.Apply();
+        _fallbackHourglassSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 64f);
+        return _fallbackHourglassSprite;
+    }
+
     private void AnimateOverheadMarker()
     {
         if (overheadMarker == null) return;
+
+        if (overheadMarkerRenderer == null)
+        {
+            overheadMarkerRenderer = overheadMarker.GetComponent<SpriteRenderer>();
+            if (overheadMarkerRenderer == null)
+            {
+                overheadMarkerRenderer = overheadMarker.GetComponentInChildren<SpriteRenderer>(true);
+            }
+            if (overheadMarkerRenderer != null && defaultOverheadSprite == null)
+            {
+                defaultOverheadSprite = overheadMarkerRenderer.sprite;
+            }
+        }
 
         float distToPlayer = (playerTransform != null)
             ? Vector3.Distance(transform.position, playerTransform.position)
             : 999f;
 
-        // Hide marker during dialogue, blocking UI, when quest is actively running, when travel is unlocked, or within interactDistance + 1.0m
+        bool onCooldown = IsOnCooldown(out _);
+        if (overheadMarkerRenderer != null)
+        {
+            Sprite targetSprite = onCooldown ? GetOrCreateHourglassSprite() : defaultOverheadSprite;
+            if (targetSprite != null && overheadMarkerRenderer.sprite != targetSprite)
+            {
+                overheadMarkerRenderer.sprite = targetSprite;
+            }
+        }
+
+        // Hide marker during dialogue, blocking UI, when quest is actively running, or within interactDistance + 1.0m.
+        // During repeat cooldown, keep hourglass visible even if city travel is unlocked.
         bool isQuestActive = hasAcceptedQuest && !QuestManager.IsQuestComplete;
         bool isCityTravelUnlocked = TravelGate.CanTravelToCity;
         bool isSuppressedByService = ObjectiveMarkerService.Instance != null && ObjectiveMarkerService.Instance.CurrentTarget != transform;
-        bool shouldHide = isTalking || CursorState.IsAnyBlockingUIOpen() || isQuestActive || isCityTravelUnlocked || isSuppressedByService || (distToPlayer <= (interactDistance + 1.0f));
+        bool hideForTravelOrTarget = !onCooldown && (isCityTravelUnlocked || isSuppressedByService);
+        bool shouldHide = isTalking || CursorState.IsAnyBlockingUIOpen() || isQuestActive || hideForTravelOrTarget || (distToPlayer <= (interactDistance + 1.0f));
 
         if (shouldHide)
         {
@@ -717,6 +982,42 @@ public class NPCInteraction : MonoBehaviour
             {
                 linesToShow = DialogueData.GetForestComplete(reward);
                 onAcceptAction = () => EndDialogue();
+            }
+            else if (IsOnCooldown(out float cooldownRemaining))
+            {
+                IsCooldownDialogueOpen = true;
+                linesToShow = new List<string>
+                {
+                    $"The forest needs time to recover. Come back in {FormatCooldownMS(cooldownRemaining)}!"
+                };
+                if (cooldownDialogueRoutine != null) StopCoroutine(cooldownDialogueRoutine);
+                cooldownDialogueRoutine = StartCoroutine(CooldownDialogueLiveUpdateRoutine());
+                DialoguePresenter.Instance.ShowDialogue(
+                    speakerName: "Guardian",
+                    lines: linesToShow,
+                    showChoicesAtEnd: false,
+                    onComplete: () =>
+                    {
+                        IsCooldownDialogueOpen = false;
+                        DeclineRepeatMission();
+                    }
+                );
+                return;
+            }
+            else if (isRepeatOfferDialogue)
+            {
+                linesToShow = new List<string> { GetCurrentDialogueLine() };
+                DialoguePresenter.Instance.ShowDialogue(
+                    speakerName: "Guardian",
+                    lines: linesToShow,
+                    showChoicesAtEnd: true,
+                    acceptLabel: acceptLabel,
+                    declineLabel: declineLabel,
+                    onAccept: () => EndDialogue(),
+                    onDecline: () => DeclineRepeatMission(),
+                    onComplete: () => DeclineRepeatMission()
+                );
+                return;
             }
             else
             {
@@ -1323,9 +1624,38 @@ public class NPCInteraction : MonoBehaviour
         EndDialogue();
     }
 
+    private IEnumerator CooldownDialogueLiveUpdateRoutine()
+    {
+        int lastDisplayedSec = -1;
+        while (IsCooldownDialogueOpen && isTalking &&
+               DialoguePresenter.Instance != null &&
+               (DialoguePresenter.Instance.IsInDialogue || DialoguePresenter.Instance.IsSuspended))
+        {
+            bool active = IsOnCooldown(out float remSec);
+            int dispSec = active ? Mathf.CeilToInt(remSec) : 0;
+            if (dispSec != lastDisplayedSec)
+            {
+                lastDisplayedSec = dispSec;
+                string liveLine = dispSec > 0
+                    ? $"The forest needs time to recover. Come back in {FormatCooldownMS(remSec)}!"
+                    : "The forest is ready for another cleanup! Talk to me again whenever you're ready.";
+                DialoguePresenter.Instance.UpdateLiveCurrentLineText(liveLine);
+            }
+            yield return null;
+        }
+        IsCooldownDialogueOpen = false;
+        cooldownDialogueRoutine = null;
+    }
+
     public void DeclineRepeatMission()
     {
         globalNpcInteractCooldownUntil = Time.unscaledTime + 2.0f;
+        IsCooldownDialogueOpen = false;
+        if (cooldownDialogueRoutine != null)
+        {
+            StopCoroutine(cooldownDialogueRoutine);
+            cooldownDialogueRoutine = null;
+        }
         if (!isTalking) return;
         bool wasRepeat = isRepeatOfferDialogue;
         isTalking = false;
@@ -1839,9 +2169,15 @@ public class NPCInteraction : MonoBehaviour
     {
         IsAnyQuestActive = false;
         IsAnyGuardianFlowRunning = false;
+        IsCooldownDialogueOpen = false;
         CurrentFlowStep = "Idle";
         OnFlowCompleted = null;
+        OnGuardianCooldownStateChanged = null;
         globalNpcInteractCooldownUntil = 0f;
+        _cooldownInitialized = false;
+        _cooldownRemainingSeconds = 0f;
+        _lastCooldownTickFrame = -1;
+        _lastCooldownSaveUnscaledTime = -100f;
     }
 
 #if UNITY_EDITOR
@@ -1917,6 +2253,12 @@ public class NPCInteraction : MonoBehaviour
             StopCoroutine(flowWatchdogRoutine);
             flowWatchdogRoutine = null;
         }
+        if (cooldownDialogueRoutine != null)
+        {
+            StopCoroutine(cooldownDialogueRoutine);
+            cooldownDialogueRoutine = null;
+        }
+        IsCooldownDialogueOpen = false;
         if (typingCoroutine != null)
         {
             StopCoroutine(typingCoroutine);
@@ -1939,13 +2281,25 @@ public class NPCInteraction : MonoBehaviour
         }
     }
 
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus) FlushCooldownSave();
+    }
+
+    private void OnApplicationQuit()
+    {
+        FlushCooldownSave();
+    }
+
     private void OnDisable()
     {
+        FlushCooldownSave();
         CleanupCoroutinesAndState();
     }
 
     private void OnDestroy()
     {
+        FlushCooldownSave();
         CleanupCoroutinesAndState();
     }
 }

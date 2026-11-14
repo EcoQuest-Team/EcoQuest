@@ -76,6 +76,7 @@ public static class CursorState
         if (TutorialManager.IsAnyTutorialActive) return true;
         if (LitterbugQuestManager.IsDialogueOpen) return true;
         if (NPCInteraction.IsAnyGuardianFlowRunning) return true;
+        if (NPCInteraction.IsCooldownDialogueOpen) return true;
 
         var intro = IntroSequenceController.Instance;
         if (intro != null && intro.CurrentState != IntroSequenceController.IntroState.Gameplay) return true;

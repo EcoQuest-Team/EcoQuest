@@ -7,6 +7,8 @@ public class NpcSpawner : MonoBehaviour
     [Header("Graph & Population")]
     [SerializeField] private CityWalkGraph walkGraph;
     [SerializeField] private OutfitProfile outfitProfile;
+    [SerializeField] private RuntimeAnimatorController maleOverrideController;
+    [SerializeField] private RuntimeAnimatorController femaleOverrideController;
     [SerializeField] private int outfitBaseSeed = 202610;
     [SerializeField] private int targetNpcCount = 20;
     [SerializeField] private float minPlayerDistance = 15f;
@@ -81,6 +83,20 @@ public class NpcSpawner : MonoBehaviour
 #endif
         }
 
+        if (maleOverrideController == null)
+        {
+#if UNITY_EDITOR
+            maleOverrideController = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/EcoQuest/Asset/NPC_Male_Override.overrideController");
+#endif
+        }
+
+        if (femaleOverrideController == null)
+        {
+#if UNITY_EDITOR
+            femaleOverrideController = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/EcoQuest/Asset/NPC_Female_Override.overrideController");
+#endif
+        }
+
         if (npcPrefabs == null || npcPrefabs.Count == 0)
         {
 #if UNITY_EDITOR
@@ -98,8 +114,21 @@ public class NpcSpawner : MonoBehaviour
         }
     }
 
+    private bool hasSpawnedOnce;
+
     private void Start()
     {
+        EnsureSpawned();
+    }
+
+    /// <summary>
+    /// Idempotently cleans any leftover preview/walker container and spawns all NPCs once.
+    /// Callable early from quest managers so restoration does not depend on script Start() order.
+    /// </summary>
+    public void EnsureSpawned()
+    {
+        if (hasSpawnedOnce && spawnedNpcs.Count > 0) return;
+
         var playerObj = GameObject.FindGameObjectWithTag("Player");
         if (playerObj != null) playerTransform = playerObj.transform;
 
@@ -107,10 +136,12 @@ public class NpcSpawner : MonoBehaviour
         if (oldWalkers != null) Destroy(oldWalkers);
 
         SpawnAllNpcs();
+        hasSpawnedOnce = spawnedNpcs.Count > 0;
     }
 
     public void SpawnAllNpcs()
     {
+        hasSpawnedOnce = false;
         spawnedNpcs.Clear();
         if (walkGraph == null || walkGraph.nodes.Count == 0 || npcPrefabs.Count == 0)
         {
@@ -248,6 +279,7 @@ public class NpcSpawner : MonoBehaviour
         var go = Instantiate(cand.prefab, pos, rot, parent);
         go.name = objName;
         var brain = go.GetComponent<NpcBrain>();
+        brain.SetOverrideControllers(maleOverrideController, femaleOverrideController);
         brain.SetGender(cand.gender);
         brain.ApplyGenderController();
         brain.SetWalkGraph(walkGraph);

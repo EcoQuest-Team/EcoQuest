@@ -169,6 +169,26 @@ namespace EcoQuest.CityQuest
         private RobinDialogueState dialogueState = RobinDialogueState.Idle;
         public RobinDialogueState DialogueState => dialogueState;
         private bool isFinalizingQuest = false;
+        private float lastMidQuestSaveUnscaledTime = -100f;
+
+        [Serializable]
+        private struct SavedRobinSlot
+        {
+            public string itemId;
+            public int district;
+            public string spawnName;
+            public float x;
+            public float y;
+            public float z;
+            public bool collected;
+        }
+
+        [Serializable]
+        private struct SavedRobinState
+        {
+            public int attemptSeed;
+            public List<SavedRobinSlot> slots;
+        }
 
         private static bool _cooldownInitialized = false;
         private static float _cooldownRemainingSeconds = 0f;
@@ -191,7 +211,7 @@ namespace EcoQuest.CityQuest
 
         private void Awake()
         {
-            if (!CityDistrictVolume.IsInAllowedCityScene())
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene))
             {
                 enabled = false;
                 return;
@@ -234,21 +254,28 @@ namespace EcoQuest.CityQuest
             dialogueWatchdogRoutine = null;
             IsRobinCooldownDialogueOpen = false;
             FlushRobinCooldownSave();
+            FlushMidQuestSaveNow();
         }
 
         private void OnApplicationPause(bool pauseStatus)
         {
-            if (pauseStatus) FlushRobinCooldownSave();
+            if (pauseStatus)
+            {
+                FlushRobinCooldownSave();
+                FlushMidQuestSaveNow();
+            }
         }
 
         private void OnApplicationQuit()
         {
             FlushRobinCooldownSave();
+            FlushMidQuestSaveNow();
         }
 
         private void OnDestroy()
         {
             FlushRobinCooldownSave();
+            FlushMidQuestSaveNow();
             if (Instance == this)
             {
                 Instance = null;
@@ -261,16 +288,21 @@ namespace EcoQuest.CityQuest
 
         private void Start()
         {
-            if (!CityDistrictVolume.IsInAllowedCityScene()) return;
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene)) return;
 
             FindSceneReferences();
             CacheDistrictVolumes();
             CacheSpawnPoints();
             CachePickupPool();
             EnsureRobinHeadMarker();
+            bool restored = RestoreMidQuestProgressIfSaved();
             UpdateRobinMarkerVisibility();
             OnDetectiveQuestStateChanged?.Invoke();
             ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+            if (restored)
+            {
+                RefreshRestoredQuestHudAndMarkers();
+            }
         }
 
         private Transform ResolvePlayerTransform()
@@ -360,10 +392,17 @@ namespace EcoQuest.CityQuest
             {
                 districtsRoot.GetComponentsInChildren(true, districtVolumes);
             }
-            else
+
+            if (districtVolumes.Count == 0)
             {
                 var vols = FindObjectsByType<CityDistrictVolume>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-                districtVolumes.AddRange(vols);
+                for (int i = 0; i < vols.Length; i++)
+                {
+                    if (vols[i] != null && vols[i].gameObject.scene == gameObject.scene)
+                    {
+                        districtVolumes.Add(vols[i]);
+                    }
+                }
             }
         }
 
@@ -374,10 +413,17 @@ namespace EcoQuest.CityQuest
             {
                 spawnPointsRoot.GetComponentsInChildren(true, allSpawnPoints);
             }
-            else
+
+            if (allSpawnPoints.Count == 0)
             {
                 var sps = FindObjectsByType<CityTrashSpawnPoint>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-                allSpawnPoints.AddRange(sps);
+                for (int i = 0; i < sps.Length; i++)
+                {
+                    if (sps[i] != null && sps[i].gameObject.scene == gameObject.scene)
+                    {
+                        allSpawnPoints.Add(sps[i]);
+                    }
+                }
             }
         }
 
@@ -388,10 +434,29 @@ namespace EcoQuest.CityQuest
             {
                 poolRoot.GetComponentsInChildren(true, pickupPool);
             }
-            else
+
+            if (pickupPool.Count == 0)
             {
                 var insts = FindObjectsByType<CityTrashPickupInstance>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-                pickupPool.AddRange(insts);
+                for (int i = 0; i < insts.Length; i++)
+                {
+                    if (insts[i] != null && insts[i].gameObject.scene == gameObject.scene)
+                    {
+                        pickupPool.Add(insts[i]);
+                    }
+                }
+            }
+
+            if (pickupPool.Count < 10)
+            {
+                Transform parent = poolRoot != null ? poolRoot : transform;
+                while (pickupPool.Count < 10)
+                {
+                    var go = new GameObject($"RuntimePickupInstance_{pickupPool.Count}");
+                    go.transform.SetParent(parent, false);
+                    var inst = go.AddComponent<CityTrashPickupInstance>();
+                    pickupPool.Add(inst);
+                }
             }
 
             for (int i = 0; i < pickupPool.Count; i++)
@@ -545,7 +610,7 @@ namespace EcoQuest.CityQuest
         {
             TickRobinCooldownGlobal();
 
-            if (!CityDistrictVolume.IsInAllowedCityScene()) return;
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene)) return;
 
             if (playerTransform == null || playerTransform.GetComponent<CharacterController>() == null)
             {
@@ -604,6 +669,11 @@ namespace EcoQuest.CityQuest
                         remainingSeconds = 0f;
                         OnTimerExpired();
                         return;
+                    }
+
+                    if (unscaledTime - lastMidQuestSaveUnscaledTime >= 1.0f)
+                    {
+                        SaveMidQuestProgress(saveToDisk: false);
                     }
                 }
 
@@ -1369,6 +1439,9 @@ namespace EcoQuest.CityQuest
                 return;
             }
 
+            if (allSpawnPoints.Count == 0) CacheSpawnPoints();
+            if (pickupPool.Count < 10) CachePickupPool();
+
             currentAttemptSeed = Environment.TickCount;
             PlayerPrefs.SetInt(EcoQuestSaveKeys.CityLastSeed, currentAttemptSeed);
             PlayerPrefs.SetInt(EcoQuestSaveKeys.CityBonusPending, 0);
@@ -1394,9 +1467,17 @@ namespace EcoQuest.CityQuest
             activeHintTarget = null;
 
             // Generate checklist & assigns spawn points
-            GenerateChecklistAndSpawns(currentAttemptSeed, database, allSpawnPoints, activeChecklist);
+            bool generated = GenerateChecklistAndSpawns(currentAttemptSeed, database, allSpawnPoints, activeChecklist);
+            if (!generated || activeChecklist.Count == 0)
+            {
+                Debug.LogError("[CityTrashDetectiveManager] Failed to generate checklist or spawn points; aborting attempt cleanly.");
+                questState = CityDetectiveState.NotStarted;
+                ClearSavedMidQuestProgress(saveToDisk: true);
+                return;
+            }
 
             // Spawn 10 pooled trash items
+            int spawnedCount = 0;
             for (int i = 0; i < activeChecklist.Count; i++)
             {
                 var slot = activeChecklist[i];
@@ -1404,10 +1485,24 @@ namespace EcoQuest.CityQuest
                 {
                     slot.pickupInstance = pickupPool[i];
                     slot.pickupInstance.ActivateAtSpawn(i, slot.item, slot.spawnPoint, currentAttemptSeed + i * 31);
+                    if (slot.pickupInstance.gameObject.activeSelf)
+                    {
+                        spawnedCount++;
+                    }
                 }
             }
 
+            if (spawnedCount == 0)
+            {
+                Debug.LogError("[CityTrashDetectiveManager] Zero trash pickups became active; aborting attempt cleanly.");
+                activeChecklist.Clear();
+                questState = CityDetectiveState.NotStarted;
+                ClearSavedMidQuestProgress(saveToDisk: true);
+                return;
+            }
+
             questState = CityDetectiveState.Active;
+            SaveMidQuestProgress(saveToDisk: true);
             UpdateRobinMarkerVisibility();
             OnDetectiveQuestStateChanged?.Invoke();
 
@@ -1442,6 +1537,7 @@ namespace EcoQuest.CityQuest
             hintActiveTimer = 0f;
             activeHintTarget = null;
             questState = CityDetectiveState.NotStarted;
+            ClearSavedMidQuestProgress(saveToDisk: true);
 
             ui?.HideChecklist();
             ui?.UpdateCompassHud(false, Vector3.zero, Vector3.forward, Vector3.zero, "", CityDistrict.Park, 0f);
@@ -1452,6 +1548,279 @@ namespace EcoQuest.CityQuest
             {
                 UIOrchestrator.Instance.SetPhase(UIOrchestrator.GamePhase.FreePlay, "CityScavenger Cancelled");
             }
+        }
+
+        // =====================================================================
+        // MID-QUEST PERSISTENCE
+        // =====================================================================
+
+        public void FlushMidQuestSaveNow()
+        {
+            if (questState == CityDetectiveState.Active || questState == CityDetectiveState.ReadyToTurnIn)
+            {
+                SaveMidQuestProgress(saveToDisk: true);
+            }
+        }
+
+        public void RefreshRestoredQuestHudAndMarkers()
+        {
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene)) return;
+
+            if (questState == CityDetectiveState.Active || questState == CityDetectiveState.ReadyToTurnIn)
+            {
+                if (UIOrchestrator.Instance != null)
+                {
+                    UIOrchestrator.Instance.SetQuestPanelUserHidden(false, "CityScavenger Restored");
+                    UIOrchestrator.Instance.SetPhase(UIOrchestrator.GamePhase.QuestActive, "CityScavenger Restored");
+                }
+
+                if (ui != null && questState == CityDetectiveState.Active)
+                {
+                    ui.ShowChecklist(activeChecklist, collectedCount, remainingSeconds, remainingHintCharges, currentHintCooldown);
+                }
+
+                UpdateRobinMarkerVisibility();
+                OnDetectiveQuestStateChanged?.Invoke();
+                ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+            }
+        }
+
+        private void SaveMidQuestProgress(bool saveToDisk)
+        {
+            if ((questState != CityDetectiveState.Active && questState != CityDetectiveState.ReadyToTurnIn) ||
+                activeChecklist.Count == 0)
+            {
+                return;
+            }
+
+            var payload = new SavedRobinState
+            {
+                attemptSeed = currentAttemptSeed,
+                slots = new List<SavedRobinSlot>(activeChecklist.Count)
+            };
+
+            for (int i = 0; i < activeChecklist.Count; i++)
+            {
+                var slot = activeChecklist[i];
+                if (slot == null || slot.item == null) continue;
+                Vector3 pos = slot.spawnPoint != null ? slot.spawnPoint.transform.position : Vector3.zero;
+                payload.slots.Add(new SavedRobinSlot
+                {
+                    itemId = slot.item.id,
+                    district = (int)slot.district,
+                    spawnName = slot.spawnPoint != null ? slot.spawnPoint.gameObject.name : string.Empty,
+                    x = pos.x,
+                    y = pos.y,
+                    z = pos.z,
+                    collected = slot.collected
+                });
+            }
+
+            if (payload.slots.Count == 0) return;
+
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.CityRobinHasSavedProgress, 1);
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.CityRobinQuestState, (int)questState);
+            PlayerPrefs.SetFloat(EcoQuestSaveKeys.CityRobinRemainingSeconds, Mathf.Max(0f, remainingSeconds));
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.CityRobinHintCharges, remainingHintCharges);
+            PlayerPrefs.SetFloat(EcoQuestSaveKeys.CityRobinHintCooldown, Mathf.Max(0f, currentHintCooldown));
+            PlayerPrefs.SetInt(EcoQuestSaveKeys.CityRobinPickupCoins, currentRunPickupCoins);
+            PlayerPrefs.SetString(EcoQuestSaveKeys.CityRobinSlotData, JsonUtility.ToJson(payload));
+            lastMidQuestSaveUnscaledTime = Time.unscaledTime;
+
+            if (saveToDisk)
+            {
+                PlayerPrefs.Save();
+            }
+        }
+
+        private void ClearSavedMidQuestProgress(bool saveToDisk)
+        {
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinHasSavedProgress);
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinQuestState);
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinRemainingSeconds);
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinHintCharges);
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinHintCooldown);
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinPickupCoins);
+            PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityRobinSlotData);
+            if (saveToDisk)
+            {
+                PlayerPrefs.Save();
+            }
+        }
+
+        private bool RestoreMidQuestProgressIfSaved()
+        {
+            if (PlayerPrefs.GetInt(EcoQuestSaveKeys.CityRobinHasSavedProgress, 0) != 1)
+                return false;
+
+            var savedState = (CityDetectiveState)PlayerPrefs.GetInt(
+                EcoQuestSaveKeys.CityRobinQuestState,
+                (int)CityDetectiveState.NotStarted);
+            if (savedState != CityDetectiveState.Active && savedState != CityDetectiveState.ReadyToTurnIn)
+            {
+                ClearSavedMidQuestProgress(saveToDisk: true);
+                return false;
+            }
+
+            string json = PlayerPrefs.GetString(EcoQuestSaveKeys.CityRobinSlotData, string.Empty);
+            if (string.IsNullOrEmpty(json) || database == null || database.items == null)
+            {
+                ClearSavedMidQuestProgress(saveToDisk: true);
+                return false;
+            }
+
+            SavedRobinState parsed;
+            try
+            {
+                parsed = JsonUtility.FromJson<SavedRobinState>(json);
+            }
+            catch
+            {
+                ClearSavedMidQuestProgress(saveToDisk: true);
+                return false;
+            }
+
+            if (parsed.slots == null || parsed.slots.Count == 0)
+            {
+                ClearSavedMidQuestProgress(saveToDisk: true);
+                return false;
+            }
+
+            if (allSpawnPoints.Count == 0) CacheSpawnPoints();
+            if (pickupPool.Count < parsed.slots.Count) CachePickupPool();
+
+            for (int i = 0; i < pickupPool.Count; i++)
+            {
+                if (database != null) pickupPool[i].PrewarmVisuals(database);
+                pickupPool[i].ReturnToPoolImmediate();
+            }
+
+            activeChecklist.Clear();
+            lastCollectedItemsForQuiz.Clear();
+
+            var usedSpawns = new HashSet<CityTrashSpawnPoint>();
+            int restoredCollected = 0;
+            for (int i = 0; i < parsed.slots.Count; i++)
+            {
+                SavedRobinSlot s = parsed.slots[i];
+                CityTrashItemDef def = database.GetById(s.itemId);
+                if (def == null)
+                {
+                    activeChecklist.Clear();
+                    lastCollectedItemsForQuiz.Clear();
+                    ClearSavedMidQuestProgress(saveToDisk: true);
+                    return false;
+                }
+
+                CityDistrict dist = (CityDistrict)s.district;
+                CityTrashSpawnPoint sp = FindMatchingSpawnPoint(s.spawnName, new Vector3(s.x, s.y, s.z), dist, usedSpawns);
+                if (sp != null) usedSpawns.Add(sp);
+
+                var slot = new ChecklistSlot
+                {
+                    item = def,
+                    district = dist,
+                    spawnPoint = sp,
+                    pickupInstance = null,
+                    collected = s.collected
+                };
+                activeChecklist.Add(slot);
+
+                if (s.collected)
+                {
+                    restoredCollected++;
+                    lastCollectedItemsForQuiz.Add(def);
+                }
+            }
+
+            currentAttemptSeed = parsed.attemptSeed;
+            collectedCount = restoredCollected;
+            if (restoredCollected >= activeChecklist.Count)
+            {
+                savedState = CityDetectiveState.ReadyToTurnIn;
+            }
+
+            for (int i = 0; i < activeChecklist.Count; i++)
+            {
+                var slot = activeChecklist[i];
+                if (!slot.collected && i < pickupPool.Count)
+                {
+                    slot.pickupInstance = pickupPool[i];
+                    slot.pickupInstance.ActivateAtSpawn(i, slot.item, slot.spawnPoint, currentAttemptSeed + i * 31);
+                }
+            }
+
+            questState = savedState;
+            float savedRemSec = PlayerPrefs.GetFloat(EcoQuestSaveKeys.CityRobinRemainingSeconds, questDurationSeconds);
+            remainingSeconds = savedState == CityDetectiveState.Active
+                ? Mathf.Clamp(savedRemSec, 0.5f, questDurationSeconds)
+                : Mathf.Clamp(savedRemSec, 0f, questDurationSeconds);
+            remainingHintCharges = Mathf.Clamp(PlayerPrefs.GetInt(EcoQuestSaveKeys.CityRobinHintCharges, maxHintCharges), 0, maxHintCharges);
+            currentHintCooldown = Mathf.Max(0f, PlayerPrefs.GetFloat(EcoQuestSaveKeys.CityRobinHintCooldown, 0f));
+            currentRunPickupCoins = Mathf.Max(0, PlayerPrefs.GetInt(EcoQuestSaveKeys.CityRobinPickupCoins, 0));
+            isFinalizingQuest = false;
+            hintActiveTimer = 0f;
+            activeHintTarget = null;
+            lastMidQuestSaveUnscaledTime = Time.unscaledTime;
+
+            Debug.Log($"[CityTrashDetectiveManager] Restored mid-quest progress: state={questState}, collected={collectedCount}/{activeChecklist.Count}, time={remainingSeconds:F1}s");
+            return true;
+        }
+
+        private CityTrashSpawnPoint FindMatchingSpawnPoint(
+            string spawnName,
+            Vector3 savedPos,
+            CityDistrict fallbackDistrict,
+            HashSet<CityTrashSpawnPoint> usedSpawns)
+        {
+            for (int i = 0; i < allSpawnPoints.Count; i++)
+            {
+                var sp = allSpawnPoints[i];
+                if (sp == null || usedSpawns.Contains(sp)) continue;
+                if (sp.gameObject.name == spawnName && (sp.transform.position - savedPos).sqrMagnitude < 0.05f)
+                    return sp;
+            }
+
+            CityTrashSpawnPoint closest = null;
+            float closestDistSq = 0.25f;
+            for (int i = 0; i < allSpawnPoints.Count; i++)
+            {
+                var sp = allSpawnPoints[i];
+                if (sp == null || usedSpawns.Contains(sp)) continue;
+                float dSq = (sp.transform.position - savedPos).sqrMagnitude;
+                if (dSq < closestDistSq)
+                {
+                    closestDistSq = dSq;
+                    closest = sp;
+                }
+            }
+            if (closest != null) return closest;
+
+            if (!string.IsNullOrEmpty(spawnName))
+            {
+                for (int i = 0; i < allSpawnPoints.Count; i++)
+                {
+                    var sp = allSpawnPoints[i];
+                    if (sp != null && !usedSpawns.Contains(sp) && sp.gameObject.name == spawnName)
+                        return sp;
+                }
+            }
+
+            for (int i = 0; i < allSpawnPoints.Count; i++)
+            {
+                var sp = allSpawnPoints[i];
+                if (sp != null && !usedSpawns.Contains(sp) && sp.district == fallbackDistrict)
+                    return sp;
+            }
+
+            for (int i = 0; i < allSpawnPoints.Count; i++)
+            {
+                var sp = allSpawnPoints[i];
+                if (sp != null && !usedSpawns.Contains(sp))
+                    return sp;
+            }
+
+            return null;
         }
 
         // =====================================================================
@@ -1625,6 +1994,36 @@ namespace EcoQuest.CityQuest
                     }
                 }
 
+                if (chosenSp == null && spawnPoints != null)
+                {
+                    for (int s = 0; s < spawnPoints.Count; s++)
+                    {
+                        var candidate = spawnPoints[s];
+                        if (candidate != null && candidate.isVerifiedValid && !usedSpawns.Contains(candidate))
+                        {
+                            chosenSp = candidate;
+                            usedSpawns.Add(chosenSp);
+                            d = candidate.district;
+                            break;
+                        }
+                    }
+
+                    if (chosenSp == null)
+                    {
+                        for (int s = 0; s < spawnPoints.Count; s++)
+                        {
+                            var candidate = spawnPoints[s];
+                            if (candidate != null && !usedSpawns.Contains(candidate))
+                            {
+                                chosenSp = candidate;
+                                usedSpawns.Add(chosenSp);
+                                d = candidate.district;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 outSlots.Add(new ChecklistSlot
                 {
                     item = chosenItems[i],
@@ -1690,6 +2089,7 @@ namespace EcoQuest.CityQuest
             if (collectedCount >= 10)
             {
                 questState = CityDetectiveState.ReadyToTurnIn;
+                SaveMidQuestProgress(saveToDisk: true);
                 UpdateRobinMarkerVisibility();
                 OnDetectiveQuestStateChanged?.Invoke();
                 rangerRobinController?.PlayReaction("Cheer");
@@ -1697,6 +2097,10 @@ namespace EcoQuest.CityQuest
                 {
                     StartCoroutine(CompleteQuestAllItemsFoundRoutine());
                 }
+            }
+            else
+            {
+                SaveMidQuestProgress(saveToDisk: true);
             }
         }
 
@@ -1746,6 +2150,7 @@ namespace EcoQuest.CityQuest
             var targetSlot = activeChecklist[bestSlot];
             activeHintTarget = targetSlot.pickupInstance;
             hintActiveTimer = hintActiveDuration;
+            SaveMidQuestProgress(saveToDisk: true);
 
             if (UITheme.Instance != null && UITheme.Instance.modalOpenSound != null)
             {
@@ -1839,6 +2244,7 @@ namespace EcoQuest.CityQuest
             }
 
             questState = (stars >= 1) ? CityDetectiveState.Completed : CityDetectiveState.NotStarted;
+            ClearSavedMidQuestProgress(saveToDisk: true);
             // Start 5:00 cooldown on BOTH completion and timeout/0-star attempt (persisted as unpaused remaining seconds)
             StartRobinCooldown();
             ui?.HideChecklist();

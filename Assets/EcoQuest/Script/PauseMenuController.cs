@@ -701,6 +701,11 @@ public class PauseMenuController : MonoBehaviour
 
         CursorState.SetLocked(false, playerInputs, updateCenterCursor: false);
 
+        LitterbugQuestManager.Instance?.FlushMidQuestSaveNow();
+        EcoQuest.CityQuest.CityTrashDetectiveManager.Instance?.FlushMidQuestSaveNow();
+        EcoQuest.CityQuest.CityTrashDetectiveManager.FlushRobinCooldownSave();
+        NPCInteraction.FlushCooldownSave();
+
         LoadingScreen.Load(mainMenuSceneName);
     }
 

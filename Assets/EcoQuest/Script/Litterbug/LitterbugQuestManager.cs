@@ -128,6 +128,21 @@ public class LitterbugQuestManager : MonoBehaviour
         public bool persuaded;
     }
 
+    [Serializable]
+    private struct SavedLitterbugSlot
+    {
+        public int entryId;
+        public bool persuaded;
+    }
+
+    [Serializable]
+    private struct SavedLitterbugState
+    {
+        public int currentRound;
+        public int completedRounds;
+        public List<SavedLitterbugSlot> slots;
+    }
+
     public struct DialoguePage
     {
         public string speaker;
@@ -288,9 +303,14 @@ public class LitterbugQuestManager : MonoBehaviour
             minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
         }
 
+        bool restored = RestoreMidQuestProgressIfSaved();
         lastGuardianCooldownActive = IsOnGuardianCooldown(out _);
         OnCityQuestStateChanged?.Invoke();
         ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+        if (restored)
+        {
+            RefreshRestoredQuestHudAndMarkers();
+        }
     }
 
     private void CacheSceneReferences()
@@ -845,10 +865,12 @@ public class LitterbugQuestManager : MonoBehaviour
     {
         CleanupPreviousRoundState();
 
+        if (npcSpawner == null) CacheSceneReferences();
+        npcSpawner?.EnsureSpawned();
+
         currentRound = completedRounds + 1;
         persuadedCount = 0;
         questState = LitterbugQuestState.Active;
-        OnCityQuestStateChanged?.Invoke();
         displayedCleanliness = 0f;
         targetCleanliness = 0f;
         lastDisplayedDistanceMeters = -999;
@@ -869,6 +891,7 @@ public class LitterbugQuestManager : MonoBehaviour
         if (minimapTracker != null)
             minimapTracker.SetFountainMarker(questGiverTransform, visible: false);
 
+        int boundCount = 0;
         for (int i = 0; i < TargetCount; i++)
         {
             targetSlots[i].entry = roundEntries[i];
@@ -882,7 +905,33 @@ public class LitterbugQuestManager : MonoBehaviour
             {
                 ReassignLostSlot(i);
             }
+
+            if (targetSlots[i].brain != null && targetSlots[i].litterbug != null)
+            {
+                boundCount++;
+            }
         }
+
+        if (boundCount == 0)
+        {
+            Debug.LogError("[LitterbugQuestManager] No eligible walking NPCs bound; reverting to Available instead of soft-locking 0/5.");
+            CleanupPreviousRoundState();
+            currentRound = completedRounds;
+            persuadedCount = 0;
+            questState = LitterbugQuestState.Available;
+            ClearSavedMidQuestProgress(saveToDisk: true);
+            if (minimapTracker != null)
+            {
+                minimapTracker.ClearAll();
+                minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
+            }
+            OnCityQuestStateChanged?.Invoke();
+            ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+            return;
+        }
+
+        SaveMidQuestProgress(saveToDisk: true);
+        OnCityQuestStateChanged?.Invoke();
 
         // Reset alpha & state on re-enter, then slide/fade Quest Panel in
         UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.QuestActive, "City quest started");
@@ -894,6 +943,239 @@ public class LitterbugQuestManager : MonoBehaviour
 
         TravelGate.RunPostTravelHealthCheck(out string reportQuestStart);
         Debug.Log($"[Post-Travel Health Check - QuestStart] {reportQuestStart}");
+    }
+
+    public void FlushMidQuestSaveNow()
+    {
+        if (questState == LitterbugQuestState.Active || questState == LitterbugQuestState.ReadyToTurnIn)
+        {
+            SaveMidQuestProgress(saveToDisk: true);
+        }
+    }
+
+    public void RefreshRestoredQuestHudAndMarkers()
+    {
+        if (questState != LitterbugQuestState.Active && questState != LitterbugQuestState.ReadyToTurnIn)
+            return;
+
+        targetCleanliness = Mathf.Clamp01(persuadedCount * 0.20f);
+        displayedCleanliness = targetCleanliness;
+
+        if (cleanlinessFillImage != null) cleanlinessFillImage.fillAmount = displayedCleanliness;
+        if (cleanlinessPercentText != null) cleanlinessPercentText.text = $"{Mathf.RoundToInt(displayedCleanliness * 100f)}%";
+        if (roundTitleText != null) roundTitleText.text = "Quest";
+        if (questCounterText != null)
+        {
+            questCounterText.text = questState == LitterbugQuestState.ReadyToTurnIn
+                ? "Return to the Guardian"
+                : $"Enlighten the litterbugs: {persuadedCount}/{TargetCount}";
+        }
+
+        if (questPanelGroup != null && questPanelRect != null)
+        {
+            questPanelShownAnchoredPos = UIOrchestrator.SharedQuestPanelHomePos;
+            questPanelRect.anchorMin = new Vector2(0f, 1f);
+            questPanelRect.anchorMax = new Vector2(0f, 1f);
+            questPanelRect.pivot = new Vector2(0f, 1f);
+            questPanelRect.anchoredPosition = questPanelShownAnchoredPos;
+            questPanelRect.sizeDelta = new Vector2(395f, questPanelRect.sizeDelta.y);
+            capturedPanelPos = true;
+
+            questPanelGroup.gameObject.SetActive(true);
+            questPanelGroup.alpha = 1f;
+            questPanelGroup.interactable = false;
+            questPanelGroup.blocksRaycasts = false;
+        }
+
+        if (minimapTracker != null)
+        {
+            minimapTracker.ClearAll();
+            if (questState == LitterbugQuestState.ReadyToTurnIn)
+            {
+                minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
+            }
+            else
+            {
+                minimapTracker.SetFountainMarker(questGiverTransform, visible: false);
+                for (int i = 0; i < TargetCount; i++)
+                {
+                    if (!targetSlots[i].persuaded && targetSlots[i].brain != null)
+                    {
+                        minimapTracker.SetSlot(i, targetSlots[i].brain.transform, visible: true, completedCheck: false);
+                    }
+                }
+            }
+        }
+
+        UIOrchestrator.Instance?.SetPhase(UIOrchestrator.GamePhase.QuestActive, "LitterbugQuest Restored");
+        UIOrchestrator.Instance?.SetQuestPanelUserHidden(false, "LitterbugQuest Restored");
+        OnCityQuestStateChanged?.Invoke();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
+    }
+
+    private void SaveMidQuestProgress(bool saveToDisk)
+    {
+        if (questState != LitterbugQuestState.Active && questState != LitterbugQuestState.ReadyToTurnIn)
+            return;
+
+        var payload = new SavedLitterbugState
+        {
+            currentRound = currentRound,
+            completedRounds = completedRounds,
+            slots = new List<SavedLitterbugSlot>(TargetCount)
+        };
+
+        for (int i = 0; i < TargetCount; i++)
+        {
+            payload.slots.Add(new SavedLitterbugSlot
+            {
+                entryId = targetSlots[i].entry != null ? targetSlots[i].entry.id : -1,
+                persuaded = targetSlots[i].persuaded
+            });
+        }
+
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.CityLitterbugHasSavedProgress, 1);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.CityLitterbugQuestState, (int)questState);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.CityLitterbugCurrentRound, currentRound);
+        PlayerPrefs.SetInt(EcoQuestSaveKeys.CityLitterbugCompletedRounds, completedRounds);
+        PlayerPrefs.SetString(EcoQuestSaveKeys.CityLitterbugSlotData, JsonUtility.ToJson(payload));
+        if (saveToDisk)
+        {
+            PlayerPrefs.Save();
+        }
+    }
+
+    private void ClearSavedMidQuestProgress(bool saveToDisk)
+    {
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityLitterbugHasSavedProgress);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityLitterbugQuestState);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityLitterbugCurrentRound);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityLitterbugCompletedRounds);
+        PlayerPrefs.DeleteKey(EcoQuestSaveKeys.CityLitterbugSlotData);
+        if (saveToDisk)
+        {
+            PlayerPrefs.Save();
+        }
+    }
+
+    private LitterTypeEntry ResolveCatalogEntryById(int entryId, int slotIndex)
+    {
+        if (litterCatalog == null || litterCatalog.entries == null || litterCatalog.entries.Count == 0)
+            return null;
+
+        for (int i = 0; i < litterCatalog.entries.Count; i++)
+        {
+            var e = litterCatalog.entries[i];
+            if (e != null && e.id == entryId) return e;
+        }
+
+        return litterCatalog.entries[Mathf.Abs(slotIndex) % litterCatalog.entries.Count];
+    }
+
+    private bool RestoreMidQuestProgressIfSaved()
+    {
+        if (PlayerPrefs.GetInt(EcoQuestSaveKeys.CityLitterbugHasSavedProgress, 0) != 1)
+            return false;
+
+        var savedState = (LitterbugQuestState)PlayerPrefs.GetInt(
+            EcoQuestSaveKeys.CityLitterbugQuestState,
+            (int)LitterbugQuestState.Available);
+        if (savedState != LitterbugQuestState.Active && savedState != LitterbugQuestState.ReadyToTurnIn)
+        {
+            ClearSavedMidQuestProgress(saveToDisk: true);
+            return false;
+        }
+
+        string json = PlayerPrefs.GetString(EcoQuestSaveKeys.CityLitterbugSlotData, string.Empty);
+        if (string.IsNullOrEmpty(json))
+        {
+            ClearSavedMidQuestProgress(saveToDisk: true);
+            return false;
+        }
+
+        SavedLitterbugState parsed;
+        try
+        {
+            parsed = JsonUtility.FromJson<SavedLitterbugState>(json);
+        }
+        catch
+        {
+            ClearSavedMidQuestProgress(saveToDisk: true);
+            return false;
+        }
+
+        if (parsed.slots == null || parsed.slots.Count != TargetCount)
+        {
+            ClearSavedMidQuestProgress(saveToDisk: true);
+            return false;
+        }
+
+        CleanupPreviousRoundState();
+        if (npcSpawner == null) CacheSceneReferences();
+
+        completedRounds = Mathf.Max(0, PlayerPrefs.GetInt(EcoQuestSaveKeys.CityLitterbugCompletedRounds, parsed.completedRounds));
+        currentRound = Mathf.Max(1, PlayerPrefs.GetInt(EcoQuestSaveKeys.CityLitterbugCurrentRound, parsed.currentRound));
+
+        int restoredPersuaded = 0;
+        int unpersuadedNeeded = 0;
+        for (int i = 0; i < TargetCount; i++)
+        {
+            targetSlots[i].entry = ResolveCatalogEntryById(parsed.slots[i].entryId, i);
+            targetSlots[i].persuaded = parsed.slots[i].persuaded;
+            targetSlots[i].brain = null;
+            targetSlots[i].litterbug = null;
+            if (targetSlots[i].persuaded) restoredPersuaded++;
+            else unpersuadedNeeded++;
+        }
+
+        List<NpcBrain> chosen = null;
+        int chosenIdx = 0;
+        int boundUnpersuaded = 0;
+        if (unpersuadedNeeded > 0)
+        {
+            npcSpawner?.EnsureSpawned();
+            chosen = PickValidWalkingNpcsForRound(unpersuadedNeeded);
+            for (int i = 0; i < TargetCount; i++)
+            {
+                if (targetSlots[i].persuaded) continue;
+
+                if (chosen != null && chosenIdx < chosen.Count && chosen[chosenIdx] != null)
+                {
+                    BindNpcToSlot(i, chosen[chosenIdx++]);
+                }
+                else
+                {
+                    ReassignLostSlot(i);
+                }
+
+                if (targetSlots[i].brain != null && targetSlots[i].litterbug != null)
+                {
+                    boundUnpersuaded++;
+                }
+            }
+
+            if (boundUnpersuaded == 0)
+            {
+                Debug.LogError("[LitterbugQuestManager] Failed to spawn/bind unpersuaded Litterbug NPCs during restore; reverting to Available.");
+                CleanupPreviousRoundState();
+                currentRound = completedRounds;
+                persuadedCount = 0;
+                questState = LitterbugQuestState.Available;
+                ClearSavedMidQuestProgress(saveToDisk: true);
+                return false;
+            }
+        }
+
+        persuadedCount = restoredPersuaded;
+        questState = (persuadedCount >= TargetCount)
+            ? LitterbugQuestState.ReadyToTurnIn
+            : LitterbugQuestState.Active;
+        targetCleanliness = Mathf.Clamp01(persuadedCount * 0.20f);
+        displayedCleanliness = targetCleanliness;
+        lastDisplayedDistanceMeters = -999;
+
+        Debug.Log($"[LitterbugQuestManager] Restored mid-round progress: round={currentRound}, state={questState}, persuaded={persuadedCount}/{TargetCount}");
+        return true;
     }
 
     private System.Random EnsureSessionRng()
@@ -1794,12 +2076,15 @@ public class LitterbugQuestManager : MonoBehaviour
             if (minimapTracker != null)
                 minimapTracker.SetFountainMarker(questGiverTransform, visible: true, completedCheck: false);
 
+            SaveMidQuestProgress(saveToDisk: true);
             OnCityQuestStateChanged?.Invoke();
         }
         else
         {
             if (questCounterText != null)
                 questCounterText.text = $"Enlighten the litterbugs: {persuadedCount}/{TargetCount}";
+
+            SaveMidQuestProgress(saveToDisk: true);
         }
 
         if (counterPunchCoroutine != null) StopCoroutine(counterPunchCoroutine);
@@ -1842,6 +2127,7 @@ public class LitterbugQuestManager : MonoBehaviour
 
         // Immediately transition Completed -> Available so Guide checks cooldown when talked to
         questState = LitterbugQuestState.Available;
+        ClearSavedMidQuestProgress(saveToDisk: true);
         lastGuardianCooldownActive = true;
         if (minimapTracker != null)
         {
@@ -2390,16 +2676,27 @@ public class LitterbugQuestManager : MonoBehaviour
     // Skip the reset during app quit / exiting Play Mode / scene unload: it would re-create
     // singletons (UIOrchestrator, HudVisibilityService, UI_Blur_Volume) while the scene is being torn down.
     private bool isQuitting;
-    private void OnApplicationQuit() { isQuitting = true; }
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus) FlushMidQuestSaveNow();
+    }
+
+    private void OnApplicationQuit()
+    {
+        isQuitting = true;
+        FlushMidQuestSaveNow();
+    }
 
     private void OnDisable()
     {
+        FlushMidQuestSaveNow();
         if (isQuitting || !gameObject.scene.isLoaded) return;
         PerformSafetyReset();
     }
 
     private void OnDestroy()
     {
+        FlushMidQuestSaveNow();
         if (Instance == this) Instance = null;
         if (isQuitting || !gameObject.scene.isLoaded) return;
         PerformSafetyReset();

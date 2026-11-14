@@ -396,6 +396,7 @@ public class TravelGate : MonoBehaviour
         ModalManager.Instance?.CloseModal(null);
         ObjectiveMarkerService.Instance?.ClearTarget();
         FindFirstObjectByType<ExplorerCinematicController>()?.ResetLetterboxImmediate();
+        NPCInteraction.FlushCooldownSave();
         NPCInteraction.ResetStaticFlowState();
         TrashItem.ResetStaticState();
         TrashItem.AreTrashItemsAllowed = false;
@@ -416,6 +417,10 @@ public class TravelGate : MonoBehaviour
         UIOrchestrator.Instance?.SetFlowStep(UIOrchestrator.FlowStep.FreePlay, "City SceneReady");
         UIOrchestrator.Instance?.SetPhase(UIOrchestrator.Instance.EvaluateLivePhase("City SceneReady"), "City SceneReady");
         UIOrchestrator.Instance?.ApplyCurrentProfile(0f);
+
+        LitterbugQuestManager.Instance?.RefreshRestoredQuestHudAndMarkers();
+        EcoQuest.CityQuest.CityTrashDetectiveManager.Instance?.RefreshRestoredQuestHudAndMarkers();
+        ObjectiveMarkerService.Instance?.RefreshTargetFromState();
 
         // 7. Restore input, cursor, timeScale
         Time.timeScale = 1f;

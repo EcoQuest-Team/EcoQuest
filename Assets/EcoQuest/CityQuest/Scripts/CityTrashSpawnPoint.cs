@@ -13,7 +13,7 @@ namespace EcoQuest.CityQuest
 
         private void Awake()
         {
-            if (!CityDistrictVolume.IsInAllowedCityScene())
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene))
             {
                 enabled = false;
                 return;
@@ -22,7 +22,7 @@ namespace EcoQuest.CityQuest
 
         private void OnEnable()
         {
-            if (!CityDistrictVolume.IsInAllowedCityScene())
+            if (!CityDistrictVolume.IsInAllowedCityScene(gameObject.scene))
             {
                 enabled = false;
                 return;
